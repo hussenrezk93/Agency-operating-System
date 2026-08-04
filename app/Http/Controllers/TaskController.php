@@ -177,6 +177,25 @@ class TaskController extends Controller
         return response()->json(['data' => $task]);
     }
 
+    /**
+     * BRD §15 — a Team Leader only sees an earlier step's output if their department has
+     * Admin-granted access to that step's department (their own department always does).
+     * Manager keeps the unrestricted visibility they have everywhere else in the app;
+     * the assignee's Q26 right to their own task's immediately-prior work is unaffected.
+     */
+    private function visiblePreviousOutputs(User $actor, Task $task, int $sequenceNo)
+    {
+        $outputs = $task->approvedOutputsBefore($sequenceNo);
+
+        if (! $actor->hasRole(RoleCode::TeamLeader) || $actor->department === null) {
+            return $outputs;
+        }
+
+        return $outputs->filter(
+            fn ($output) => $output->step !== null && $actor->department->hasOutputAccessTo($output->step->department_id),
+        )->values();
+    }
+
     private function showView(User $actor, Task $task): View
     {
         $step = $task->currentStep;
@@ -185,7 +204,9 @@ class TaskController extends Controller
             'task' => $task,
             'step' => $step,
             'outputs' => $step?->outputsForCurrentSubmission() ?? collect(),
-            'previousOutputs' => $step !== null ? $task->approvedOutputsBefore($step->sequence_no) : collect(),
+            'previousOutputs' => $step !== null
+                ? $this->visiblePreviousOutputs($actor, $task, $step->sequence_no)
+                : collect(),
             'comments' => ($step !== null && $actor->can('viewComments', $step))
                 ? $step->comments()->with('author:id,full_name')->get()
                 : collect(),

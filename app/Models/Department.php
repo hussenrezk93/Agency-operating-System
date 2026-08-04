@@ -50,6 +50,19 @@ class Department extends Model
         return $this->hasMany(DepartmentOutputAccess::class, 'viewer_department_id');
     }
 
+    /** BRD §15 — has Admin granted this department's TL the right to view $source's outputs? */
+    public function hasOutputAccessTo(int $sourceDepartmentId): bool
+    {
+        if ($this->id === $sourceDepartmentId) {
+            return true;
+        }
+
+        return $this->outputAccessAsViewer()
+            ->where('source_department_id', $sourceDepartmentId)
+            ->where('is_allowed', true)
+            ->exists();
+    }
+
     public function outputAccessAsSource(): HasMany
     {
         return $this->hasMany(DepartmentOutputAccess::class, 'source_department_id');

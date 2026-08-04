@@ -102,6 +102,7 @@ class Task extends Model
                 ->pluck('id'))
             ->where('is_final', true)
             ->whereNull('superseded_by_output_id')
+            ->with('step:id,department_id')
             ->get();
     }
 }
