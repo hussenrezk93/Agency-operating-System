@@ -23,6 +23,7 @@ class UserService
     public function __construct(
         private readonly AuditService $audit,
         private readonly EmailVerificationService $emailVerification,
+        private readonly ProjectWhatsappService $whatsapp,
     ) {}
 
     /**
@@ -56,6 +57,11 @@ class UserService
         );
 
         $this->emailVerification->issueFor($user, $user->personal_email);
+
+        // BRD §7.3 — a brand-new department member is invited to its active projects.
+        if ($department !== null) {
+            $this->whatsapp->fanOutForUserJoiningDepartment($user, $department);
+        }
 
         return ['user' => $user, 'temporary_password' => $temporaryPassword];
     }
@@ -95,6 +101,12 @@ class UserService
             $attributes['pending_email_requested_at'] = now();
         }
 
+        $departmentChanged = array_key_exists('department_id', $attributes)
+            && $attributes['department_id'] !== $before['department_id'];
+        $previousDepartment = $departmentChanged && $before['department_id'] !== null
+            ? Department::find($before['department_id'])
+            : null;
+
         $subject->fill($attributes)->save();
 
         $this->audit->log(
@@ -110,11 +122,24 @@ class UserService
             $this->emailVerification->issueFor($subject, $newEmail);
         }
 
+        // BRD §7.3 — moving departments invites the new one's active projects and asks
+        // the old one's leader to manually drop the person from its WhatsApp groups.
+        if ($departmentChanged) {
+            if ($previousDepartment !== null) {
+                $this->whatsapp->alertLeaderToRemoveMember($subject, $previousDepartment);
+            }
+            if ($subject->department !== null) {
+                $this->whatsapp->fanOutForUserJoiningDepartment($subject, $subject->department);
+            }
+        }
+
         return $subject->refresh();
     }
 
     public function disable(User $subject, User $actor): User
     {
+        $department = $subject->department;
+
         $subject->forceFill(['status' => UserStatus::Inactive->value])->save();
 
         $this->audit->log(
@@ -125,6 +150,11 @@ class UserService
             after: ['status' => UserStatus::Inactive->value],
             actorId: $actor->id,
         );
+
+        // BRD §7.3 — someone still has to remove them from the WhatsApp groups by hand.
+        if ($department !== null) {
+            $this->whatsapp->alertLeaderToRemoveMember($subject, $department);
+        }
 
         return $subject->refresh();
     }

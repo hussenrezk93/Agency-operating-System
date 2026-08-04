@@ -140,6 +140,82 @@ class ProjectWhatsappService
     }
 
     /**
+     * BRD §7.3 — a user newly belonging to $department (a fresh account, or moving in
+     * from elsewhere) is invited to every active project that department participates
+     * in, exactly like a new department being added — just scoped to this one person.
+     */
+    public function fanOutForUserJoiningDepartment(User $user, Department $department): void
+    {
+        if ($user->status !== UserStatus::Active) {
+            return;
+        }
+
+        foreach ($department->projects()->wherePivot('is_active', true)->get() as $project) {
+            $version = $project->currentWhatsappLinkVersion;
+
+            if ($version === null || ! $project->canDistributeWhatsappInvites()) {
+                continue;
+            }
+
+            $this->fanOutForVersion($project, $version, collect([[
+                'user' => $user, 'source' => InviteRecipientSource::Department, 'department_id' => $department->id,
+            ]]));
+        }
+    }
+
+    /**
+     * BRD §7.3 — Agency OS never touches the WhatsApp Business API, so it cannot remove
+     * anyone from a group itself. When a user stops belonging to $department (moved,
+     * disabled) or $department stops participating in a project, this alerts the
+     * department's current effective Team Leader to do it by hand. In-app only, like
+     * every other "please go do this manually" alert in the app.
+     */
+    public function alertLeaderToRemoveMember(User $formerMember, Department $department): void
+    {
+        $leader = $department->effectiveLeader();
+
+        if ($leader === null || $leader->is($formerMember)) {
+            return;
+        }
+
+        $this->notifications->notify(
+            $leader,
+            'whatsapp.member_left',
+            __('agencyos.notifications.messages.whatsapp_member_left_title'),
+            __('agencyos.notifications.messages.whatsapp_member_left_body', [
+                'user' => $formerMember->full_name,
+                'department' => $department->name,
+            ]),
+            'department',
+            $department->id,
+            allowEmail: false,
+        );
+    }
+
+    /** BRD §7.3 — a department was removed from one specific project's participation. */
+    public function alertLeaderDepartmentRemoved(Project $project, Department $department): void
+    {
+        $leader = $department->effectiveLeader();
+
+        if ($leader === null) {
+            return;
+        }
+
+        $this->notifications->notify(
+            $leader,
+            'whatsapp.department_removed',
+            __('agencyos.notifications.messages.whatsapp_department_removed_title'),
+            __('agencyos.notifications.messages.whatsapp_department_removed_body', [
+                'department' => $department->name,
+                'project' => $project->name,
+            ]),
+            'project',
+            $project->id,
+            allowEmail: false,
+        );
+    }
+
+    /**
      * BRD §7.3 — project membership: every active user of an active participating
      * department, the primary/temporary TL of those departments, the project
      * creator, and every active Manager.

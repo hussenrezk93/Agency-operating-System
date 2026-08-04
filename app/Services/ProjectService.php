@@ -30,6 +30,7 @@ class ProjectService
     public function __construct(
         private readonly AuditService $audit,
         private readonly TaskWorkflowService $taskWorkflow,
+        private readonly ProjectWhatsappService $whatsapp,
     ) {}
 
     /**
@@ -126,6 +127,10 @@ class ProjectService
             after: ['department_id' => $department->id],
             actorId: $actor->id,
         );
+
+        // BRD §7.3 — someone still has to remove that department's members from the
+        // project's WhatsApp group by hand.
+        $this->whatsapp->alertLeaderDepartmentRemoved($project, $department);
 
         return $project->refresh();
     }
