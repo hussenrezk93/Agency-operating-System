@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Routing Permissions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="routing">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.routing">Routing Permissions</h1>
+    <p class="muted small">Click any cell to toggle. Every change is audited. <span class="badge b-neutral" data-i18n="common.demo">Demo Data</span></p></div></div>
+  <div class="card"><div class="table-wrap"><table class="table matrix" id="mx"></table></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t, ds=STORE.DB.departments.filter(function(d){return d.active});
+  function render(){
+    var h="<thead><tr><th>From / To</th>"+ds.map(function(d){return "<th>"+d.name+"</th>"}).join("")+"</tr></thead><tbody>";
+    ds.forEach(function(f){
+      h+="<tr><th>"+f.name+"</th>";
+      ds.forEach(function(to){
+        if(f.id===to.id){ h+='<td class="dash">—</td>'; return; }
+        var on=(STORE.DB.routing[f.id]||[]).indexOf(to.id)>-1;
+        h+='<td class="'+(on?"cellY":"cellN")+'" data-f="'+f.id+'" data-t="'+to.id+'">'+(on?'<span class="yes">✓</span>':'<span class="no">✗</span>')+"</td>";
+      });
+      h+="</tr>";
+    });
+    document.getElementById("mx").innerHTML=h+"</tbody>";
+  }
+  render();
+  document.getElementById("mx").addEventListener("click",function(e){
+    var td=e.target.closest("td[data-f]"); if(!td) return;
+    var f=+td.dataset.f, to=+td.dataset.t, arr=STORE.DB.routing[f]||(STORE.DB.routing[f]=[]);
+    var i=arr.indexOf(to), on=i>-1;
+    if(on) arr.splice(i,1); else arr.push(to);
+    STORE.audit("routing_rule.updated",STORE.dept(f).name+" → "+STORE.dept(to).name,"allowed: "+on,"allowed: "+!on);
+    STORE.save(); render(); APP.toast(T("toast.saved"),"success");
+  });
+};
+</script>
+</body>
+</html>

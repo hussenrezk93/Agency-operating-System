@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Department Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="reports">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="rep.dept">Department report</h1>
+    <p class="muted small">On-time compliance · July 2026 — Manager sees all departments; a TL sees only their own. <span class="badge b-neutral" data-i18n="common.demo">Demo Data</span></p></div>
+    <button class="btn btn-outline" id="exp" data-i18n="common.export">Export CSV</button></div>
+  <div class="card"><div class="table-wrap"><table class="table" id="tb"></table></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,role=APPG.session().role,me=STORE.me();
+  var rows=STORE.DB.perf.depts.slice().sort(function(a,b){return (b.on/b.due)-(a.on/a.due)});
+  /* TL sees only their own department */
+  if(role==="tl") rows=rows.filter(function(r){return r.d===me.dept});
+  var h="<thead><tr><th>"+T("common.department")+"</th><th>Due steps</th><th>On time</th><th>Late</th><th>Compliance</th></tr></thead><tbody>";
+  rows.forEach(function(r){
+    var pct=Math.round(r.on/r.due*100);
+    h+="<tr><td><b>"+STORE.dept(r.d).name+"</b></td><td>"+r.due+"</td><td>"+r.on+"</td><td>"+(r.due-r.on)+"</td>"+
+     '<td><div class="inline" style="gap:10px;min-width:170px"><div style="flex:1;height:8px;background:var(--color-surface);border-radius:99px;overflow:hidden">'+
+     '<div style="height:100%;width:'+pct+'%;background:'+(pct>=90?"var(--color-success)":pct>=75?"var(--color-warning)":"var(--color-danger)")+'"></div></div><b>'+pct+"%</b></div></td></tr>";
+  });
+  document.getElementById("tb").innerHTML=h+"</tbody>";
+  document.getElementById("exp").addEventListener("click",function(){ APP.exportTable(document.getElementById("tb"),"agencyos-department-performance"); });
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

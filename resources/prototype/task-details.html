@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Task Details</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="tasks">
+<main class="page" data-live>
+  <div id="ro"></div>
+  <div class="page-head"><div>
+    <div class="small muted mono" id="tId"></div>
+    <h1 id="tTitle" style="margin:2px 0 6px"></h1>
+    <div id="tBadges" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+    <div id="tActs" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"></div></div>
+  <div class="card" style="margin-bottom:18px"><div class="card-head"><h2 data-i18n="task.route">Department route</h2></div>
+    <div class="card-body"><div class="rail" id="rail"></div></div></div>
+  <div class="grid-2" style="align-items:start">
+    <div>
+      <div class="card" style="margin-bottom:18px"><div class="card-head"><h2 data-i18n="task.details">Details</h2></div>
+        <div class="card-body"><p id="tBrief" style="margin:0 0 12px"></p><div id="tRefs"></div><div id="tMeta" style="margin-top:8px"></div></div></div>
+      <div class="card"><div class="card-head"><h2 data-i18n="task.outputs">Output links</h2></div>
+        <div class="card-body" id="tOut"></div></div>
+    </div>
+    <div class="card"><div class="card-head"><h2 data-i18n="task.timeline">Workflow timeline</h2>
+      <a class="small" id="histLink" href="#">Full history →</a></div>
+      <div class="card-body"><div class="timeline" id="tl"></div></div></div>
+  </div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,id=APP.params.get("id"),t=STORE.task(id);
+  if(!t){ location.replace(APP.withP("404.html")); return; }
+  var role=APPG.session().role,me=STORE.me(),s=STORE.cur(t);
+  var isTL=role==="tl"&&s.dept===me.dept, isMgr=role==="manager";
+  var closed=t.life==="done"||t.life==="cancel";
+  document.getElementById("histLink").setAttribute("href",APP.withP("task-history.html?id="+t.id));
+  document.getElementById("tId").textContent=t.id+(t.project?" · "+t.project:"");
+  document.getElementById("tTitle").textContent=t.title;
+  var w=t.life==="active"?s.w:t.life;
+  document.getElementById("tBadges").innerHTML=APP.badge(w)+APP.dlBadge(STORE.dl(s,t),STORE.fmtDue(s))+APP.prio(t.prio);
+  if(closed) document.getElementById("ro").innerHTML='<div class="alert alert-danger" style="margin-bottom:16px">🔒 '+T("task.readonly")+(t.reason?" · "+APP.esc(t.reason):"")+"</div>";
+
+  /* rail */
+  document.getElementById("rail").innerHTML=t.steps.map(function(st,i){
+    var cls=st.w==="approved"?"done":(i===t.cur&&!closed?"current":"");
+    var who=st.assignee?STORE.user(st.assignee).name.split(" ")[0]:"—";
+    return '<div class="rail-step '+cls+'"><div class="rail-dot">'+(st.w==="approved"?"✓":st.seq)+'</div>'+
+     '<div class="rail-name">'+STORE.dept(st.dept).name+'</div><div class="small muted">'+who+"</div></div>";
+  }).join("");
+
+  /* details */
+  document.getElementById("tBrief").textContent=t.brief;
+  document.getElementById("tRefs").innerHTML=t.refs.map(function(r){
+    return '<a class="btn btn-sm btn-outline" style="margin:0 6px 6px 0" href="'+r.url+'" target="_blank" rel="noopener">🔗 '+APP.esc(r.label)+"</a>";
+  }).join("");
+  var fsVisible=isMgr||isTL||role==="admin";
+  document.getElementById("tMeta").innerHTML='<div>'+
+   '<div class="kv-row"><span>'+T("common.department")+"</span><b>"+STORE.dept(s.dept).name+"</b></div>"+
+   '<div class="kv-row"><span>'+T("common.assignee")+"</span><b>"+(s.assignee?STORE.user(s.assignee).name:"—")+"</b></div>"+
+   '<div class="kv-row"><span>'+T("common.start")+"</span><b class='mono'>"+(s.start||"—")+"</b></div>"+
+   '<div class="kv-row"><span>'+T("common.due")+"</span><b class='mono'>"+(s.due?s.due+" 23:59":"—")+"</b></div>"+
+   (fsVisible?'<div class="kv-row"><span>👁 '+T("task.firstseen")+"</span><b>"+
+     (s.firstSeen?'<span class="seen-badge seen-yes">👁 Seen · <span class="mono">'+s.firstSeen+"</span></span>"
+                 :'<span class="seen-badge seen-no">◌ Not seen yet</span>')+"</b></div>":"")+
+   '<div class="kv-row"><span>Created</span><b>'+STORE.user(t.createdBy).name+" · <span class='mono small'>"+t.createdAt+"</span></b></div></div>";
+
+  /* outputs: previous approved steps (read-only) + current */
+  var oh="";
+  t.steps.forEach(function(st,i){
+    if(!st.outputs.length) return;
+    oh+='<div class="small muted" style="font-weight:700;margin:'+(oh?"12px":"0")+' 0 6px">'+STORE.dept(st.dept).name+(i<t.cur?" · previous step":"")+"</div>";
+    st.outputs.forEach(function(o){ oh+='<a class="btn btn-sm btn-outline" style="margin:0 6px 6px 0" href="'+o.url+'" target="_blank" rel="noopener">📎 '+APP.esc(o.label)+"</a>"; });
+  });
+  document.getElementById("tOut").innerHTML=oh||'<span class="muted small">'+T("common.empty")+"</span>";
+
+  /* timeline */
+  var CLR={approved:"t-green",finished:"t-green",submitted:"t-orange",sent:"t-orange",firstseen:"t-orange",
+   changes:"t-amber",hold:"t-amber",deadline:"t-amber",cancelled:"t-red",redirected:"t-amber"};
+  var LBL={created:"Created",assigned:"Assigned",reassigned:"Reassigned",firstseen:"First opened",submitted:"Submitted",
+   changes:"Changes requested",approved:"Approved",sent:"Transferred",hold:"On hold",resume:"Resumed",
+   redirected:"Redirected",cancelled:"Cancelled",finished:"Completed",deadline:"Deadline changed",skipped:"Step skipped"};
+  document.getElementById("tl").innerHTML=t.timeline.slice().reverse().map(function(ev){
+    var u=STORE.user(ev.by);
+    return '<div class="t-item '+(CLR[ev.t]||"")+'"><div class="t-title">'+(LBL[ev.t]||ev.t)+"</div>"+
+     '<div class="t-meta">'+u.name+" · "+T("role."+u.role)+' · <span class="mono">'+ev.at+"</span></div>"+
+     '<div class="t-body">'+APP.esc(ev.m)+"</div></div>";
+  }).join("");
+
+  /* actions */
+  function reasonModal(title,cb,extraBody){
+    APP.modal({title:title,body:(extraBody||"")+
+     '<div class="field"><label>'+T("common.reason")+' <span class="muted small">('+T("common.required")+')</span></label><textarea id="rz" rows="3"></textarea></div>',
+     actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:T("common.confirm"),cls:"btn-primary",onclick:function(m){
+       var v=m.querySelector("#rz").value.trim();
+       if(!v){ APP.toast(T("task.reason.req"),"danger"); return false; }
+       cb(v,m);
+     }}]});
+  }
+  function deptSelect(idAttr,fromDept){
+    var allowed=STORE.DB.routing[fromDept]||[];
+    var opts=STORE.DB.departments.filter(function(d){return d.active&&(isMgr||allowed.indexOf(d.id)>-1)&&d.id!==fromDept});
+    return '<div class="field"><label>'+T("common.department")+'</label><select id="'+idAttr+'">'+
+      opts.map(function(d){return '<option value="'+d.id+'">'+d.name+"</option>"}).join("")+"</select></div>";
+  }
+  var A=[];
+  if(!closed){
+    if(s.w==="waiting"&&isTL) A.push(['<a class="btn btn-primary" href="'+APP.withP("task-assign.html?id="+t.id)+'">'+T("task.assign")+"</a>"]);
+    if((s.w==="progress"||s.w==="changes")&&s.assignee===me.id) A.push(['<a class="btn btn-primary" href="'+APP.withP("task-execute.html?id="+t.id)+'">'+T("common.open")+"</a>"]);
+    if(s.w==="review"&&((isTL&&STORE.user(s.assignee).role!=="tl")||(isMgr&&STORE.user(s.assignee).role==="tl")))
+      A.push(['<a class="btn btn-primary" href="'+APP.withP("tl-review.html?id="+t.id)+'">'+T("nav.review")+"</a>"]);
+    if((s.w==="progress"||s.w==="changes")&&(isTL||isMgr)&&s.assignee)
+      A.push(["<button class='btn btn-outline' id='aReassign'>"+T("task.reassign")+"</button>",function(){
+        var opts=STORE.deptEmployees(s.dept).filter(function(u){return u.status==="active"}).map(function(u){return '<option value="'+u.id+'"'+(u.id===s.assignee?" selected":"")+'>'+u.name+"</option>"}).join("");
+        APP.modal({title:T("task.reassign"),body:'<div class="field"><label>'+T("common.assignee")+'</label><select id="na">'+opts+"</select></div>",
+         actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:T("common.confirm"),cls:"btn-primary",onclick:function(m){
+          STORE.reassignStep(t,+m.querySelector("#na").value); APP.toast(T("toast.assigned"),"success"); setTimeout(function(){location.reload()},400);
+         }}]});
+      }]);
+    if((isTL||isMgr)&&s.due&&t.life==="active")
+      A.push(["<button class='btn btn-outline' id='aDl'>"+T("task.deadline")+"</button>",function(){
+        APP.modal({title:T("task.deadline"),body:'<div class="field"><label>'+T("common.end")+' <span class="small muted">(23:59 Africa/Cairo)</span></label><input type="date" id="nd" value="'+s.due+'"></div>',
+         actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:T("common.save"),cls:"btn-primary",onclick:function(m){
+          var v=m.querySelector("#nd").value; if(!v){APP.toast(T("toast.invalid"),"danger");return false;}
+          STORE.changeDeadline(t,v); APP.toast(T("toast.updated"),"success"); setTimeout(function(){location.reload()},400);
+         }}]});
+      }]);
+    if(isMgr&&t.life==="active")
+      A.push(["<button class='btn btn-outline' id='aHold'>⏸ "+T("task.hold")+"</button>",function(){
+        reasonModal(T("task.hold"),function(r){ STORE.hold(t,r); APP.toast(T("toast.updated"),"success"); setTimeout(function(){location.reload()},400); });
+      }]);
+    if(isMgr&&t.life==="hold")
+      A.push(["<button class='btn btn-primary' id='aResume'>▶ "+T("task.resume")+"</button>",function(){
+        APP.confirm(T("task.resume")+"? The paused duration extends the deadline.",function(){
+          STORE.resume(t); APP.toast(T("toast.updated"),"success"); setTimeout(function(){location.reload()},400);
+        });
+      }]);
+    if(isMgr&&t.life==="active")
+      A.push(["<button class='btn btn-outline' id='aRedir'>⇄ "+T("task.redirect")+"</button>",function(){
+        reasonModal(T("task.redirect"),function(r,m){
+          STORE.redirect(t,+m.querySelector("#rd").value,r); APP.toast(T("toast.updated"),"success"); setTimeout(function(){location.reload()},400);
+        },deptSelect("rd",s.dept));
+      }]);
+    if(isMgr&&t.life==="active"&&s.w!=="review")
+      A.push(["<button class='btn btn-outline' id='aSkip'>⤼ "+T("task.skip")+"</button>",function(){
+        reasonModal(T("task.skip"),function(r,m){
+          STORE.skip(t,+m.querySelector("#sd").value,r); APP.toast(T("toast.updated"),"success"); setTimeout(function(){location.reload()},400);
+        },deptSelect("sd",s.dept));
+      }]);
+    if((isMgr||t.createdBy===me.id)&&t.life!=="done")
+      A.push(["<button class='btn btn-danger-outline' id='aCancel'>✕ "+T("task.cancel")+"</button>",function(){
+        reasonModal(T("task.cancel"),function(r){ STORE.cancelTask(t,r); APP.toast(T("toast.cancelled"),"success"); setTimeout(function(){location.reload()},400); });
+      }]);
+  }
+  var box=document.getElementById("tActs");
+  box.innerHTML=A.map(function(a){return a[0]}).join("");
+  A.forEach(function(a){
+    if(!a[1]) return;
+    var m=a[0].match(/id='([^']+)'/); if(m) document.getElementById(m[1]).addEventListener("click",a[1]);
+  });
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

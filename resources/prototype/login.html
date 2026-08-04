@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-shell="none">
+<div class="auth" data-live>
+  <div class="auth-card" style="max-width:420px;width:100%">
+    <div class="auth-brand" style="justify-content:center;margin-bottom:14px">
+      <div class="brand-mark">S</div>
+      <div><div class="brand-name" style="font-size:22px">Agency<b>OS</b></div></div>
+    </div>
+    <h1 style="text-align:center;font-size:19px;margin:0 0 4px" data-i18n="login.title">Sign in to Agency OS</h1>
+    <p class="muted small" style="text-align:center;margin:0 0 18px" data-i18n="login.sub">Internal system.</p>
+    <div id="err" class="alert alert-danger" style="display:none;margin-bottom:14px"></div>
+    <form id="loginForm" novalidate>
+      <div class="field"><label for="un" data-i18n="login.username">Username</label>
+        <input id="un" autocomplete="username" autofocus>
+      </div>
+      <div class="field"><label for="pw" data-i18n="login.password">Password</label>
+        <div style="position:relative">
+          <input id="pw" type="password" autocomplete="current-password" style="padding-inline-end:64px">
+          <button type="button" id="togglePw" class="lang-btn" style="position:absolute;inset-inline-end:6px;top:6px;padding:4px 10px" data-i18n="login.show">Show</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="submitBtn" style="width:100%;justify-content:center;margin-top:6px">
+        <span data-i18n="login.btn">Sign in</span>
+      </button>
+    </form>
+    <div class="hr" style="margin:16px 0"></div>
+    <p class="small muted" style="margin:0 0 8px" data-i18n="login.note">No self-registration.</p>
+    <p class="small" style="margin:0;background:var(--primary-100);border:1px dashed var(--primary);border-radius:10px;padding:9px 11px" data-i18n="login.demo">Demo accounts</p>
+    <div style="display:flex;justify-content:center;margin-top:14px">
+      <button type="button" id="langBtnA" class="language-switch" data-live data-active="en" role="switch" aria-label="Switch language"><span class="lang-choice lang-en">EN</span><span class="lang-choice lang-ar">العربية</span></button>
+    </div>
+  </div>
+</div>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t, q=new URLSearchParams(location.search);
+  var f=document.getElementById("loginForm"), err=document.getElementById("err"),
+      un=document.getElementById("un"), pw=document.getElementById("pw"),
+      btn=document.getElementById("submitBtn"), tg=document.getElementById("togglePw");
+  tg.addEventListener("click",function(){
+    var show=pw.type==="password"; pw.type=show?"text":"password"; tg.textContent=T(show?"login.hide":"login.show");
+  });
+  var langSwitch=document.getElementById("langBtnA");
+  langSwitch.setAttribute("data-active",APP.lang);
+  langSwitch.setAttribute("aria-checked",APP.lang==="ar"?"true":"false");
+  langSwitch.addEventListener("click",function(){ APPG.setLang(APP.lang==="ar"?"en":"ar"); });
+  f.addEventListener("submit",function(e){
+    e.preventDefault(); err.style.display="none";
+    if(!un.value.trim()||!pw.value){ err.textContent=T("login.err.required"); err.style.display="block"; return; }
+    btn.disabled=true; btn.firstElementChild.textContent=T("login.signingin");
+    setTimeout(function(){
+      var r=APPG.login(un.value.trim(),pw.value);
+      if(r.err){ err.textContent=T(r.err==="disabled"?"login.err.disabled":"login.err.invalid");
+        err.style.display="block"; btn.disabled=false; btn.firstElementChild.textContent=T("login.btn"); return; }
+      var next=q.get("next");
+      location.href=(next?next:APPG.HOME[r.role])+(next&&next.indexOf("?")>-1?"&":"?")+"role="+r.role+"&lang="+APP.lang;
+    },600);
+  });
+};
+</script>
+</body>
+</html>

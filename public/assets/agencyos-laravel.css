@@ -1,0 +1,38 @@
+/* Laravel integration layer for the approved Agency OS frontend prototype. */
+.logo-image{display:block;width:100%;height:100%;object-fit:contain;background:#fff}
+.brand-mark.logo-box{background:#fff;border:1px solid var(--color-border);padding:3px;overflow:hidden}
+.auth-card.card{max-width:420px;width:100%;padding:28px;background:#fff;border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+.auth-logo{width:72px;height:72px;border-radius:16px;border:1px solid var(--color-border);background:#fff;padding:5px;overflow:hidden;margin-inline:auto}
+.auth-logo img{width:100%;height:100%;object-fit:contain}
+.auth-title{text-align:center;font-size:21px;margin:0 0 5px}
+.auth-sub{text-align:center;margin:0 0 20px}
+.auth-errors{margin-bottom:14px}
+.password-wrap{position:relative}
+.password-wrap .input{padding-inline-end:72px}
+.password-toggle{position:absolute;inset-inline-end:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--color-primary-text);font-size:12px;font-weight:700;cursor:pointer;padding:7px 9px;border-radius:8px}
+.password-toggle:hover{background:var(--color-primary-soft)}
+.auth-meta{display:flex;justify-content:center;margin-top:16px}
+.language-form{margin:0}.language-switch{border:1px solid var(--color-primary)}
+.language-switch button{border:0;background:transparent;font:inherit;font-weight:800;cursor:pointer;color:inherit;width:100%;height:100%;padding:0}
+.language-switch .lang-choice{display:block}
+.sidebar-logo{width:38px;height:38px;border-radius:10px;background:#fff;border:1px solid var(--color-border);padding:3px;overflow:hidden;flex:0 0 auto}
+.sidebar-logo img{width:100%;height:100%;object-fit:contain}
+.nav a.disabled{opacity:.48;cursor:not-allowed}.nav a.disabled:hover{background:transparent}
+.preview-note{margin-bottom:18px}
+.kpi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.kpi{background:#fff;border:1px solid var(--color-border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-sm)}
+.kpi .k-label{font-size:12.5px;color:var(--color-text-muted);font-weight:600}.kpi .k-value{font-size:28px;font-weight:800;margin:6px 0}.kpi .k-hint{font-size:12px;color:var(--color-text-muted)}
+.table-scroll{overflow-x:auto}
+.table-scroll table{width:100%;border-collapse:collapse;min-width:720px}.table-scroll th,.table-scroll td{padding:12px 16px;text-align:start;border-bottom:1px solid var(--color-border)}.table-scroll th{background:var(--color-surface);font-size:12px;color:var(--color-text-muted)}
+.logout-form{margin:0}
+@media(max-width:900px){.kpi-grid{grid-template-columns:1fr}.topbar .userbox>div:last-child{display:none}}
+.dir-row{border-bottom:1px solid var(--color-border)}.dir-row:last-child{border-bottom:0}
+.dir-row summary{padding:10px 16px;cursor:pointer;font-weight:600;font-size:13.5px;list-style:none}
+.dir-row summary::-webkit-details-marker{display:none}
+.dir-row summary::before{content:'›';display:inline-block;margin-inline-end:8px;transition:transform .12s}
+.dir-row[open] summary::before{transform:rotate(90deg)}
+.dir-row-body{padding:0 16px 10px}
+.conv,.conv:hover{text-decoration:none}
+.chat-head .back-link{display:none;margin-inline-end:4px}
+.msg .del{color:var(--color-danger);font-size:11px;font-weight:700;cursor:pointer}
+@media(max-width:900px){.chatpage-thread .chat-list{display:none}.chat-head .back-link.only-mobile{display:inline-flex}}

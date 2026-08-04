@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — My Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="performance">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.performance">My Performance</h1>
+    <p class="muted small">Score = on-time due steps ÷ total due steps × 100 · a step counts on-time when the <b>final approval</b> lands before its deadline. <span class="badge b-neutral" data-i18n="common.demo">Demo Data</span></p></div></div>
+  <div class="stat-grid" id="kpis"></div>
+  <div class="card"><div class="card-head"><h2>July 2026 — due steps</h2></div>
+    <div class="card-body" id="detail"></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,me=STORE.me();
+  var row=STORE.DB.perf.emps.find(function(x){return x.u===me.id})||{due:0,on:0};
+  var score=row.due?Math.round(row.on/row.due*100):null;
+  var late=row.due-row.on;
+  document.getElementById("kpis").innerHTML=
+   '<div class="stat-card stat-hero"><span class="ring" style="--p:'+(score||0)+'"><span>'+(score===null?"N/A":score+"%")+"</span></span>"+
+    '<div><span class="sl">Monthly score · July 2026</span><span class="sv">'+(score===null?"N/A":score+"%")+"</span>"+
+    '<span class="small">'+(score===null?"no due steps this month":row.on+" / "+row.due+" steps approved on time")+"</span></div></div>"+
+   '<div class="stat-card"><span class="sl">Due steps</span><span class="sv">'+row.due+'</span><span class="small muted">deadline lands in July</span></div>'+
+   '<div class="stat-card"><span class="sl">Late steps</span><span class="sv" style="color:'+(late?"var(--color-danger)":"var(--color-success)")+'">'+late+'</span><span class="small muted">'+(late?"delivered after the 23:59 deadline":"nothing late — keep it up 🎉")+"</span></div>";
+  var mine=STORE.DB.tasks.filter(function(t){return t.steps.some(function(s){return s.assignee===me.id})});
+  document.getElementById("detail").innerHTML=
+   '<div class="pbar" style="height:10px;margin-bottom:14px"><i style="width:'+(score||0)+'%"></i></div>'+
+   mine.slice(0,8).map(function(t){
+     var s=STORE.cur(t),w=t.life==="active"?s.w:t.life;
+     return '<div class="kv-row"><span><a href="'+APP.withP("task-details.html?id="+t.id)+'" style="color:inherit"><b>'+APP.esc(t.title)+'</b></a><div class="small muted mono">'+t.id+"</div></span>"+
+      "<span>"+APP.badge(w)+"</span></div>";
+   }).join("");
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

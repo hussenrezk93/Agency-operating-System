@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — New Task</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="tasks">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="task.new">New task</h1>
+    <p class="muted small">Auto number: <b class="mono" id="autoId"></b> · the first department's TL will assign it.</p></div></div>
+  <div class="card" style="max-width:760px"><div class="card-body">
+    <form id="f" novalidate>
+      <div class="field" id="fTitle"><label data-i18n="common.title">Title</label><input id="ti" maxlength="120"><div class="err">Required</div></div>
+      <div class="field" id="fBrief"><label>Brief</label><textarea id="br" rows="4"></textarea><div class="err">Required</div></div>
+      <div class="form-row">
+        <div class="field"><label data-i18n="common.priority">Priority</label>
+          <select id="pr"><option value="medium">Medium</option><option value="urgent">Urgent</option><option value="high">High</option><option value="low">Low</option></select></div>
+        <div class="field"><label data-i18n="common.project">Project (optional)</label><select id="pj"></select></div>
+      </div>
+      <div class="field" id="fDept"><label>First department</label><select id="fd"></select><div class="err">Required</div></div>
+      <div class="field"><label>Reference links</label>
+        <div id="refs"></div>
+        <div class="form-row"><input id="rl" placeholder="Label"><input id="ru" placeholder="https://…"></div>
+        <button type="button" class="btn btn-sm btn-outline" id="addRef" style="margin-top:8px">＋ <span data-i18n="task.output.add">Add link</span></button></div>
+      <div class="field"><label data-i18n="common.notes">Notes</label><input id="nt"></div>
+      <div class="form-actions" style="display:flex;gap:10px">
+        <button type="button" class="btn btn-outline" id="draftBtn">💾 Draft</button>
+        <button class="btn btn-primary" data-i18n="common.create">Create</button>
+      </div>
+    </form>
+  </div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,role=APPG.session().role,me=STORE.me();
+  var newId=STORE.nextTaskId(); document.getElementById("autoId").textContent=newId;
+  document.getElementById("pj").innerHTML='<option value="">'+T("common.none")+"</option>"+
+    STORE.DB.projects.filter(function(p){return p.status==="active"}).map(function(p){return '<option value="'+p.id+'">'+p.name+" · "+p.id+"</option>"}).join("");
+  document.getElementById("fd").innerHTML=STORE.DB.departments.filter(function(d){return d.active})
+    .map(function(d){return '<option value="'+d.id+'"'+(role==="tl"&&d.id===me.dept?" selected":"")+'>'+d.name+"</option>"}).join("");
+  var refs=[];
+  function drawRefs(){ document.getElementById("refs").innerHTML=refs.map(function(r,i){
+    return '<div class="inline" style="justify-content:space-between;width:100%;padding:5px 0"><span>🔗 '+APP.esc(r.label)+'</span><button type="button" class="btn btn-sm btn-danger-outline" data-i="'+i+'">✕</button></div>';}).join(""); }
+  document.getElementById("addRef").addEventListener("click",function(){
+    var l=document.getElementById("rl").value.trim(),u=document.getElementById("ru").value.trim();
+    if(!l||!/^https?:\/\/.+/.test(u)){ APP.toast(T("toast.invalid"),"danger"); return; }
+    refs.push({label:l,url:u}); document.getElementById("rl").value=""; document.getElementById("ru").value=""; drawRefs();
+  });
+  document.getElementById("refs").addEventListener("click",function(e){
+    var b=e.target.closest("[data-i]"); if(b){ refs.splice(+b.dataset.i,1); drawRefs(); }
+  });
+  function build(life){
+    var ti=document.getElementById("ti").value.trim(),br=document.getElementById("br").value.trim(),fd=+document.getElementById("fd").value;
+    var ok=true;
+    document.getElementById("fTitle").classList.toggle("bad",!ti); if(!ti) ok=false;
+    document.getElementById("fBrief").classList.toggle("bad",!br); if(!br) ok=false;
+    if(!ok){ APP.toast(T("toast.invalid"),"danger"); return null; }
+    return {id:newId,title:ti,prio:document.getElementById("pr").value,project:document.getElementById("pj").value||null,
+      life:life,createdBy:me.id,createdAt:STORE.now(),brief:br,refs:refs,notes:document.getElementById("nt").value.trim(),cur:0,
+      steps:[{dept:fd,seq:1,w:"waiting",assignee:null,assignedBy:null,start:null,due:null,firstSeen:null,outputs:[],comments:[],reviews:[]}],
+      holds:[],timeline:[{t:"created",by:me.id,at:STORE.now(),m:"First department: "+STORE.dept(fd).name}]};
+  }
+  document.getElementById("draftBtn").addEventListener("click",function(){
+    var t=build("draft"); if(!t) return;
+    STORE.DB.tasks.unshift(t); STORE.save(); APP.toast(T("toast.saved")+" · "+T("st.draft"),"success");
+    setTimeout(function(){ location.href=APP.withP("tasks.html"); },500);
+  });
+  document.getElementById("f").addEventListener("submit",function(e){
+    e.preventDefault();
+    var t=build("active"); if(!t) return;
+    APP.confirm(T("common.create")+" "+t.id+" → "+STORE.dept(t.steps[0].dept).name+"?",function(){
+      STORE.DB.tasks.unshift(t);
+      STORE.audit("task.created",t.id+" · "+t.title,"—","first dept: "+STORE.dept(t.steps[0].dept).name);
+      STORE.notify("tl","tasks","Task received — "+t.title,t.id+" · waiting your assignment","task-assign.html?id="+t.id);
+      STORE.save(); APP.toast(T("toast.created"),"success");
+      setTimeout(function(){ location.href=APP.withP("task-details.html?id="+t.id); },500);
+    });
+  });
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

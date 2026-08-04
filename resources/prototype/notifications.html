@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Notifications</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="notifications">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.notifications">Notifications</h1>
+    <p class="muted small" id="pSub"></p></div>
+    <button class="btn btn-outline" id="markAll" data-i18n="common.markread">Mark all read</button></div>
+  <div class="filters card" style="padding:12px 14px"><div class="seg" id="segT" style="flex-wrap:wrap"></div></div>
+  <div class="card"><div class="card-body" id="list" style="padding:0"></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,role=APPG.session().role,FT="";
+  function items(){ return STORE.DB.notifications[role]||[]; }
+  var EB={sent:'<span class="badge b-approved">✉ sent</span>',queued:'<span class="badge b-changes">✉ queued</span>',
+   failed:'<span class="badge b-cancel">✉ failed</span>',bounced:'<span class="badge b-cancel">✉ bounced</span>'};
+  function seg(){
+    var tabs=[["",T("common.all")],["unread",T("notif.unread")],["tasks",T("notif.tasks")],["projects",T("notif.projects")],
+     ["deadlines",T("notif.deadlines")],["chat",T("notif.chatd")],["system",T("notif.system")]];
+    document.getElementById("segT").innerHTML=tabs.map(function(x){
+      var n=x[0]==="unread"?items().filter(function(i){return !i.read}).length
+        :x[0]?items().filter(function(i){return i.type===x[0]}).length:items().length;
+      return '<button class="'+(FT===x[0]?"on":"")+'" data-t="'+x[0]+'">'+x[1]+" · "+n+"</button>";
+    }).join("");
+  }
+  function render(){
+    seg();
+    var me=STORE.me();
+    document.getElementById("pSub").innerHTML=(me.ver?"":'⚠ <span class="badge b-changes">'+T("profile.unverified")+"</span> — email notifications paused until verification. ")+
+      "In-app always delivers · email digests every "+STORE.DB.settings.digest+"h.";
+    var list=items().filter(function(n){
+      if(FT==="unread") return !n.read;
+      if(FT) return n.type===FT;
+      return true;
+    });
+    document.getElementById("list").innerHTML=list.map(function(n){
+      return '<div class="notif-item" style="display:flex;gap:12px;padding:14px 18px;border-bottom:1px solid var(--color-border);'+(n.read?"opacity:.72":"background:var(--color-primary-soft)")+'">'+
+       '<span class="avatar sm'+(n.read?" grey":"")+'">'+(n.type==="deadlines"?"⏰":n.type==="chat"?"💬":n.type==="projects"?"📁":n.type==="system"?"⚙":"🔔")+"</span>"+
+       '<div style="flex:1"><a href="'+APP.withP(n.link||"#")+'" style="color:inherit;font-weight:700">'+n.title+"</a>"+
+       '<div class="small muted">'+n.sub+' · <span class="mono">'+n.at+"</span></div></div>"+
+       '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'+(EB[n.email]||"")+
+       (!n.read?'<button class="btn btn-sm btn-outline" data-r="'+n.id+'">✓</button>':"")+"</div></div>";
+    }).join("")||'<div class="muted" style="text-align:center;padding:40px">🔕 '+T("common.empty")+"</div>";
+  }
+  document.getElementById("segT").addEventListener("click",function(e){
+    var b=e.target.closest("[data-t]"); if(!b) return; FT=b.dataset.t; render();
+  });
+  document.getElementById("list").addEventListener("click",function(e){
+    var b=e.target.closest("[data-r]"); if(!b) return;
+    var n=items().find(function(x){return x.id===+b.dataset.r});
+    n.read=true; STORE.save(); APP.toast(T("toast.read"),"success"); render();
+  });
+  document.getElementById("markAll").addEventListener("click",function(){
+    items().forEach(function(n){n.read=true}); STORE.save(); APP.toast(T("toast.read"),"success"); render();
+  });
+  render();
+};
+</script>
+</body>
+</html>

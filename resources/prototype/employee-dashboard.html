@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My dashboard — Agency OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-role="employee" data-page="dashboard">
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1>Hi Mohamed 👋</h1>
+      <div class="page-sub">Marketing · Team Leader: Sara Mostafa · Saturday 25 Jul 2026</div>
+    </div>
+  </div>
+
+  <div class="alert alert-warning" style="margin-bottom:18px">
+    <div><b>Due today 23:59:</b> Ramadan social calendar — week 2 (TSK-2026-00331) is under review. If changes are requested, resubmit before the deadline to stay on time.</div>
+  </div>
+
+  <div class="grid grid-main">
+    <div class="stack">
+      <div class="card">
+        <div class="card-head"><h2>My tasks</h2>
+          <div class="page-actions">
+            <div class="seg">
+              <button class="on">Active · 3</button><button>Returned · 1</button><button>Completed · 9</button>
+            </div>
+          </div>
+        </div>
+        <div class="list">
+          <a class="list-item" data-keep-lang href="task-execute.html">
+            <span class="badge p-urgent">Urgent</span>
+            <div class="li-main">
+              <div class="li-title">Ramadan social calendar — week 2</div>
+              <div class="li-sub mono">TSK-2026-00331 · Ramadan Campaign 2026 · submitted 2 h ago</div>
+            </div>
+            <div class="li-end"><span class="badge b-review"><span class="bdot"></span>Under review</span><span class="small muted nowrap">Today 23:59</span></div>
+          </a>
+          <a class="list-item" data-keep-lang href="task-execute.html">
+            <span class="badge p-medium">Medium</span>
+            <div class="li-main">
+              <div class="li-title">UGC hashtag tracker — July</div>
+              <div class="li-sub mono">TSK-2026-00336 · standalone · 1 output added</div>
+            </div>
+            <div class="li-end"><span class="badge b-progress"><span class="bdot"></span>In progress</span><span class="small muted nowrap">29 Jul 23:59</span></div>
+          </a>
+          <a class="list-item" data-keep-lang href="task-execute.html">
+            <span class="badge p-low">Low</span>
+            <div class="li-main">
+              <div class="li-title">Archive tagging — Q2 campaigns</div>
+              <div class="li-sub mono">TSK-2026-00320 · standalone · not opened yet</div>
+            </div>
+            <div class="li-end"><span class="badge b-progress"><span class="bdot"></span>In progress</span><span class="small muted nowrap">31 Jul 23:59</span></div>
+          </a>
+          <a class="list-item" data-keep-lang href="task-execute.html" style="background:var(--color-warning-soft)">
+            <span class="badge p-high">High</span>
+            <div class="li-main">
+              <div class="li-title">Newsletter draft — Lotus loyalty</div>
+              <div class="li-sub mono">TSK-2026-00322 · TL comment: "Shorten intro, fix CTA links — see notes."</div>
+            </div>
+            <div class="li-end"><span class="badge b-changes"><span class="bdot"></span>Changes requested</span><span class="small muted nowrap">26 Jul 23:59</span></div>
+          </a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Recent notifications</h2>
+          <div class="page-actions"><a class="small" data-keep-lang href="notifications.html">All →</a></div></div>
+        <div class="list">
+          <div class="list-item"><span class="avatar sm">SM</span><div class="li-main"><div class="li-title">Changes requested on TSK-2026-00322</div><div class="li-sub">Sara Mostafa · 3 h ago · also sent to your email ✉</div></div></div>
+          <div class="list-item"><span class="avatar sm grey">⏰</span><div class="li-main"><div class="li-title">Deadline in 24 h — TSK-2026-00331</div><div class="li-sub">Yesterday 23:59 · in-app + email</div></div></div>
+          <div class="list-item"><span class="avatar sm">PR</span><div class="li-main"><div class="li-title">WhatsApp invite v2 — Ramadan Campaign 2026</div><div class="li-sub">Join the project group · Yesterday</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="card card-pad" style="display:flex;gap:18px;align-items:center">
+        <div class="donut" style="--p:88"><div>88%</div></div>
+        <div>
+          <h2 style="margin-bottom:4px">My score — July</h2>
+          <div class="small muted">7 of 8 due steps on time</div>
+          <div class="small muted" style="margin-top:4px">June: 100% · May: <span class="score-na">N/A</span> (no due steps)</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>How your score works</h2></div>
+        <div class="card-pad small muted" style="padding-top:14px">
+          On-time steps ÷ steps due this month × 100. Requested changes don't lower the score if the final version is approved before the deadline. On-hold time is paused.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Chat</h2><div class="page-actions"><a class="small" data-keep-lang href="chat.html">Open →</a></div></div>
+        <div class="list">
+          <div class="list-item"><span class="avatar sm">SM</span><div class="li-main"><div class="li-title">Sara Mostafa</div><div class="li-sub">"Ping me after you fix the CTA links"</div></div><span class="small muted">14:02</span></div>
+          <div class="list-item"><span class="avatar sm grey">M</span><div class="li-main"><div class="li-title">Marketing — team</div><div class="li-sub">Rania: "Calendar template updated ✔"</div></div><span class="small muted">11:47</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Review Queue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="review">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.review">Review Queue</h1><p class="muted small" id="pSub"></p></div></div>
+  <div id="queue"></div>
+  <div id="reviewBox"></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,role=APPG.session().role,me=STORE.me(),id=APP.params.get("id");
+  function inQueue(t){
+    if(t.life!=="active") return false;
+    var s=STORE.cur(t); if(s.w!=="review") return false;
+    var selfA=STORE.user(s.assignee).role==="tl";
+    if(role==="manager") return selfA;                 /* Manager reviews self-assigned TL steps */
+    return s.dept===me.dept&&!(selfA&&s.assignee===me.id); /* TL: own dept, never own work */
+  }
+  var list=STORE.DB.tasks.filter(inQueue);
+  document.getElementById("pSub").textContent=role==="manager"
+    ? "Self-assigned Team Leader steps route to you — a TL never approves their own work."
+    : STORE.dept(me.dept).name+" submissions waiting for your decision.";
+
+  /* queue table */
+  var qh='<div class="card" style="margin-bottom:18px"><div class="table-wrap"><table class="table"><thead><tr><th>'+T("common.title")+"</th><th>"+T("common.assignee")+"</th><th>👁 "+T("task.firstseen")+"</th><th>Submitted</th><th>"+T("common.due")+"</th><th></th></tr></thead><tbody>";
+  if(!list.length) qh+='<tr><td colspan="6" class="muted" style="text-align:center;padding:30px">'+T("common.empty")+" ✓</td></tr>";
+  list.forEach(function(t){
+    var s=STORE.cur(t);
+    qh+="<tr><td><b>"+APP.esc(t.title)+'</b><div class="small muted mono">'+t.id+" · "+STORE.dept(s.dept).name+"</div></td>"+
+     "<td>"+APP.userInline(s.assignee)+(STORE.user(s.assignee).role==="tl"?' <span class="badge b-hold">self-assigned</span>':"")+"</td>"+
+     '<td class="mono small">'+(s.firstSeen||"—")+'</td><td class="mono small">'+(s.submittedAt||"—")+"</td>"+
+     "<td>"+APP.dlBadge(STORE.dl(s,t))+"</td>"+
+     '<td style="text-align:end"><a class="btn btn-sm btn-primary" href="'+APP.withP("tl-review.html?id="+t.id)+'">'+T("nav.review")+"</a></td></tr>";
+  });
+  document.getElementById("queue").innerHTML=qh+"</tbody></table></div></div>";
+
+  /* review detail */
+  if(!id) return;
+  var t=STORE.task(id); if(!t){ location.replace(APP.withP("404.html")); return; }
+  var s=STORE.cur(t);
+  var canReview=inQueue(t);
+  var justApproved=t.life==="active"&&s.w==="approved";
+  function render(){
+    s=STORE.cur(t); justApproved=t.life==="active"&&s.w==="approved";
+    var h='<div class="card"><div class="card-head"><h2>'+APP.esc(t.title)+' <span class="small muted mono">'+t.id+"</span></h2>"+APP.badge(s.w)+"</div>"+
+     '<div class="card-body">'+
+     '<div class="form-row"><div><div class="kv-row"><span>'+T("common.assignee")+"</span><b>"+STORE.user(s.assignee).name+"</b></div>"+
+     '<div class="kv-row"><span>👁 '+T("task.firstseen")+'</span><b class="mono">'+(s.firstSeen||"—")+"</b></div></div>"+
+     '<div><div class="kv-row"><span>Submitted</span><b class="mono">'+(s.submittedAt||"—")+"</b></div>"+
+     '<div class="kv-row"><span>'+T("common.due")+'</span><b class="mono">'+(s.due?s.due+" 23:59":"—")+"</b></div></div></div>"+
+     '<div class="small muted" style="font-weight:700;margin:12px 0 6px">'+T("task.outputs")+"</div>"+
+     s.outputs.map(function(o){return '<a class="btn btn-sm btn-outline" style="margin:0 6px 6px 0" href="'+o.url+'" target="_blank" rel="noopener">📎 '+APP.esc(o.label)+"</a>"}).join("");
+    if(s.reviews.length){
+      h+='<div class="small muted" style="font-weight:700;margin:12px 0 6px">Resubmission history</div>'+
+       s.reviews.map(function(r){return '<div class="kv-row"><span>'+(r.decision==="approved"?"✓ "+T("st.approved"):"✎ "+T("st.changes"))+"</span><b>"+APP.esc(r.comment||"—")+' <span class="small muted mono">'+r.at+"</span></b></div>"}).join("");
+    }
+    if(canReview&&s.w==="review"){
+      h+='<div class="hr" style="margin:16px 0"></div>'+
+       '<div class="field"><label>'+T("common.reason")+' / comment <span class="small muted">('+T("common.required")+' for changes)</span></label><textarea id="rc" rows="3"></textarea></div>'+
+       '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+       '<button class="btn btn-primary" id="bApprove">✓ '+T("task.approve")+"</button>"+
+       '<button class="btn btn-outline" id="bChanges">✎ '+T("task.reqchanges")+"</button></div>";
+    }
+    if(justApproved&&(canReview||role==="manager"||role==="tl")){
+      var allowed=(STORE.DB.routing[s.dept]||[]).filter(function(d){return STORE.dept(d).active});
+      h+='<div class="hr" style="margin:16px 0"></div><div class="small muted" style="font-weight:700;margin-bottom:8px">✓ '+T("st.approved")+" — next step:</div>"+
+       '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">';
+      if(allowed.length){
+        h+='<select id="nd" class="select">'+allowed.map(function(d){return '<option value="'+d+'">'+STORE.dept(d).name+"</option>"}).join("")+"</select>"+
+         '<button class="btn btn-primary" id="bNext">→ '+T("task.sendnext")+"</button>";
+      }
+      h+='<button class="btn btn-outline" id="bFinish">🏁 '+T("task.finish")+"</button></div>"+
+       '<p class="small muted" style="margin-top:8px">Routing between departments is limited to the Admin routing rules.</p>';
+    }
+    h+='<div style="margin-top:14px"><a class="btn btn-sm btn-outline" href="'+APP.withP("task-details.html?id="+t.id)+'">'+T("task.details")+"</a></div></div></div>";
+    document.getElementById("reviewBox").innerHTML=h;
+    var bA=document.getElementById("bApprove"),bC=document.getElementById("bChanges"),
+        bN=document.getElementById("bNext"),bF=document.getElementById("bFinish");
+    if(bA) bA.addEventListener("click",function(){
+      STORE.review(t,"approved",document.getElementById("rc").value.trim());
+      APP.toast(T("toast.approved"),"success"); render();
+    });
+    if(bC) bC.addEventListener("click",function(){
+      var c=document.getElementById("rc").value.trim();
+      if(!c){ APP.toast(T("task.comment.req"),"danger"); return; }
+      STORE.review(t,"changes",c); APP.toast(T("toast.changes"),"warning");
+      setTimeout(function(){ location.href=APP.withP("tl-review.html"); },600);
+    });
+    if(bN) bN.addEventListener("click",function(){
+      var d=+document.getElementById("nd").value;
+      STORE.sendNext(t,d); APP.toast(T("toast.sent")+" → "+STORE.dept(d).name,"success");
+      setTimeout(function(){ location.href=APP.withP("task-details.html?id="+t.id); },600);
+    });
+    if(bF) bF.addEventListener("click",function(){
+      APP.confirm(T("task.finish")+"? Completed tasks are read-only forever.",function(){
+        STORE.finish(t); APP.toast(T("toast.approved"),"success");
+        setTimeout(function(){ location.href=APP.withP("task-details.html?id="+t.id); },500);
+      });
+    });
+  }
+  render();
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manager dashboard — Agency OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-role="manager" data-page="dashboard">
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1>Good morning, Omar 👋</h1>
+      <div class="page-sub">Saturday 25 Jul 2026 · Africa/Cairo · Operational overview across all departments</div>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-outline" data-keep-lang href="projects.html">+ New project</a>
+      <a class="btn btn-primary" data-keep-lang href="task-create.html">+ New task</a>
+    </div>
+  </div>
+
+  <div class="grid grid-4" style="margin-bottom:18px">
+    <div class="card kpi k-accent"><span class="k-label">Active tasks</span><span class="k-value">38</span><span class="k-delta k-up">▲ 5 this week</span></div>
+    <div class="card kpi k-danger"><span class="k-label">Overdue steps</span><span class="k-value">4</span><span class="k-delta k-down">2 in Photography</span></div>
+    <div class="card kpi k-info"><span class="k-label">Waiting assignment</span><span class="k-value">6</span><span class="k-delta muted">across 3 departments</span></div>
+    <div class="card kpi k-success"><span class="k-label">Active projects</span><span class="k-value">7</span><span class="k-delta muted">2 clients onboarding</span></div>
+  </div>
+
+  <div class="grid grid-main">
+    <div class="stack">
+      <!-- Needs attention -->
+      <div class="card">
+        <div class="card-head"><h2>Needs attention</h2>
+          <div class="page-actions"><span class="badge b-danger"><span class="bdot"></span>4 items</span></div></div>
+        <div class="list">
+          <div class="list-item">
+            <span class="badge b-overdue"><span class="bdot"></span>Overdue</span>
+            <div class="li-main">
+              <div class="li-title">TSK-2026-00298 · Clinic rebrand — logo refinements</div>
+              <div class="li-sub">Design · Aya Ibrahim · due 23 Jul · changes requested twice</div>
+            </div>
+            <div class="li-end"><a class="btn btn-sm btn-outline" data-keep-lang href="task-details.html">Open</a></div>
+          </div>
+          <div class="list-item">
+            <span class="badge b-waiting"><span class="bdot"></span>Reassign</span>
+            <div class="li-main">
+              <div class="li-title">TSK-2026-00327 · Product photoshoot — dessert line</div>
+              <div class="li-sub">Photography · returned to TL — employee Tarek Hussein was disabled</div>
+            </div>
+            <div class="li-end"><a class="btn btn-sm btn-outline" data-keep-lang href="task-details.html">Open</a></div>
+          </div>
+          <div class="list-item">
+            <span class="badge b-review"><span class="bdot"></span>Your review</span>
+            <div class="li-main">
+              <div class="li-title">TSK-2026-00334 · Media plan — Falcon X launch</div>
+              <div class="li-sub">Marketing · Sara Mostafa assigned this step to herself — Manager review required</div>
+            </div>
+            <div class="li-end"><a class="btn btn-sm btn-primary" data-keep-lang href="tl-review.html">Review</a></div>
+          </div>
+          <div class="list-item">
+            <span class="badge b-hold"><span class="bdot"></span>On hold</span>
+            <div class="li-main">
+              <div class="li-title">TSK-2026-00305 · Storefront signage mockups</div>
+              <div class="li-sub">Design · held 3 days — "client confirming dimensions" · deadline paused</div>
+            </div>
+            <div class="li-end"><a class="btn btn-sm btn-outline" data-keep-lang href="task-details.html">Open</a></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Urgent queue -->
+      <div class="card">
+        <div class="card-head"><h2>Urgent &amp; high priority</h2>
+          <div class="page-actions"><a class="small" data-keep-lang href="tasks.html">All tasks →</a></div></div>
+        <div class="table-wrap" style="border:0;border-radius:0">
+          <table>
+            <thead><tr><th>Task</th><th data-i18n="common.department">Department</th><th data-i18n="common.assignee">Assignee</th><th data-i18n="common.status">Status</th><th data-i18n="common.due">Due</th></tr></thead>
+            <tbody>
+              <tr class="row-link">
+                <td><div class="cell-main">Ramadan hero video — 30s cut</div><div class="cell-sub mono">TSK-2026-00341 · <span class="badge p-urgent">Urgent</span></div></td>
+                <td>Editing</td><td><span class="inline"><span class="avatar sm">MK</span>Mona Khalil</span></td>
+                <td><span class="badge b-review"><span class="bdot"></span>Under review</span></td>
+                <td class="nowrap">Today 23:59</td>
+              </tr>
+              <tr class="row-link">
+                <td><div class="cell-main">Landing page copy — Falcon X</div><div class="cell-sub mono">TSK-2026-00338 · <span class="badge p-high">High</span></div></td>
+                <td>Content</td><td><span class="inline"><span class="avatar sm">DS</span>Dina Saeed</span></td>
+                <td><span class="badge b-progress"><span class="bdot"></span>In progress</span></td>
+                <td class="nowrap">Tomorrow 23:59</td>
+              </tr>
+              <tr class="row-link">
+                <td><div class="cell-main">Influencer brief — Lotus summer</div><div class="cell-sub mono">TSK-2026-00340 · <span class="badge p-high">High</span></div></td>
+                <td>Marketing</td><td><span class="muted">—</span></td>
+                <td><span class="badge b-waiting"><span class="bdot"></span>Waiting assignment</span></td>
+                <td class="nowrap muted">Not set</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <!-- Department performance -->
+      <div class="card card-pad">
+        <h2 style="margin-bottom:14px">Department on-time rate — July</h2>
+        <div class="stack" style="gap:12px">
+          <div><div class="inline" style="justify-content:space-between"><b class="small">Content</b><b class="small">94%</b></div><div class="bar"><i class="g" style="width:94%"></i></div></div>
+          <div><div class="inline" style="justify-content:space-between"><b class="small">Marketing</b><b class="small">91%</b></div><div class="bar"><i class="g" style="width:91%"></i></div></div>
+          <div><div class="inline" style="justify-content:space-between"><b class="small">Design</b><b class="small">86%</b></div><div class="bar"><i style="width:86%"></i></div></div>
+          <div><div class="inline" style="justify-content:space-between"><b class="small">Editing</b><b class="small">82%</b></div><div class="bar"><i style="width:82%"></i></div></div>
+          <div><div class="inline" style="justify-content:space-between"><b class="small">Photography</b><b class="small" style="color:var(--color-danger)">68%</b></div><div class="bar"><i class="r" style="width:68%"></i></div></div>
+        </div>
+        <div class="card-foot" style="margin:14px -20px -18px;border-radius:0 0 var(--radius) var(--radius)">
+          <a data-keep-lang href="reports.html">Full monthly report →</a>
+        </div>
+      </div>
+
+      <!-- Temp TLs -->
+      <div class="card">
+        <div class="card-head"><h2>Temporary Team Leaders</h2></div>
+        <div class="list">
+          <div class="list-item">
+            <span class="avatar">KF</span>
+            <div class="li-main">
+              <div class="li-title">Karim Fathy → Photography</div>
+              <div class="li-sub">Covering Youssef Nabil · 20 Jul – 05 Aug</div>
+            </div>
+            <span class="badge b-approved"><span class="bdot"></span>Active</span>
+          </div>
+          <div class="list-item">
+            <div class="empty" style="padding:8px 0;width:100%">No other delegations scheduled.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active projects -->
+      <div class="card">
+        <div class="card-head"><h2>Active projects</h2>
+          <div class="page-actions"><a class="small" data-keep-lang href="projects.html">All →</a></div></div>
+        <div class="list">
+          <a class="list-item" data-keep-lang href="project-details.html">
+            <div class="li-main"><div class="li-title">Ramadan Campaign 2026</div><div class="li-sub">Nile Foods · 5 departments · 12 open tasks</div></div>
+            <span class="tag">WA link v2</span>
+          </a>
+          <a class="list-item" data-keep-lang href="project-details.html">
+            <div class="li-main"><div class="li-title">Falcon X Launch</div><div class="li-sub">Cairo Motors · 3 departments · 6 open tasks</div></div>
+            <span class="tag muted">no WA link</span>
+          </a>
+          <a class="list-item" data-keep-lang href="project-details.html">
+            <div class="li-main"><div class="li-title">Lotus Summer Collection</div><div class="li-sub">Lotus Cosmetics · 4 departments · 9 open tasks</div></div>
+            <span class="tag">WA link v1</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Task History</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="tasks">
+<main class="page" data-live>
+  <div class="page-head"><div><div class="small muted mono" id="tId"></div>
+    <h1 data-i18n="task.timeline">Workflow timeline</h1></div>
+    <a class="btn btn-outline" id="backLink" href="#" data-i18n="task.details">Details</a></div>
+  <div class="card" style="max-width:820px"><div class="card-body"><div class="timeline" id="tl"></div></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,id=APP.params.get("id"),t=STORE.task(id);
+  if(!t){ location.replace(APP.withP("404.html")); return; }
+  document.getElementById("tId").textContent=t.id+" · "+APP.esc(t.title);
+  document.getElementById("backLink").setAttribute("href",APP.withP("task-details.html?id="+t.id));
+  var CLR={approved:"t-green",finished:"t-green",submitted:"t-orange",sent:"t-orange",firstseen:"t-orange",
+   changes:"t-amber",hold:"t-amber",deadline:"t-amber",cancelled:"t-red",redirected:"t-amber"};
+  var LBL={created:"Created",assigned:"Assigned",reassigned:"Reassigned",firstseen:"First opened",submitted:"Submitted",
+   changes:"Changes requested",approved:"Approved",sent:"Transferred",hold:"On hold",resume:"Resumed",
+   redirected:"Redirected",cancelled:"Cancelled",finished:"Completed",deadline:"Deadline changed",skipped:"Step skipped"};
+  document.getElementById("tl").innerHTML=t.timeline.slice().reverse().map(function(ev){
+    var u=STORE.user(ev.by);
+    return '<div class="t-item '+(CLR[ev.t]||"")+'"><div class="t-title">'+(LBL[ev.t]||ev.t)+"</div>"+
+     '<div class="t-meta">'+u.name+" · "+T("role."+u.role)+' · <span class="mono">'+ev.at+"</span></div>"+
+     '<div class="t-body">'+APP.esc(ev.m)+"</div></div>";
+  }).join("");
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

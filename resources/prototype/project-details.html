@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Project</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="projects">
+<main class="page" data-live>
+  <div id="ro"></div>
+  <div class="page-head"><div><div class="small muted mono" id="pId"></div>
+    <h1 id="pName" style="margin:2px 0 6px"></h1>
+    <div id="pBadges" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+    <div id="pActs" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+  <div class="tabbar" id="tabs">
+    <button class="on" data-t="ov">Overview</button>
+    <button data-t="tk" data-i18n="nav.tasks">Tasks</button>
+    <button data-t="wa">💬 WhatsApp</button>
+    <button data-t="dv" id="dvTabBtn" data-i18n="wa.deliveries">Invite deliveries</button>
+  </div>
+  <div id="pane"></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,p=STORE.project(APP.params.get("id"));
+  if(!p){ location.replace(APP.withP("404.html")); return; }
+  var role=APPG.session().role,me=STORE.me(),isMgr=role==="manager";
+  /* an employee may only open projects of their own department */
+  if(role==="employee"&&p.depts.indexOf(me.dept)===-1){ location.replace(APP.withP("403.html")); return; }
+  var canWa=isMgr||p.createdBy===me.id; /* Manager or the project creator manage the link */
+  var closed=p.status!=="active";
+  var PB={active:["b-progress",T("st.progress")],done:["b-approved",T("st.done")],cancel:["b-cancel",T("st.cancel")]};
+  document.getElementById("pId").textContent=p.id+" · "+STORE.client(p.client).name;
+  document.getElementById("pName").textContent=p.name;
+  document.getElementById("pBadges").innerHTML='<span class="badge '+PB[p.status][0]+'"><span class="bdot"></span>'+PB[p.status][1]+"</span>"+
+   '<span class="badge b-neutral">'+p.depts.length+" departments</span>"+(p.wa?'<span class="badge b-approved">💬 v'+p.wa.version+"</span>":"");
+  if(closed) document.getElementById("ro").innerHTML='<div class="alert alert-danger" style="margin-bottom:16px">🔒 '+T("prj.readonly")+" "+T("prj.notasks")+(p.reason?" · "+APP.esc(p.reason):"")+"</div>";
+  if(isMgr&&!closed){
+    document.getElementById("pActs").innerHTML=
+     '<button class="btn btn-outline" id="bDone">✓ '+T("prj.complete")+"</button>"+
+     '<button class="btn btn-danger-outline" id="bCancel">✕ '+T("prj.cancel")+"</button>";
+    document.getElementById("bDone").addEventListener("click",function(){
+      APP.confirm(T("prj.complete")+"? The project and its WhatsApp link become read-only.",function(){
+        p.status="done"; p.closed=STORE.TODAY;
+        STORE.audit("project.completed",p.id,"active","completed");
+        STORE.save(); APP.toast(T("toast.updated"),"success"); setTimeout(function(){location.reload()},400);
+      });
+    });
+    document.getElementById("bCancel").addEventListener("click",function(){
+      APP.modal({title:T("prj.cancel"),body:'<div class="field"><label>'+T("common.reason")+' ('+T("common.required")+')</label><textarea id="rz" rows="3"></textarea></div>',
+       actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:T("common.confirm"),cls:"btn-danger-outline",onclick:function(m){
+         var v=m.querySelector("#rz").value.trim();
+         if(!v){ APP.toast(T("task.reason.req"),"danger"); return false; }
+         p.status="cancel"; p.reason=v; p.closed=STORE.TODAY;
+         STORE.audit("project.cancelled",p.id,"active","cancelled · reason logged");
+         STORE.save(); APP.toast(T("toast.cancelled"),"success"); setTimeout(function(){location.reload()},400);
+       }}]});
+    });
+  }
+  if(role==="employee"){ var dvb=document.getElementById("dvTabBtn"); if(dvb) dvb.style.display="none"; }
+  var pane=document.getElementById("pane");
+  function ovTab(){
+    var mem=[];
+    p.depts.forEach(function(d){ var tl=STORE.effectiveTL(d); if(tl) mem.push(tl); mem=mem.concat(STORE.deptEmployees(d)); });
+    pane.innerHTML='<div class="grid-2" style="align-items:start"><div class="card"><div class="card-body">'+
+     "<p style='margin:0 0 12px'>"+APP.esc(p.desc||"—")+"</p>"+
+     '<div class="small muted" style="font-weight:700;margin-bottom:6px">Reference links</div>'+
+     (p.links.map(function(r){return '<a class="btn btn-sm btn-outline" style="margin:0 6px 6px 0" href="'+r.url+'" target="_blank" rel="noopener">🔗 '+APP.esc(r.label)+"</a>"}).join("")||'<span class="muted small">'+T("common.empty")+"</span>")+
+     '<div class="small muted" style="font-weight:700;margin:12px 0 6px">Departments</div>'+
+     '<div class="route-mini">'+p.depts.map(function(d){return '<span class="rn cur">'+STORE.dept(d).name+"</span>"}).join('<span class="rl"></span>')+"</div>"+
+     '<div style="margin-top:12px"><div class="kv-row"><span>Started</span><b class="mono">'+p.started+"</b></div>"+
+     (p.closed?'<div class="kv-row"><span>Closed</span><b class="mono">'+p.closed+"</b></div>":"")+
+     '<div class="kv-row"><span>Created by</span><b>'+STORE.user(p.createdBy).name+"</b></div></div>"+
+     "</div></div>"+
+     '<div class="card"><div class="card-head"><h2>Members ('+mem.length+')</h2></div><div class="card-body">'+
+     mem.slice(0,10).map(function(u){return '<div class="kv-row"><span>'+APP.userInline(u.id)+"</span><span class='small muted'>"+STORE.dept(u.dept).name+"</span></div>"}).join("")+
+     (mem.length>10?'<div class="small muted" style="margin-top:6px">+ '+(mem.length-10)+" more</div>":"")+
+     "</div></div></div>";
+  }
+  function tkTab(){
+    var ts=STORE.DB.tasks.filter(function(t){return t.project===p.id});
+    var h='<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>'+T("common.title")+"</th><th>"+T("common.department")+"</th><th>"+T("common.status")+"</th><th>"+T("common.due")+"</th></tr></thead><tbody>";
+    if(!ts.length) h+='<tr><td colspan="4" class="muted" style="text-align:center;padding:26px">'+T("common.empty")+"</td></tr>";
+    ts.forEach(function(t){
+      var s=STORE.cur(t),w=t.life==="active"?s.w:t.life;
+      h+='<tr><td><a href="'+APP.withP("task-details.html?id="+t.id)+'" style="font-weight:700;color:inherit">'+APP.esc(t.title)+'</a><div class="small muted mono">'+t.id+"</div></td>"+
+       "<td>"+STORE.dept(s.dept).name+"</td><td>"+APP.badge(w)+"</td><td class='mono small'>"+STORE.fmtDue(s)+"</td></tr>";
+    });
+    pane.innerHTML=h+"</tbody></table></div></div>"+
+     (!closed?'<div style="margin-top:12px"><a class="btn btn-primary" href="'+APP.withP("task-create.html")+'">＋ '+T("task.new")+"</a></div>"
+      :'<p class="small muted" style="margin-top:10px">'+T("prj.notasks")+"</p>");
+  }
+  function waModal(replace){
+    APP.modal({title:replace?T("wa.replace"):T("wa.add"),body:
+     '<div class="field"><label>Invite URL</label><input id="wu" placeholder="https://chat.whatsapp.com/…" value=""></div>'+
+     '<div class="field"><label>Group label</label><input id="wl" value="'+APP.esc(p.wa?p.wa.label:p.name+" — Team")+'"></div>'+
+     '<p class="small muted">'+(replace?"A new version is created and the invitation is re-sent to all current members. ":"")+T("wa.manual")+"</p>",
+     actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:T("common.save"),cls:"btn-primary",onclick:function(m){
+       var u=m.querySelector("#wu").value.trim(),l=m.querySelector("#wl").value.trim();
+       if(!STORE.waValid(u)){ APP.toast(T("wa.invalid"),"danger"); return false; }
+       STORE.waSet(p,u,l||p.name); APP.toast(T("toast.saved"),"success"); waTab();
+     }}]});
+  }
+  function waTab(){
+    var h='<div class="grid-2" style="align-items:start"><div class="card"><div class="card-head"><h2>'+T("wa.title")+"</h2></div><div class='card-body'>";
+    if(p.wa){
+      h+='<div class="kv-row"><span>Label</span><b>'+APP.esc(p.wa.label)+"</b></div>"+
+       '<div class="kv-row"><span>URL</span><b class="mono small" style="word-break:break-all">'+p.wa.url+"</b></div>"+
+       '<div class="kv-row"><span>Version</span><b>v'+p.wa.version+"</b></div>"+
+       '<div class="kv-row"><span>Updated</span><b>'+STORE.user(p.wa.updatedBy).name+' · <span class="mono small">'+p.wa.updatedAt+"</span></b></div>";
+    } else h+='<p class="muted">'+T("common.empty")+"</p>";
+    if(p.wa) h+='<a class="btn btn-primary" style="margin-top:12px" href="'+p.wa.url+'" target="_blank" rel="noopener">💬 Join the WhatsApp group (v'+p.wa.version+")</a>";
+    if(closed) h+='<div class="alert" style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;padding:9px 11px;margin-top:10px" >🔒 '+T("wa.readonly")+"</div>";
+    else if(canWa){
+      h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">';
+      h+=p.wa?'<button class="btn btn-outline" id="waReplace">↺ '+T("wa.replace")+'</button><button class="btn btn-outline" id="waResend">✉ '+T("wa.resend")+"</button>"
+             :'<button class="btn btn-primary" id="waAdd">＋ '+T("wa.add")+"</button>";
+      h+="</div>";
+      h+='<div class="alert" style="background:var(--color-warning-soft);border:1px solid var(--color-warning-border);border-radius:10px;padding:9px 11px;margin-top:12px">⚠ '+T("wa.manual")+"</div>";
+    } else h+='<p class="small muted" style="margin-top:10px">The link is managed by the Manager or the project creator. You receive every new version automatically as a member.</p>';
+    h+="</div></div>";
+    h+='<div class="card"><div class="card-head"><h2>'+T("wa.history")+"</h2></div><div class='card-body'>"+
+     (p.waHistory.map(function(x){return '<div class="kv-row"><span><span class="badge '+(x.action==="created"?"b-approved":"b-progress")+'">v'+x.v+" · "+x.action+"</span></span>"+
+      "<span><b class='mono small' style='word-break:break-all'>"+x.url+"</b><div class='small muted'>"+STORE.user(x.by).name+" · "+x.at+" · "+APP.esc(x.note||"")+"</div></span></div>"}).join("")||
+      '<span class="muted small">'+T("common.empty")+"</span>")+"</div></div></div>";
+    pane.innerHTML=h;
+    var a=document.getElementById("waAdd"),r=document.getElementById("waReplace"),rs=document.getElementById("waResend");
+    if(a) a.addEventListener("click",function(){waModal(false);});
+    if(r) r.addEventListener("click",function(){waModal(true);});
+    if(rs) rs.addEventListener("click",function(){
+      APP.confirm(T("wa.resend")+"? Current members receive the v"+p.wa.version+" invitation again.",function(){
+        STORE.waSet(p,p.wa.url,p.wa.label); APP.toast(T("toast.sent"),"success"); waTab();
+      });
+    });
+  }
+  function dvTab(){
+    var ST={sent:'<span class="badge b-approved"><span class="bdot"></span>Sent</span>',
+     queued:'<span class="badge b-changes"><span class="bdot"></span>Queued</span>',
+     failed:'<span class="badge b-cancel"><span class="bdot"></span>Failed</span>'};
+    var h='<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Recipient</th><th>'+T("common.department")+'</th><th>Channel</th><th>v</th><th>'+T("common.status")+"</th><th></th></tr></thead><tbody>";
+    if(!p.deliveries.length) h+='<tr><td colspan="6" class="muted" style="text-align:center;padding:26px">'+T("common.empty")+"</td></tr>";
+    p.deliveries.forEach(function(d,i){
+      h+="<tr><td>"+APP.userInline(d.user)+"</td><td>"+STORE.dept(d.dept).name+"</td>"+
+       "<td>"+(d.channel==="email"?"✉ Email":"🔔 In-app")+'</td><td class="mono">v'+d.v+"</td>"+
+       "<td>"+(ST[d.status]||d.status)+(d.err?'<div class="small muted">'+d.err+"</div>":"")+"</td>"+
+       '<td style="text-align:end">'+(d.status==="failed"&&!closed?'<button class="btn btn-sm btn-outline" data-rs="'+i+'">↺ Resend</button>':"")+"</td></tr>";
+    });
+    pane.innerHTML=h+"</tbody></table></div></div>"+
+     '<p class="small muted" style="margin-top:10px">Failed email deliveries never block the workflow — in-app invitations always deliver.</p>';
+    pane.addEventListener("click",function(e){
+      var b=e.target.closest("[data-rs]"); if(!b) return;
+      var d=p.deliveries[+b.dataset.rs]; d.status="queued";
+      STORE.audit("whatsapp_invite.resent","project "+p.id+" · user #"+d.user,"failed","queued");
+      STORE.save(); APP.toast(T("toast.sent"),"success"); dvTab();
+    },{once:true});
+  }
+  var TABS={ov:ovTab,tk:tkTab,wa:waTab,dv:dvTab};
+  document.getElementById("tabs").addEventListener("click",function(e){
+    var b=e.target.closest("[data-t]"); if(!b) return;
+    this.querySelectorAll(".on").forEach(function(x){x.classList.remove("on")}); b.classList.add("on");
+    TABS[b.dataset.t]();
+  });
+  ovTab();
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Agency OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-role="admin" data-page="dashboard">
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1>System administration</h1>
+      <div class="page-sub">Configuration and governance only — Admin has no access to task content or chat messages.</div>
+    </div>
+  </div>
+
+  <div class="grid grid-4" style="margin-bottom:18px">
+    <div class="card kpi"><span class="k-label">Managers</span><span class="k-value">2</span><span class="k-delta muted">both active</span></div>
+    <div class="card kpi"><span class="k-label">Routing rules</span><span class="k-value">14</span><span class="k-delta muted">6 departments</span></div>
+    <div class="card kpi"><span class="k-label">Output-access rules</span><span class="k-value">9</span><span class="k-delta muted">3 final-only</span></div>
+    <div class="card kpi k-danger"><span class="k-label">Email bounces (7d)</span><span class="k-value">1</span><span class="k-delta muted">hard bounce · flagged</span></div>
+  </div>
+
+  <div class="grid grid-main">
+    <div class="stack">
+      <!-- Routing matrix -->
+      <div class="card">
+        <div class="card-head"><h2>Department routing — who can send to whom</h2>
+          <div class="page-actions"><a class="btn btn-sm btn-primary" data-keep-lang href="departments.html">Edit rules</a></div></div>
+        <div class="table-wrap" style="border:0;border-radius:0">
+          <table>
+            <thead><tr><th>From ↓ / To →</th><th>Marketing</th><th>Content</th><th>Photography</th><th>Design</th><th>Editing</th><th>Moderation</th></tr></thead>
+            <tbody>
+              <tr><td class="cell-main">Marketing</td><td class="muted">—</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td><td class="cross">✗</td><td class="tick">✓</td></tr>
+              <tr><td class="cell-main">Content</td><td class="tick">✓</td><td class="muted">—</td><td class="tick">✓</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td class="cell-main">Photography</td><td class="cross">✗</td><td class="cross">✗</td><td class="muted">—</td><td class="tick">✓</td><td class="tick">✓</td><td class="cross">✗</td></tr>
+              <tr><td class="cell-main">Design</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td><td class="muted">—</td><td class="tick">✓</td><td class="cross">✗</td></tr>
+              <tr><td class="cell-main">Editing</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td><td class="tick">✓</td><td class="muted">—</td><td class="tick">✓</td></tr>
+              <tr><td class="cell-main">Moderation</td><td class="tick">✓</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="muted">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Recent audit -->
+      <div class="card">
+        <div class="card-head"><h2>Latest audit events</h2>
+          <div class="page-actions"><a class="small" data-keep-lang href="audit-log.html">Open Audit Log →</a></div></div>
+        <div class="table-wrap" style="border:0;border-radius:0">
+          <table>
+            <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Entity</th></tr></thead>
+            <tbody>
+              <tr><td class="nowrap mono">14:31</td><td>Omar El-Sayed</td><td><span class="badge b-neutral">password.reset</span></td><td class="mono">user #23 (Tarek Hussein)</td></tr>
+              <tr><td class="nowrap mono">13:58</td><td>Sara Mostafa</td><td><span class="badge b-neutral">whatsapp_link.updated</span></td><td class="mono">project PRJ-2026-0007 · v1→v2</td></tr>
+              <tr><td class="nowrap mono">11:20</td><td>Omar El-Sayed</td><td><span class="badge b-neutral">temp_tl.assigned</span></td><td class="mono">Photography · Karim Fathy</td></tr>
+              <tr><td class="nowrap mono">09:02</td><td>system</td><td><span class="badge b-danger"><span class="bdot"></span>email.bounced</span></td><td class="mono">user #31 · hard bounce</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <!-- Managers -->
+      <div class="card">
+        <div class="card-head"><h2>Manager accounts</h2>
+          <div class="page-actions"><a class="btn btn-sm btn-outline" data-keep-lang href="users.html">Manage</a></div></div>
+        <div class="list">
+          <div class="list-item"><span class="avatar">OE</span>
+            <div class="li-main"><div class="li-title">Omar El-Sayed</div><div class="li-sub">o.elsayed@gmail.com · <span class="tick">✓</span> verified</div></div>
+            <span class="badge b-approved"><span class="bdot"></span>Active</span></div>
+          <div class="list-item"><span class="avatar">NA</span>
+            <div class="li-main"><div class="li-title">Nour Adel</div><div class="li-sub">nour.adel@outlook.com · <span class="tick">✓</span> verified</div></div>
+            <span class="badge b-approved"><span class="bdot"></span>Active</span></div>
+        </div>
+      </div>
+
+      <!-- Email health -->
+      <div class="card">
+        <div class="card-head"><h2>Email channel health</h2></div>
+        <div class="card-pad" style="padding-top:14px">
+          <dl class="kv">
+            <dt>Sender domain</dt><dd class="mono">mail.agencyos.eg</dd>
+            <dt>SPF / DKIM / DMARC</dt><dd><span class="tick">✓</span> <span class="tick">✓</span> <span class="tick">✓</span> configured</dd>
+            <dt>Queue (24h)</dt><dd>412 sent · 3 retried · 1 bounced</dd>
+            <dt>Unverified users</dt><dd>2 — email channel disabled until verified</dd>
+          </dl>
+        </div>
+      </div>
+
+      <!-- Boundary reminder -->
+      <div class="alert alert-brand">
+        <div class="small"><b>Admin boundary (BRD §5, §19):</b> the Audit Log records events only. It never grants access to task details, output content, or chat messages.</div>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

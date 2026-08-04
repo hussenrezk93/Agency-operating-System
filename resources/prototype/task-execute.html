@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Execute Task</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="mytasks">
+<main class="page" data-live>
+  <div class="page-head"><div><div class="small muted mono" id="tId"></div>
+    <h1 id="tTitle" style="margin:2px 0 6px"></h1>
+    <div id="tBadges" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+    <a class="btn btn-outline" id="backLink" href="#" data-i18n="task.details">Details</a></div>
+  <div id="chBanner"></div>
+  <div class="grid-2" style="align-items:start">
+    <div>
+      <div class="card" style="margin-bottom:18px"><div class="card-head"><h2>Brief</h2></div>
+        <div class="card-body"><p id="tBrief" style="margin:0 0 10px"></p><div id="tRefs"></div><div id="prevOut" style="margin-top:10px"></div></div></div>
+      <div class="card"><div class="card-head"><h2>💬 Comments</h2></div>
+        <div class="card-body"><div id="cmts"></div>
+          <form id="cf" style="display:flex;gap:8px;margin-top:10px">
+            <input id="ci" style="flex:1" placeholder="Add a comment…">
+            <button class="btn btn-outline" data-i18n="chat.send">Send</button></form></div></div>
+    </div>
+    <div class="card"><div class="card-head"><h2 data-i18n="task.outputs">Output links</h2></div>
+      <div class="card-body">
+        <div id="outs"></div>
+        <form id="of" style="margin-top:10px">
+          <div class="form-row">
+            <div class="field"><label>Label</label><input id="ol"></div>
+            <div class="field"><label>URL</label><input id="ou" placeholder="https://…"></div>
+          </div>
+          <button class="btn btn-outline" style="width:100%;justify-content:center">＋ <span data-i18n="task.output.add">Add link</span></button>
+        </form>
+        <div class="hr" style="margin:14px 0"></div>
+        <p class="small muted" id="reqNote"></p>
+        <button class="btn btn-primary" id="submitBtn" style="width:100%;justify-content:center"></button>
+      </div></div>
+  </div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,id=APP.params.get("id"),t=STORE.task(id);
+  if(!t){ location.replace(APP.withP("404.html")); return; }
+  var s=STORE.cur(t),me=STORE.me();
+  document.getElementById("backLink").setAttribute("href",APP.withP("task-details.html?id="+t.id));
+  if(s.assignee!==me.id){ location.replace(APP.withP("task-details.html?id="+t.id)); return; }
+  STORE.firstSee(t); /* first-view recorded once, never reversed */
+  var editable=t.life==="active"&&(s.w==="progress"||s.w==="changes");
+  document.getElementById("tId").textContent=t.id+" · "+STORE.dept(s.dept).name+(t.project?" · "+t.project:"");
+  document.getElementById("tTitle").textContent=t.title;
+  document.getElementById("tBadges").innerHTML=APP.badge(t.life==="active"?s.w:t.life)+APP.dlBadge(STORE.dl(s,t),STORE.fmtDue(s))+APP.prio(t.prio);
+  if(s.w==="changes"&&s.reviews.length){
+    var rv=s.reviews[s.reviews.length-1];
+    document.getElementById("chBanner").innerHTML='<div class="alert" style="background:var(--color-warning-soft);border:1px solid var(--color-warning-border);border-radius:12px;padding:12px 14px;margin-bottom:16px">'+
+     "<b>✎ "+T("st.changes")+"</b> — "+APP.esc(rv.comment)+'<div class="small muted">'+STORE.user(rv.by).name+' · <span class="mono">'+rv.at+"</span></div></div>";
+  }
+  document.getElementById("tBrief").textContent=t.brief;
+  document.getElementById("tRefs").innerHTML=t.refs.map(function(r){return '<a class="btn btn-sm btn-outline" style="margin:0 6px 6px 0" href="'+r.url+'" target="_blank" rel="noopener">🔗 '+APP.esc(r.label)+"</a>"}).join("");
+  var ph="";
+  t.steps.forEach(function(st,i){
+    if(i>=t.cur||!st.outputs.length) return;
+    ph+='<div class="small muted" style="font-weight:700;margin:8px 0 4px">'+STORE.dept(st.dept).name+" · previous outputs</div>"+
+     st.outputs.map(function(o){return '<a class="btn btn-sm btn-outline" style="margin:0 6px 6px 0" href="'+o.url+'" target="_blank" rel="noopener">📎 '+APP.esc(o.label)+"</a>"}).join("");
+  });
+  document.getElementById("prevOut").innerHTML=ph;
+
+  function renderOuts(){
+    document.getElementById("outs").innerHTML=s.outputs.map(function(o,i){
+      return '<div class="inline" style="justify-content:space-between;width:100%;padding:7px 0;border-bottom:1px dashed var(--color-border)">'+
+       '<a href="'+o.url+'" target="_blank" rel="noopener">📎 '+APP.esc(o.label)+"</a>"+
+       (editable?'<button class="btn btn-sm btn-danger-outline" data-rm="'+i+'">✕</button>':"")+"</div>";
+    }).join("")||'<span class="muted small">'+T("common.empty")+"</span>";
+  }
+  function renderCmts(){
+    document.getElementById("cmts").innerHTML=s.comments.map(function(c){
+      var u=STORE.user(c.by);
+      return '<div style="margin-bottom:10px">'+APP.userInline(c.by)+' <span class="small muted mono">'+c.at+'</span><div style="margin-top:3px">'+APP.esc(c.text)+"</div></div>";
+    }).join("")||'<span class="muted small">'+T("common.empty")+"</span>";
+  }
+  var sb=document.getElementById("submitBtn");
+  function renderSubmit(){
+    sb.textContent=(s.reviews.length?T("task.resubmit"):T("task.submit"))+" ⬆";
+    if(!editable){ sb.disabled=true; sb.textContent=s.w==="review"?T("st.review")+"…":T("dl.closed"); document.getElementById("reqNote").textContent=""; }
+    else document.getElementById("reqNote").textContent=T("task.output.req");
+  }
+  renderOuts(); renderCmts(); renderSubmit();
+
+  document.getElementById("outs").addEventListener("click",function(e){
+    var b=e.target.closest("[data-rm]"); if(!b) return;
+    if(STORE.removeOutput(t,+b.dataset.rm)) renderOuts();
+  });
+  document.getElementById("of").addEventListener("submit",function(e){
+    e.preventDefault(); if(!editable){ APP.toast(T("toast.denied"),"danger"); return; }
+    var l=document.getElementById("ol").value.trim(),u=document.getElementById("ou").value.trim();
+    if(!l||!/^https?:\/\/.+/.test(u)){ APP.toast(T("toast.invalid"),"danger"); return; }
+    STORE.addOutput(t,l,u); document.getElementById("ol").value=""; document.getElementById("ou").value="";
+    renderOuts(); APP.toast(T("toast.saved"),"success");
+  });
+  document.getElementById("cf").addEventListener("submit",function(e){
+    e.preventDefault(); var v=document.getElementById("ci").value.trim(); if(!v) return;
+    STORE.addComment(t,v); document.getElementById("ci").value=""; renderCmts();
+  });
+  sb.addEventListener("click",function(){
+    if(!editable) return;
+    if(!s.outputs.length){ APP.toast(T("task.output.req"),"danger"); return; }
+    APP.confirm(T("task.submit")+"?",function(){
+      STORE.submitStep(t); APP.toast(T("toast.submitted"),"success");
+      setTimeout(function(){ location.href=APP.withP("task-details.html?id="+t.id); },500);
+    });
+  });
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

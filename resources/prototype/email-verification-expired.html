@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Link expired</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-shell="none">
+<div class="auth" data-live>
+  <div class="auth-card" style="max-width:430px;width:100%;text-align:center">
+    <div style="font-size:44px;margin-bottom:6px">⌛</div>
+    <h1 style="font-size:20px;margin:0 0 8px" data-i18n="verify.expired">·</h1>
+    <p class="muted" style="margin:0 0 18px" data-i18n="verify.expired.sub">·</p>
+    <div id="acts" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"></div>
+  </div>
+</div>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,a=document.getElementById("acts"),s=APPG.session();
+  a.innerHTML="<button class=\"btn btn-primary\" id=\"resend\">"+T("profile.resend")+"</button>";document.getElementById("resend").addEventListener("click",function(){APP.toast(T("toast.sent"),"success");setTimeout(function(){location.href=APP.withP("email-verification-required.html");},700);});
+};
+</script>
+</body>
+</html>

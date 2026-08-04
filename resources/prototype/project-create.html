@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — New Project</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="projects">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="prj.new">New project</h1>
+    <div class="info-row" style="margin-top:8px">🏷 Project number <b class="mono" id="autoId"></b> · assigned automatically</div></div>
+    <a class="btn btn-outline" href="projects.html" data-i18n="common.back">Back</a></div>
+
+  <form id="f" novalidate>
+  <div class="card form-card" style="padding:0;overflow:visible">
+
+    <div class="form-section">
+      <div class="form-section-head"><span class="n">1</span><div><h2>Basic information</h2>
+        <div class="hint">Name and description are stored in English (BRD language rule).</div></div></div>
+      <div class="form-grid">
+        <div class="field span2" id="fName"><label for="pn"><span data-i18n="common.name">Name</span> <span class="req">*</span></label>
+          <input id="pn" maxlength="90" placeholder="e.g. Autumn Campaign 2026"><div class="err">Project name is required</div></div>
+        <div class="field span2"><label for="pd">Description</label>
+          <textarea id="pd" rows="3" placeholder="What is this project about? Scope, key deliverables…"></textarea></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-head"><span class="n">2</span><div><h2 data-i18n="common.client">Client</h2>
+        <div class="hint">Every project belongs to exactly one client.</div></div></div>
+      <div class="choice-toggle" role="radiogroup" aria-label="Client source">
+        <label class="opt"><input type="radio" name="csrc" value="existing" checked>
+          <span class="ic-bub">📇</span><span><b>Existing client</b><span class="hint">Pick from the registry</span></span></label>
+        <label class="opt"><input type="radio" name="csrc" value="new">
+          <span class="ic-bub">✨</span><span><b>New client</b><span class="hint">Create one right here</span></span></label>
+      </div>
+      <div class="field" id="exBox" style="margin-top:12px"><label for="pc">Select client</label><select id="pc"></select></div>
+      <div class="nested-panel" id="ncBox" style="display:none">
+        <div class="form-grid">
+          <div class="field" id="fNcn"><label for="ncn">Client name <span class="req">*</span></label>
+            <input id="ncn" placeholder="e.g. Horizon Retail"><div class="err">Client name is required</div></div>
+          <div class="field" id="fNcp"><label for="ncp">Client phone <span class="req">*</span></label>
+            <input id="ncp" placeholder="+20 1xx xxx xxxx"><div class="err" data-i18n="cl.phone.invalid">Enter a valid phone</div></div>
+          <div class="field span2" id="fNce"><label for="nce">Client email <span class="hint" style="display:inline">(<span data-i18n="common.optional">optional</span>)</span></label>
+            <input id="nce" type="email" placeholder="contact@client.com"><div class="err">Enter a valid email or leave empty</div>
+            <div class="hint">The client is saved to the registry the moment the project is created.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-head"><span class="n">3</span><div><h2>Participating departments</h2>
+        <div class="hint">Members of these departments receive project notifications and the WhatsApp invitation.</div></div></div>
+      <div class="field" id="fDepts" style="margin:0">
+        <div class="chip-grid" id="depts"></div>
+        <div class="err">Select at least one department</div></div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-head"><span class="n">4</span><div><h2>Reference links</h2>
+        <div class="hint">Google Drive, docs, briefs — Agency OS stores links only, never files.</div></div></div>
+      <div id="refs"></div>
+      <div class="rep-row">
+        <div class="field" style="margin:0"><label for="rl">Label</label><input id="rl" placeholder="Brand guide"></div>
+        <div class="field" style="margin:0"><label for="ru">URL</label><input id="ru" placeholder="https://drive.google.com/…"></div>
+        <div style="padding-top:26px"><button type="button" class="btn btn-outline" id="addRef">＋ <span data-i18n="task.output.add">Add</span></button></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-head"><span class="n">5</span><div><h2>💬 <span data-i18n="wa.title">WhatsApp group link</span></h2>
+        <div class="hint" data-i18n="wa.manual">Members are removed from the group manually.</div></div></div>
+      <div class="field" id="fWa" style="margin:0"><label for="wa">Invite link <span class="hint" style="display:inline">(<span data-i18n="common.optional">optional</span>)</span></label>
+        <input id="wa" placeholder="https://chat.whatsapp.com/…"><div class="err" data-i18n="wa.invalid">Invalid link</div>
+        <div class="hint">If provided, every member of the participating departments receives the invitation (in-app + email) at creation — versioned, with a full delivery ledger.</div></div>
+    </div>
+
+    <div class="form-actions-sticky">
+      <a class="btn btn-outline" href="projects.html" data-i18n="common.cancel">Cancel</a>
+      <button class="btn btn-primary" style="min-width:170px;justify-content:center">✓ <span data-i18n="common.create">Create</span></button>
+    </div>
+  </div>
+  </form>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,me=STORE.me();
+  var newId=STORE.nextProjectId(); document.getElementById("autoId").textContent=newId;
+  document.getElementById("pc").innerHTML=STORE.DB.clients.filter(function(c){return c.status==="active"})
+    .map(function(c){return '<option value="'+c.id+'">'+c.name+"</option>"}).join("");
+  document.getElementById("depts").innerHTML=STORE.DB.departments.filter(function(d){return d.active})
+    .map(function(d){return '<label class="chip-check"><input type="checkbox" value="'+d.id+'"><span class="tick">✓</span>'+d.name+"</label>"}).join("");
+  /* Existing / New client toggle */
+  function isNewClient(){ return document.querySelector('input[name="csrc"]:checked').value==="new"; }
+  [].forEach.call(document.querySelectorAll('input[name="csrc"]'),function(r){
+    r.addEventListener("change",function(){
+      var nw=isNewClient();
+      document.getElementById("ncBox").style.display=nw?"block":"none";
+      document.getElementById("exBox").style.display=nw?"none":"block";
+      if(nw) document.getElementById("ncn").focus();
+    });
+  });
+  /* repeatable reference links */
+  var refs=[];
+  function drawRefs(){ document.getElementById("refs").innerHTML=refs.map(function(r,i){
+    return '<div class="rep-item"><span>🔗 <b>'+APP.esc(r.label)+'</b> · <span class="mono small muted">'+APP.esc(r.url)+'</span></span>'+
+     '<button type="button" class="btn btn-sm btn-danger-outline" data-i="'+i+'" aria-label="Remove link">✕</button></div>';}).join(""); }
+  document.getElementById("addRef").addEventListener("click",function(){
+    var l=document.getElementById("rl").value.trim(),u=document.getElementById("ru").value.trim();
+    if(!l||!/^https?:\/\/.+/.test(u)){ APP.toast(T("toast.invalid"),"danger"); return; }
+    refs.push({label:l,url:u}); document.getElementById("rl").value=""; document.getElementById("ru").value=""; drawRefs();
+  });
+  document.getElementById("refs").addEventListener("click",function(e){
+    var b=e.target.closest("[data-i]"); if(b){ refs.splice(+b.dataset.i,1); drawRefs(); }
+  });
+  /* submit */
+  document.getElementById("f").addEventListener("submit",function(e){
+    e.preventDefault();
+    var n=document.getElementById("pn").value.trim(),wa=document.getElementById("wa").value.trim();
+    var picked=[].map.call(document.querySelectorAll("#depts input:checked"),function(x){return +x.value});
+    var ok=true;
+    document.getElementById("fName").classList.toggle("bad",!n); if(!n) ok=false;
+    document.getElementById("fDepts").classList.toggle("bad",!picked.length); if(!picked.length) ok=false;
+    document.getElementById("fWa").classList.toggle("bad",!!wa&&!STORE.waValid(wa)); if(wa&&!STORE.waValid(wa)) ok=false;
+    var cid=null;
+    if(isNewClient()){
+      var cn=document.getElementById("ncn").value.trim(),cp=document.getElementById("ncp").value.trim(),
+          ce=document.getElementById("nce").value.trim();
+      var cnOk=!!cn, cpOk=/^\+?[0-9\s\-()]{7,18}$/.test(cp),
+          ceOk=!ce||/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ce); /* email optional — validated only when filled */
+      document.getElementById("fNcn").classList.toggle("bad",!cnOk);
+      document.getElementById("fNcp").classList.toggle("bad",!cpOk);
+      document.getElementById("fNce").classList.toggle("bad",!ceOk);
+      if(!cnOk||!cpOk||!ceOk) ok=false;
+    }
+    if(!ok){ APP.toast(T("toast.invalid"),"danger"); return; }
+    if(isNewClient()){
+      var cn2=document.getElementById("ncn").value.trim(),cp2=document.getElementById("ncp").value.trim(),
+          ce2=document.getElementById("nce").value.trim();
+      cid=STORE.DB.clients.reduce(function(mx,x){return Math.max(mx,x.id)},0)+1;
+      STORE.DB.clients.push({id:cid,name:cn2,phone:cp2,email:ce2,web:"",desc:"",status:"active"});
+      STORE.audit("client.created","client "+cn2,"—","created with project "+newId+(ce2?" · email: "+ce2:""));
+    } else cid=+document.getElementById("pc").value;
+    var p={id:newId,name:n,client:cid,status:"active",createdBy:me.id,started:STORE.TODAY,
+      desc:document.getElementById("pd").value.trim(),depts:picked,links:refs,wa:null,waHistory:[],deliveries:[]};
+    STORE.DB.projects.unshift(p);
+    STORE.audit("project.created",newId+" · "+n,"—","client: "+STORE.client(cid).name+" · depts: "+picked.length);
+    /* notify members of every participating department (demo feeds: employee + TL) */
+    ["employee","tl"].forEach(function(r){
+      var u=STORE.user(STORE.ROLE_USER[r]);
+      if(u.dept&&picked.indexOf(u.dept)>-1)
+        STORE.notify(r,"projects","Your department joined a new project — "+n,
+          newId+" · "+STORE.dept(u.dept).name+" participates"+(wa?" · WhatsApp invitation on its way":""),
+          "project-details.html?id="+newId);
+    });
+    if(wa) STORE.waSet(p,wa,n+" — Team"); /* generates invite deliveries + WhatsApp-invite notifications */
+    STORE.save(); APP.toast(T("toast.created"),"success");
+    setTimeout(function(){ location.href=APP.withP("project-details.html?id="+newId); },500);
+  });
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Assign Task</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="tasks">
+<main class="page" data-live>
+  <div class="page-head"><div><div class="small muted mono" id="tId"></div>
+    <h1 data-i18n="task.assign">Assign</h1><p class="muted small" id="tTitle"></p></div>
+    <a class="btn btn-outline" id="backLink" href="#" data-i18n="common.back">Back</a></div>
+  <div class="grid-2" style="align-items:start">
+    <div class="card"><div class="card-head"><h2 data-i18n="common.assignee">Assignee</h2></div>
+      <div class="card-body" id="people"></div></div>
+    <div class="card"><div class="card-head"><h2 data-i18n="common.date">Dates</h2></div>
+      <div class="card-body"><form id="f">
+        <div class="form-row">
+          <div class="field"><label data-i18n="common.start">Start</label><input type="date" id="ds"></div>
+          <div class="field"><label data-i18n="common.end">Due</label><input type="date" id="de"></div>
+        </div>
+        <p class="small muted">⏰ Deadline is always <b>23:59 Africa/Cairo</b> on the due date.</p>
+        <div id="selfNote" class="alert" style="display:none;background:var(--color-warning-soft);border:1px solid var(--color-warning-border);border-radius:10px;padding:9px 11px;margin-bottom:12px"></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" data-i18n="common.confirm">Confirm</button>
+      </form></div></div>
+  </div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,id=APP.params.get("id"),t=STORE.task(id);
+  if(!t){ location.replace(APP.withP("404.html")); return; }
+  var s=STORE.cur(t),me=STORE.me(),role=APPG.session().role;
+  if(t.life!=="active"||s.w!=="waiting"){ location.replace(APP.withP("task-details.html?id="+t.id)); return; }
+  document.getElementById("tId").textContent=t.id+" · "+STORE.dept(s.dept).name;
+  document.getElementById("tTitle").textContent=t.title;
+  document.getElementById("backLink").setAttribute("href",APP.withP("task-details.html?id="+t.id));
+  document.getElementById("ds").value=STORE.TODAY;
+  var selfNote=document.getElementById("selfNote"); selfNote.textContent="⚠ "+T("task.selfnote");
+  function workload(uid){
+    return STORE.DB.tasks.filter(function(x){var c=STORE.cur(x);return x.life==="active"&&c.assignee===uid&&c.w!=="approved"}).length;
+  }
+  var picked=null;
+  var emps=STORE.deptEmployees(s.dept).filter(function(u){return u.status==="active"});
+  var tl=STORE.effectiveTL(s.dept);
+  var h=emps.map(function(u){
+    var wl=workload(u.id);
+    return '<label class="radio-card" data-u="'+u.id+'">'+APP.avatar(u,1)+
+     "<div style='flex:1'><b>"+u.name+"</b><div class='small muted'>"+wl+" active step"+(wl===1?"":"s")+(u.ver?"":" · ✉ unverified")+"</div></div>"+
+     '<span class="badge '+(wl>=3?"b-changes":"b-neutral")+'">'+wl+"</span></label>";
+  }).join("");
+  if(tl&&(role==="tl"?tl.id===me.id:true))
+    h+='<label class="radio-card" data-u="'+tl.id+'" data-self="1">'+APP.avatar(tl,1)+
+     "<div style='flex:1'><b>"+tl.name+" · "+T("task.selfassign")+"</b><div class='small muted'>"+T("task.selfnote")+"</div></div></label>";
+  var box=document.getElementById("people");
+  box.innerHTML=h||'<span class="muted">'+T("common.empty")+"</span>";
+  box.addEventListener("click",function(e){
+    var c=e.target.closest(".radio-card"); if(!c) return;
+    box.querySelectorAll(".sel").forEach(function(x){x.classList.remove("sel")});
+    c.classList.add("sel"); picked=+c.dataset.u;
+    selfNote.style.display=c.dataset.self?"block":"none";
+  });
+  document.getElementById("f").addEventListener("submit",function(e){
+    e.preventDefault();
+    var ds=document.getElementById("ds").value,de=document.getElementById("de").value;
+    if(!picked){ APP.toast(T("toast.invalid"),"danger"); return; }
+    if(!ds||!de||de<ds){ APP.toast(T("toast.invalid"),"danger"); return; }
+    STORE.assignStep(t,picked,ds,de);
+    APP.toast(T("toast.assigned"),"success");
+    setTimeout(function(){ location.href=APP.withP("task-details.html?id="+t.id); },500);
+  });
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

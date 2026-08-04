@@ -1,0 +1,56 @@
+/* Native cross-document continuity. It never replaces Laravel/browser routing. */
+@view-transition {
+  navigation: auto;
+}
+
+.sidebar { view-transition-name: agencyos-sidebar; }
+.topbar { view-transition-name: agencyos-topbar; }
+main.page { view-transition-name: agencyos-page; }
+
+::view-transition-old(root) {
+  animation: agencyos-root-out 90ms ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: agencyos-root-in 150ms ease-out both;
+}
+
+::view-transition-old(agencyos-sidebar),
+::view-transition-new(agencyos-sidebar),
+::view-transition-old(agencyos-topbar),
+::view-transition-new(agencyos-topbar) {
+  animation: none;
+}
+
+::view-transition-old(agencyos-page) {
+  animation: agencyos-page-out 75ms ease-in both;
+}
+
+::view-transition-new(agencyos-page) {
+  animation: agencyos-page-in 145ms ease-out both;
+}
+
+@keyframes agencyos-root-out {
+  to { opacity: .985; }
+}
+
+@keyframes agencyos-root-in {
+  from { opacity: .985; }
+}
+
+@keyframes agencyos-page-out {
+  to { opacity: .96; transform: translateY(-1px); }
+}
+
+@keyframes agencyos-page-in {
+  from { opacity: .96; transform: translateY(2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-old(agencyos-page),
+  ::view-transition-new(agencyos-page) {
+    animation: none;
+  }
+}

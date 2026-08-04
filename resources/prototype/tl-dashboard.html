@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Team Leader dashboard — Agency OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-role="tl" data-page="dashboard">
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1>Marketing — Team Leader</h1>
+      <div class="page-sub">Sara Mostafa · 6 team members · Saturday 25 Jul 2026</div>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-primary" data-keep-lang href="task-create.html">+ New task</a>
+    </div>
+  </div>
+
+  <div class="grid grid-4" style="margin-bottom:18px">
+    <div class="card kpi k-accent"><span class="k-label">Waiting assignment</span><span class="k-value">2</span><span class="k-delta muted">arrived to Marketing</span></div>
+    <div class="card kpi k-info"><span class="k-label">In progress</span><span class="k-value">7</span><span class="k-delta muted">across the team</span></div>
+    <div class="card kpi"><span class="k-label">Awaiting my review</span><span class="k-value">3</span><span class="k-delta k-up">1 urgent</span></div>
+    <div class="card kpi k-danger"><span class="k-label">Overdue</span><span class="k-value">1</span><span class="k-delta muted">Omar Farid · 2 days</span></div>
+  </div>
+
+  <div class="grid grid-main">
+    <div class="stack">
+      <!-- Waiting assignment queue -->
+      <div class="card">
+        <div class="card-head"><h2>Waiting assignment</h2>
+          <div class="page-actions"><span class="badge b-waiting"><span class="bdot"></span>2 tasks</span></div></div>
+        <div class="list">
+          <div class="list-item">
+            <span class="badge p-high">High</span>
+            <div class="li-main">
+              <div class="li-title">Influencer brief — Lotus summer collection</div>
+              <div class="li-sub mono">TSK-2026-00340 · from Manager · project: Lotus Summer Collection</div>
+            </div>
+            <div class="li-end"><a class="btn btn-sm btn-primary" data-keep-lang href="task-assign.html">Assign</a></div>
+          </div>
+          <div class="list-item">
+            <span class="badge p-medium">Medium</span>
+            <div class="li-main">
+              <div class="li-title">Competitor pricing snapshot — Q3</div>
+              <div class="li-sub mono">TSK-2026-00343 · from Content (Ahmed Hassan) · standalone task</div>
+            </div>
+            <div class="li-end"><a class="btn btn-sm btn-primary" data-keep-lang href="task-assign.html">Assign</a></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Review queue -->
+      <div class="card">
+        <div class="card-head"><h2>Submissions awaiting review</h2>
+          <div class="page-actions"><a class="small" data-keep-lang href="tl-review.html">Open review queue →</a></div></div>
+        <div class="table-wrap" style="border:0;border-radius:0">
+          <table>
+            <thead><tr><th>Task</th><th data-i18n="common.assignee">Assignee</th><th>👁 First seen</th><th>Submitted</th><th>Outputs</th><th></th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="cell-main">Ramadan social calendar — week 2</div><div class="cell-sub mono">TSK-2026-00331 · <span class="badge p-urgent">Urgent</span></div></td>
+                <td><span class="inline"><span class="avatar sm">MA</span>Mohamed Ali</span></td>
+                <td class="nowrap small">21 Jul 09:14</td>
+                <td class="nowrap">2 h ago</td><td>2 links</td>
+                <td><a class="btn btn-sm btn-primary" data-keep-lang href="tl-review.html">Review</a></td>
+              </tr>
+              <tr>
+                <td><div class="cell-main">Audience segments — Falcon X</div><div class="cell-sub mono">TSK-2026-00329</div></td>
+                <td><span class="inline"><span class="avatar sm">SN</span>Salma Nagy</span></td>
+                <td class="nowrap small">19 Jul 10:02</td>
+                <td class="nowrap">Yesterday</td><td>1 link</td>
+                <td><a class="btn btn-sm btn-outline" data-keep-lang href="tl-review.html">Review</a></td>
+              </tr>
+              <tr>
+                <td><div class="cell-main">Q3 media budget draft</div><div class="cell-sub mono">TSK-2026-00325</div></td>
+                <td><span class="inline"><span class="avatar sm">RF</span>Rania Fouad</span></td>
+                <td class="nowrap small">18 Jul 16:45</td>
+                <td class="nowrap">Yesterday</td><td>3 links</td>
+                <td><a class="btn btn-sm btn-outline" data-keep-lang href="tl-review.html">Review</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Team board with first-view tracking -->
+      <div class="card">
+        <div class="card-head"><h2>Department tasks by employee</h2>
+          <div class="page-actions"><span class="tag" title="Recorded automatically at the employee's first open — visible to you only">👁 first-view tracking</span></div></div>
+        <div class="list">
+          <div class="list-item">
+            <span class="avatar">MA</span>
+            <div class="li-main"><div class="li-title">Mohamed Ali</div>
+              <div class="li-sub">TSK-2026-00331 · assigned 21 Jul 08:50 → <b>👁 seen 21 Jul 09:14</b> (24 min later)</div></div>
+            <div class="li-end"><span class="badge b-review"><span class="bdot"></span>Under review</span></div>
+          </div>
+          <div class="list-item" style="background:var(--color-warning-soft)">
+            <span class="avatar">MA</span>
+            <div class="li-main"><div class="li-title">Mohamed Ali</div>
+              <div class="li-sub">TSK-2026-00320 · assigned 23 Jul 15:30 → <b style="color:#B45309">👁 not opened yet — 2 days</b></div></div>
+            <div class="li-end"><span class="badge b-changes"><span class="bdot"></span>Unseen</span><a class="btn btn-sm btn-ghost" data-keep-lang href="chat.html">Nudge</a></div>
+          </div>
+          <div class="list-item">
+            <span class="avatar">OF</span>
+            <div class="li-main"><div class="li-title">Omar Farid</div>
+              <div class="li-sub">TSK-2026-00318 · 👁 seen 20 Jul 11:03 · overdue 2 days</div></div>
+            <div class="li-end"><span class="badge b-overdue"><span class="bdot"></span>Overdue</span></div>
+          </div>
+          <div class="list-item">
+            <span class="avatar">SN</span>
+            <div class="li-main"><div class="li-title">Salma Nagy</div>
+              <div class="li-sub">TSK-2026-00329 · 👁 seen 19 Jul 10:02 · submitted, next due 28 Jul</div></div>
+            <div class="li-end"><span class="badge b-review"><span class="bdot"></span>Under review</span></div>
+          </div>
+          <div class="list-item">
+            <span class="avatar">RF</span>
+            <div class="li-main"><div class="li-title">Rania Fouad</div>
+              <div class="li-sub">TSK-2026-00325 · 👁 seen 18 Jul 16:45 · 1 more starts Monday</div></div>
+            <div class="li-end"><span class="badge b-waiting"><span class="bdot"></span>Idle soon</span></div>
+          </div>
+        </div>
+        <div class="card-foot small muted">
+          👁 First-view time is recorded automatically the moment the assignee opens the task, and is shown to the department TL (and Manager) only. Employees never see when you read their work.
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <!-- My tasks (self-assigned) -->
+      <div class="card">
+        <div class="card-head"><h2>My tasks</h2><div class="page-actions"><span class="tag">Manager reviews these</span></div></div>
+        <div class="list">
+          <div class="list-item">
+            <div class="li-main">
+              <div class="li-title">Media plan — Falcon X launch</div>
+              <div class="li-sub mono">TSK-2026-00334 · self-assigned · due 27 Jul</div>
+            </div>
+            <span class="badge b-review"><span class="bdot"></span>Under review</span>
+          </div>
+          <div class="list-item">
+            <div class="li-main">
+              <div class="li-title">Agency shortlist — outdoor ads</div>
+              <div class="li-sub mono">TSK-2026-00344 · self-assigned · due 30 Jul</div>
+            </div>
+            <span class="badge b-progress"><span class="bdot"></span>In progress</span>
+          </div>
+        </div>
+        <div class="card-foot">
+          <span class="small muted">Self-assigned steps are reviewed by the Manager — you cannot approve your own work.</span>
+        </div>
+      </div>
+
+      <!-- Month performance -->
+      <div class="card card-pad" style="display:flex;gap:18px;align-items:center">
+        <div class="donut" style="--p:91"><div>91%</div></div>
+        <div>
+          <h2 style="margin-bottom:4px">Marketing — July</h2>
+          <div class="small muted">21 of 23 due steps completed on time</div>
+          <div class="small" style="margin-top:6px"><span class="badge b-overdue"><span class="bdot"></span>2 late</span></div>
+        </div>
+      </div>
+
+      <!-- Deadlines -->
+      <div class="card">
+        <div class="card-head"><h2>Next deadlines</h2></div>
+        <div class="list">
+          <div class="list-item"><div class="li-main"><div class="li-title">Ramadan social calendar — week 2</div><div class="li-sub">Mohamed Ali</div></div><span class="badge b-changes"><span class="bdot"></span>Today 23:59</span></div>
+          <div class="list-item"><div class="li-main"><div class="li-title">Media plan — Falcon X</div><div class="li-sub">You</div></div><span class="badge b-neutral">27 Jul 23:59</span></div>
+          <div class="list-item"><div class="li-main"><div class="li-title">Audience segments — Falcon X</div><div class="li-sub">Salma Nagy</div></div><span class="badge b-neutral">28 Jul 23:59</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

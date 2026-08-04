@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — System Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="settings">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.settings">System Settings</h1>
+   <p class="muted small"><span class="badge b-neutral" data-i18n="common.demo">Demo Data</span></p></div></div>
+  <div class="grid-2" style="align-items:start">
+   <div class="card"><div class="card-head"><h2>Email delivery</h2></div><div class="card-body" id="mail"></div></div>
+   <div class="card"><div class="card-head"><h2>Workflow defaults</h2></div><div class="card-body">
+     <form id="f">
+      <div class="field"><label>Chat digest interval (hours)</label><input id="dg" type="number" min="1" max="12"></div>
+      <div class="field"><label>Timezone</label><input value="Africa/Cairo" disabled></div>
+      <div class="field"><label>Daily deadline time</label><input value="23:59 (fixed)" disabled></div>
+      <button class="btn btn-primary" data-i18n="common.save">Save</button>
+     </form></div></div>
+  </div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,st=STORE.DB.settings;
+  document.getElementById("mail").innerHTML=
+   '<div><div class="kv-row"><span>Sending domain</span><b class="mono">'+st.domain+"</b></div>"+
+   '<div class="kv-row"><span>SPF</span><span class="badge '+(st.spf?"b-approved":"b-cancel")+'">'+(st.spf?"Pass":"Fail")+"</span></div>"+
+   '<div class="kv-row"><span>DKIM</span><span class="badge '+(st.dkim?"b-approved":"b-cancel")+'">'+(st.dkim?"Pass":"Fail")+"</span></div>"+
+   '<div class="kv-row"><span>DMARC</span><span class="badge '+(st.dmarc?"b-approved":"b-cancel")+'">'+(st.dmarc?"Pass":"Fail")+"</span></div></div>"+
+   '<p class="small muted" style="margin-top:10px">Email failures never block the workflow — in-app notifications always deliver.</p>';
+  document.getElementById("dg").value=st.digest;
+  document.getElementById("f").addEventListener("submit",function(e){
+    e.preventDefault();
+    var v=Math.max(1,Math.min(12,+document.getElementById("dg").value||2));
+    STORE.audit("settings.updated","chat digest interval",st.digest+"h",v+"h");
+    st.digest=v; STORE.save(); APP.toast(T("toast.saved"),"success");
+  });
+};
+</script>
+</body>
+</html>

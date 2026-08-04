@@ -1,0 +1,157 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Jobs\SendChatDigestEmailJob;
+use App\Models\ChatDigestBatch;
+use App\Models\Department;
+use App\Models\Notification;
+use App\Models\User;
+use App\Services\ChatService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
+use Tests\Concerns\BuildsWorkflowScenarios;
+use Tests\TestCase;
+
+/** PHASE 8 — the 2-hour chat digest window and its sweep (BRD §11.1 / §14 / §22.18). */
+class ChatDigestTest extends TestCase
+{
+    use BuildsWorkflowScenarios;
+    use RefreshDatabase;
+
+    private Department $marketing;
+
+    private User $leader;
+
+    private User $employee;
+
+    private ChatService $chat;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seedRoles();
+
+        $this->marketing = $this->makeDepartment('Marketing');
+        $this->leader = $this->makeTeamLeader($this->marketing);
+        $this->employee = $this->makeEmployee($this->marketing);
+        $this->chat = app(ChatService::class);
+    }
+
+    public function test_a_message_opens_a_two_hour_batch_for_the_recipient(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+
+        $this->chat->sendMessage($conversation, $this->employee, 'Hello');
+
+        $batch = ChatDigestBatch::where('user_id', $this->leader->id)->firstOrFail();
+        $this->assertSame(1, $batch->message_count);
+        $this->assertSame('queued', $batch->status->value);
+        $this->assertTrue($batch->window_end->equalTo($batch->window_start->clone()->addHours(2)));
+    }
+
+    public function test_a_second_message_within_the_window_joins_the_same_batch(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+
+        $this->chat->sendMessage($conversation, $this->employee, 'First');
+        $this->chat->sendMessage($conversation, $this->employee, 'Second');
+
+        $this->assertSame(1, ChatDigestBatch::where('user_id', $this->leader->id)->count());
+        $batch = ChatDigestBatch::where('user_id', $this->leader->id)->firstOrFail();
+        $this->assertSame(2, $batch->message_count);
+        $this->assertSame(2, $batch->messages()->count());
+    }
+
+    public function test_the_sender_never_gets_a_digest_batch_for_their_own_message(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+
+        $this->chat->sendMessage($conversation, $this->employee, 'Hello');
+
+        $this->assertDatabaseMissing('chat_digest_batches', ['user_id' => $this->employee->id]);
+    }
+
+    public function test_the_sender_gets_an_in_app_notification_only_never_a_digest_row(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+
+        $this->chat->sendMessage($conversation, $this->employee, 'Hello');
+
+        $notification = Notification::where('user_id', $this->leader->id)->where('type', 'chat.message')->firstOrFail();
+        $this->assertDatabaseMissing('notification_deliveries', [
+            'notification_id' => $notification->id,
+            'channel' => 'email',
+        ]);
+    }
+
+    public function test_the_sweep_only_closes_batches_whose_window_has_passed(): void
+    {
+        Queue::fake();
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+        $this->chat->sendMessage($conversation, $this->employee, 'Hello');
+
+        $this->artisan('agencyos:chat-digests')->assertExitCode(0);
+
+        Queue::assertNothingPushed();
+    }
+
+    public function test_the_sweep_dispatches_a_due_batch(): void
+    {
+        Queue::fake();
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+        $this->chat->sendMessage($conversation, $this->employee, 'Hello');
+
+        ChatDigestBatch::where('user_id', $this->leader->id)->update(['window_start' => now()->subHours(3), 'window_end' => now()->subMinute()]);
+
+        $this->artisan('agencyos:chat-digests')->assertExitCode(0);
+
+        Queue::assertPushed(SendChatDigestEmailJob::class, fn ($job) => $job->batch->user_id === $this->leader->id);
+    }
+
+    public function test_a_successful_send_marks_the_batch_sent(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+        $this->chat->sendMessage($conversation, $this->employee, 'Hello');
+        $batch = ChatDigestBatch::where('user_id', $this->leader->id)->firstOrFail();
+        $batch->update(['window_start' => now()->subHours(3), 'window_end' => now()->subMinute()]);
+
+        $this->artisan('agencyos:chat-digests')->assertExitCode(0);
+
+        $this->assertSame('sent', $batch->fresh()->status->value);
+    }
+
+    /** Q28-style proof — a mail failure never crashes the sweep, and is recorded on the batch. */
+    public function test_a_mail_failure_marks_the_batch_failed_without_crashing_the_sweep(): void
+    {
+        Mail::shouldReceive('to')->andReturnUsing(function () {
+            return new class
+            {
+                public function send($mailable)
+                {
+                    throw new \RuntimeException('SMTP host unreachable');
+                }
+            };
+        });
+
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+        $this->chat->sendMessage($conversation, $this->employee, 'Hello');
+        $batch = ChatDigestBatch::where('user_id', $this->leader->id)->firstOrFail();
+        $batch->update(['window_start' => now()->subHours(3), 'window_end' => now()->subMinute()]);
+
+        $this->artisan('agencyos:chat-digests')->assertExitCode(0);
+
+        $this->assertSame('failed', $batch->fresh()->status->value);
+    }
+
+    public function test_a_failed_batch_is_redispatched_by_the_retry_sweep(): void
+    {
+        Queue::fake();
+        $batch = ChatDigestBatch::factory()->failed()->create(['user_id' => $this->leader->id]);
+
+        $this->artisan('agencyos:notification-retry-sweep')->assertExitCode(0);
+
+        Queue::assertPushed(SendChatDigestEmailJob::class, fn ($job) => $job->batch->is($batch));
+    }
+}

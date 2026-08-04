@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Tasks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="tasks">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 id="pTitle" data-i18n="nav.tasks">Tasks</h1>
+    <p class="muted small" id="pSub"></p></div>
+    <a class="btn btn-primary" id="newBtn" href="task-create.html">＋ <span data-i18n="task.new">New task</span></a></div>
+  <div class="filters card" style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <div class="seg" id="segW"></div>
+    <select id="fPrio" class="select"><option value="">Priority — all</option><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+    <select id="fDept" class="select"></select>
+    <select id="fDl" class="select"><option value="">Deadline — all</option><option value="overdue">Overdue</option><option value="duesoon">Near deadline</option><option value="ontime">On time</option><option value="paused">Paused</option></select>
+    <input id="fQ" type="search" class="select" style="min-width:180px" data-i18n-ph="common.search">
+  </div>
+  <div class="card"><div class="table-wrap"><table class="table" id="tb"></table></div>
+  <div class="card-body small muted" id="cnt" style="padding-top:0"></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,q=APP.params,role=APPG.session().role,me=STORE.me();
+  var VIEW=q.get("view"),Q0=q.get("q")||"";
+  document.getElementById("fQ").value=Q0;
+  if(role==="employee"||VIEW==="my") document.getElementById("pTitle").textContent=T("nav.mytasks");
+  if(role==="employee"){
+    document.getElementById("newBtn").style.display="none";
+    /* Automatic Seen — no button needed: opening My Tasks marks the employee's
+       currently assigned unseen tasks as seen (once; reloads never overwrite). */
+    STORE.firstSeeAll();
+  }
+  var deptSel=document.getElementById("fDept");
+  deptSel.innerHTML='<option value="">'+T("common.department")+" — "+T("common.all")+"</option>"+
+    STORE.DB.departments.map(function(d){return '<option value="'+d.id+'">'+d.name+"</option>"}).join("");
+  if(role!=="manager") deptSel.style.display="none";
+
+  function scope(){
+    return STORE.DB.tasks.filter(function(t){
+      var s=STORE.cur(t);
+      if(role==="manager") return true;
+      if(role==="tl"){
+        if(VIEW==="my") return s.assignee===me.id||t.createdBy===me.id;
+        return t.steps.some(function(x){return x.dept===me.dept})||t.createdBy===me.id;
+      }
+      return s.assignee===me.id;
+    });
+  }
+  function wOf(t){ return t.life==="done"?"done":t.life==="cancel"?"cancel":t.life==="hold"?"hold":t.life==="draft"?"draft":STORE.cur(t).w; }
+  var FW="";
+  function segRender(){
+    var base=scope(),counts={"":base.length};
+    ["waiting","progress","review","changes","hold","done"].forEach(function(k){
+      counts[k]=base.filter(function(t){return wOf(t)===k}).length;
+    });
+    var labels=[["",T("common.all")],["waiting",T("st.waiting")],["progress",T("st.progress")],["review",T("st.review")],["changes",T("st.changes")],["hold",T("st.hold")],["done",T("st.done")]];
+    document.getElementById("segW").innerHTML=labels.map(function(l){
+      return '<button class="'+(FW===l[0]?"on":"")+'" data-w="'+l[0]+'">'+l[1]+" · "+counts[l[0]]+"</button>";
+    }).join("");
+  }
+  function routeChip(t){
+    return '<span class="route-mini">'+t.steps.map(function(s,i){
+      var cls=s.w==="approved"?"done":(i===t.cur?"cur":"");
+      return '<span class="rn '+cls+'">'+STORE.dept(s.dept).name.slice(0,3)+"</span>";
+    }).join('<span class="rl"></span>')+"</span>";
+  }
+  function actions(t){
+    var s=STORE.cur(t),a="";
+    var isTL=role==="tl"&&s.dept===me.dept, isMgr=role==="manager";
+    if(t.life==="active"){
+      if(s.w==="waiting"&&isTL) a+='<a class="btn btn-sm btn-primary" href="task-assign.html?id='+t.id+'">'+T("task.assign")+"</a> ";
+      if((s.w==="progress"||s.w==="changes")&&s.assignee===me.id) a+='<a class="btn btn-sm btn-primary" href="task-execute.html?id='+t.id+'">'+T("common.open")+"</a> ";
+      if(s.w==="review"&&((isTL&&STORE.user(s.assignee).role!=="tl")||(isMgr&&STORE.user(s.assignee).role==="tl"))) a+='<a class="btn btn-sm btn-primary" href="tl-review.html?id='+t.id+'">'+T("task.approve")+"</a> ";
+    }
+    return a+'<a class="btn btn-sm btn-outline" href="task-details.html?id='+t.id+'">'+T("task.details")+"</a>";
+  }
+  function render(){
+    segRender();
+    var fp=document.getElementById("fPrio").value, fd=deptSel.value, fdl=document.getElementById("fDl").value,
+        qs=document.getElementById("fQ").value.trim().toLowerCase();
+    var list=scope().filter(function(t){
+      var s=STORE.cur(t);
+      if(FW&&wOf(t)!==FW) return false;
+      if(fp&&t.prio!==fp) return false;
+      if(fd&&s.dept!==+fd) return false;
+      if(fdl&&STORE.dl(s,t)!==fdl) return false;
+      if(qs&&(t.id+" "+t.title+" "+(t.project||"")).toLowerCase().indexOf(qs)===-1) return false;
+      return true;
+    });
+    var h="<thead><tr><th>"+T("common.title")+"</th><th>"+T("task.route")+"</th><th>"+T("common.assignee")+"</th><th>"+T("common.status")+"</th><th>"+T("common.due")+"</th><th></th></tr></thead><tbody>";
+    if(!list.length) h+='<tr><td colspan="6" style="text-align:center;padding:34px" class="muted">'+T("common.empty")+"</td></tr>";
+    list.forEach(function(t){
+      var s=STORE.cur(t),w=wOf(t),d=STORE.dl(s,t);
+      /* seen-state visible to TL / Manager only, for steps where an assignee is working */
+      var seen="";
+      if((role==="tl"||role==="manager")&&s.assignee&&t.life!=="done"&&t.life!=="cancel"&&s.w!=="waiting"){
+        seen=s.firstSeen
+          ?'<div style="margin-top:4px"><span class="seen-badge seen-yes">👁 Seen · '+s.firstSeen.slice(5)+"</span></div>"
+          :'<div style="margin-top:4px"><span class="seen-badge seen-no">◌ Not seen yet</span></div>';
+      }
+      h+="<tr><td><a href='"+APP.withP("task-details.html?id="+t.id)+"' style='font-weight:700;color:inherit'>"+APP.esc(t.title)+"</a>"+
+        "<div class='small muted mono'>"+t.id+(t.project?" · "+t.project:"")+" · "+APP.prio(t.prio)+"</div></td>"+
+        "<td>"+routeChip(t)+"</td>"+
+        "<td>"+(s.assignee?APP.userInline(s.assignee):'<span class="muted">—</span>')+seen+"</td>"+
+        "<td>"+APP.badge(w)+"<div style='margin-top:4px'>"+APP.dlBadge(d)+"</div></td>"+
+        "<td class='mono small'>"+STORE.fmtDue(s)+"</td>"+
+        "<td style='text-align:end;white-space:nowrap'>"+actions(t)+"</td></tr>";
+    });
+    document.getElementById("tb").innerHTML=h+"</tbody>";
+    document.getElementById("cnt").textContent=list.length+" / "+scope().length;
+  }
+  document.getElementById("segW").addEventListener("click",function(e){
+    var b=e.target.closest("[data-w]"); if(!b) return; FW=b.dataset.w; render();
+  });
+  ["fPrio","fDept","fDl"].forEach(function(id){document.getElementById(id).addEventListener("change",render);});
+  document.getElementById("fQ").addEventListener("input",render);
+  render();
+};
+</script>
+</body>
+</html>

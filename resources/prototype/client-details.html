@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Client</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="clients">
+<main class="page" data-live>
+  <div class="page-head"><div><div class="small muted" data-i18n="common.client">Client</div>
+    <h1 id="cName" style="margin:2px 0"></h1></div>
+    <a class="btn btn-outline" href="clients.html" data-i18n="common.back">Back</a></div>
+  <div class="grid-2" style="align-items:start">
+    <div class="card"><div class="card-body" id="info"></div></div>
+    <div class="card"><div class="card-head"><h2 data-i18n="nav.projects">Projects</h2></div>
+      <div class="card-body" id="projs"></div></div>
+  </div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,c=STORE.client(+APP.params.get("id"));
+  if(!c.id&&c.name==="—"){ location.replace(APP.withP("404.html")); return; }
+  document.getElementById("cName").textContent=c.name;
+  document.getElementById("info").innerHTML='<div>'+
+   '<div class="kv-row"><span>'+T("common.phone")+'</span><b class="mono">'+c.phone+"</b></div>"+
+   '<div class="kv-row"><span>'+T("common.email")+'</span><b class="mono">'+(c.email||"—")+"</b></div>"+
+   '<div class="kv-row"><span>Website</span><b class="mono">'+(c.web||"—")+"</b></div>"+
+   '<div class="kv-row"><span>'+T("common.notes")+"</span><b>"+APP.esc(c.desc||"—")+"</b></div>"+
+   '<div class="kv-row"><span>'+T("common.status")+"</span>"+(c.status==="active"?'<span class="badge b-approved">Active</span>':'<span class="badge b-neutral">Inactive</span>')+"</div></div>";
+  var ps=STORE.DB.projects.filter(function(p){return p.client===c.id});
+  var PB={active:"b-progress",done:"b-approved",cancel:"b-cancel"};
+  document.getElementById("projs").innerHTML=ps.map(function(p){
+    return '<div class="kv-row"><span><a href="'+APP.withP("project-details.html?id="+p.id)+'"><b>'+APP.esc(p.name)+'</b></a><div class="small muted mono">'+p.id+"</div></span>"+
+     '<span class="badge '+(PB[p.status]||"b-neutral")+'">'+T(p.status==="active"?"st.progress":p.status==="done"?"st.done":"st.cancel")+"</span></div>";
+  }).join("")||'<span class="muted small">'+T("common.empty")+"</span>";
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

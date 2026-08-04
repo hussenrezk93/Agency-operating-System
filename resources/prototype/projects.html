@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Projects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="projects">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.projects">Projects</h1>
+    <p class="muted small">One client per project · departments must be participants before receiving project tasks.</p></div>
+    <a class="btn btn-primary" href="project-create.html">＋ <span data-i18n="prj.new">New project</span></a></div>
+  <div class="filters card" style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <div class="seg" id="segS"><button class="on" data-s="">All</button><button data-s="active">Active</button><button data-s="done">Completed</button><button data-s="cancel">Cancelled</button></div>
+    <input id="fQ" type="search" class="select" style="min-width:180px" data-i18n-ph="common.search">
+  </div>
+  <div class="grid-2" id="cards" style="align-items:stretch"></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,FS="",role=APPG.session().role,me=STORE.me();
+  if(role==="employee"){
+    var nb=document.querySelector('a.btn.btn-primary'); if(nb) nb.style.display="none";
+    var sub=document.querySelector(".page-head .muted");
+    if(sub) sub.textContent="Projects your department participates in — you receive the WhatsApp invitation and project notifications automatically.";
+  }
+  var PB={active:["b-progress",T("st.progress")],done:["b-approved",T("st.done")],cancel:["b-cancel",T("st.cancel")]};
+  function render(){
+    var q=document.getElementById("fQ").value.trim().toLowerCase();
+    var list=STORE.DB.projects.filter(function(p){
+      if(role==="employee"&&p.depts.indexOf(me.dept)===-1) return false;
+      if(FS&&p.status!==FS) return false;
+      if(q&&(p.name+" "+p.id+" "+STORE.client(p.client).name).toLowerCase().indexOf(q)===-1) return false;
+      return true;
+    });
+    document.getElementById("cards").innerHTML=list.map(function(p){
+      var ts=STORE.DB.tasks.filter(function(t){return t.project===p.id});
+      var done=ts.filter(function(t){return t.life==="done"}).length;
+      var pct=ts.length?Math.round(done/ts.length*100):0;
+      var cl=STORE.client(p.client);
+      return '<a class="card pcard'+(p.status==="active"?"":" dim")+'" href="'+APP.withP("project-details.html?id="+p.id)+'">'+
+       '<div class="pc-body">'+
+       '<div class="pc-top"><span class="client-bub">'+STORE.initials(cl.name)+'</span>'+
+       '<div style="flex:1;min-width:0"><div class="pc-title">'+APP.esc(p.name)+"</div>"+
+       '<div class="pc-sub mono">'+p.id+" · "+APP.esc(cl.name)+"</div></div>"+
+       '<span class="badge '+PB[p.status][0]+'"><span class="bdot"></span>'+PB[p.status][1]+"</span></div>"+
+       '<div class="route-mini" style="margin:12px 0 10px">'+p.depts.map(function(d){return '<span class="rn">'+STORE.dept(d).name.slice(0,3)+"</span>"}).join('<span class="rl"></span>')+"</div>"+
+       '<div class="pbar"><i style="width:'+pct+'%"></i></div>'+
+       '<div class="small muted" style="display:flex;justify-content:space-between"><span>'+T("nav.tasks")+"</span><b>"+done+" / "+ts.length+" · "+pct+"%</b></div>"+
+       "</div>"+
+       '<div class="pc-foot"><span>💬 '+T("wa.title")+"</span>"+
+       (p.wa?'<span class="wa-pill">● v'+p.wa.version+" active</span>":'<span class="wa-pill off">—</span>')+"</div></a>";
+    }).join("")||'<div class="card"><div class="card-body muted" style="text-align:center;padding:40px">📁 '+T("common.empty")+"</div></div>";
+  }
+  document.getElementById("segS").addEventListener("click",function(e){
+    var b=e.target.closest("[data-s]"); if(!b) return;
+    this.querySelectorAll(".on").forEach(function(x){x.classList.remove("on")}); b.classList.add("on");
+    FS=b.dataset.s; render();
+  });
+  document.getElementById("fQ").addEventListener("input",render);
+  render();
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

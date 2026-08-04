@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — UI/UX Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-shell="none">
+<div class="auth">
+  <div style="max-width:920px;width:100%">
+    <div class="auth-brand">
+      <div class="brand-mark">S</div>
+      <div>
+        <div class="brand-name" style="font-size:26px">Agency<b>OS</b></div>
+        <div class="muted">Workflow &amp; Task Management — Interactive Frontend Demo (BRD v1.1 · ERD v1.2)</div>
+      </div>
+    </div>
+
+    <div class="alert alert-brand" style="margin-bottom:18px">
+      <div><b>Interactive frontend demo for management.</b> No backend yet — everything runs in the browser with
+      realistic demo data saved in LocalStorage. <b>Sign in to start:</b> username <span class="mono">manager</span>
+      (or <span class="mono">admin</span> / <span class="mono">tl</span> / <span class="mono">employee</span>),
+      password <span class="mono">Demo123!</span>. Use the black <b>Demo Role Switcher</b> (bottom corner) to jump
+      roles and screens, and <b>EN / عربي</b> to flip language and direction. Full walkthrough in README.md.</div>
+    </div>
+
+    <div class="grid grid-2">
+      <a class="card card-pad" data-keep-lang href="/login" style="display:block">
+        <h2 style="color:var(--color-primary-text)">1 · Login page</h2>
+        <p class="muted small">Username + password, no self-registration, AR/EN toggle.</p>
+      </a>
+      <a class="card card-pad" data-keep-lang href="manager-dashboard.html" style="display:block">
+        <h2 style="color:var(--color-primary-text)">2 · Manager view</h2>
+        <p class="muted small">Full operational control: KPIs, needs-attention queue, departments, temp TLs.</p>
+      </a>
+      <a class="card card-pad" data-keep-lang href="tl-dashboard.html" style="display:block">
+        <h2 style="color:var(--color-primary-text)">3 · Team Leader view</h2>
+        <p class="muted small">Waiting-assignment queue, review queue, My Tasks, first-seen tracking.</p>
+      </a>
+      <a class="card card-pad" data-keep-lang href="employee-dashboard.html" style="display:block">
+        <h2 style="color:var(--color-primary-text)">4 · Employee view</h2>
+        <p class="muted small">Assigned work, current-month score, due-soon reminders.</p>
+      </a>
+      <a class="card card-pad" data-keep-lang href="admin-dashboard.html" style="display:block">
+        <h2 style="color:var(--color-primary-text)">5 · Admin view</h2>
+        <p class="muted small">Configuration only: routing rules, output access, managers, audit — no task content.</p>
+      </a>
+      <a class="card card-pad" data-keep-lang href="task-details.html?id=TSK-2026-00341" style="display:block">
+        <h2 style="color:var(--color-primary-text)">6 · Task workflow</h2>
+        <p class="muted small">The signature route rail: department hand-offs, timeline, outputs, review.</p>
+      </a>
+    </div>
+
+    <p class="small muted" style="text-align:center;margin-top:18px">
+      Agency OS internal · Confidential · Africa/Cairo · Orange <span class="mono">#F97316</span> on white, tokens centralized in <span class="mono">assets/agencyos.css</span>
+    </p>
+  </div>
+</div>
+</body>
+</html>

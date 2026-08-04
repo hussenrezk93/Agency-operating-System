@@ -1,0 +1,7 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Agency OS</title>
+<script>
+/* This flow is implemented as inline actions on Project details — documented in ROUTES.md */
+var q=location.search?location.search.substring(1)+"&":"";
+location.replace("projects.html"+(("projects.html".indexOf("?")>-1)?"&":"?")+q.replace(/&$/,""));
+</script><script defer src="assets/locale-patch.js"></script>
+</head><body></body></html>

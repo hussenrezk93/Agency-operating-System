@@ -1,0 +1,7 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Agency OS</title>
+<script>
+/* This flow is implemented as the Users page in Managers mode — documented in ROUTES.md */
+var q=location.search?location.search.substring(1)+"&":"";
+location.replace("users.html?mode=managers"+(("users.html?mode=managers".indexOf("?")>-1)?"&":"?")+q.replace(/&$/,""));
+</script><script defer src="assets/locale-patch.js"></script>
+</head><body></body></html>

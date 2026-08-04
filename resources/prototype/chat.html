@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="chat">
+<main class="page chatpage" data-live style="padding-bottom:0">
+  <div class="page-head"><div><h1 data-i18n="nav.chat">Chat</h1>
+    <p class="muted small">Text & links only · no editing · delete removes for everyone · Admin never sees chat content.</p></div></div>
+  <div id="adminBox" style="display:none" class="card"><div class="card-body muted" style="text-align:center;padding:40px">
+    🔒 Chat content is not accessible to the Admin role — only chat <b>events</b> appear in the Audit Log.</div></div>
+  <div class="card chatwrap" id="wrap" style="display:grid;grid-template-columns:290px 1fr;min-height:520px;overflow:hidden">
+    <div id="convCol" style="border-inline-end:1px solid var(--color-border);display:flex;flex-direction:column">
+      <div style="padding:10px"><input id="cq" type="search" class="select" style="width:100%" data-i18n-ph="common.search"></div>
+      <div id="convs" style="overflow:auto;flex:1"></div>
+    </div>
+    <div id="msgCol" style="display:flex;flex-direction:column">
+      <div id="chatHead" style="padding:12px 16px;border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:10px">
+        <button class="btn btn-sm btn-outline" id="backBtn" style="display:none">←</button>
+        <b id="chatTitle" class="muted">—</b></div>
+      <div id="msgs" style="flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--color-surface)"></div>
+      <form id="sendF" style="display:flex;gap:8px;padding:12px;border-top:1px solid var(--color-border)">
+        <input id="mi" style="flex:1" data-i18n-ph="chat.placeholder">
+        <button class="btn btn-primary" data-i18n="chat.send">Send</button></form>
+    </div>
+  </div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,role=APPG.session().role,me=STORE.me();
+  if(role==="admin"){ document.getElementById("adminBox").style.display="block";
+    document.getElementById("wrap").style.display="none"; return; }
+  var TYPES={employee_tl:"Employee ↔ TL",department_group:"Department group",direct_tl:"TL ↔ TL",all_tls:"All TLs",manager_tls:"Manager + TLs"};
+  function myConvs(){ return STORE.DB.conversations.filter(function(c){return c.members.indexOf(me.id)>-1}); }
+  var CUR=null;
+  function renderConvs(){
+    var q=(document.getElementById("cq").value||"").trim().toLowerCase();
+    document.getElementById("convs").innerHTML=myConvs().filter(function(c){
+      return !q||c.title.toLowerCase().indexOf(q)>-1;
+    }).map(function(c){
+      var last=c.msgs[c.msgs.length-1];
+      var prev=last?(last.deleted?T("chat.deleted"):(last.text||last.link||"")):"";
+      return '<div class="convrow" data-c="'+c.id+'" style="display:flex;gap:10px;padding:11px 12px;cursor:pointer;border-bottom:1px solid var(--color-border);'+(CUR&&CUR.id===c.id?"background:var(--color-primary-soft)":"")+'">'+
+       '<span class="avatar sm">'+(c.type==="department_group"?"👥":c.type==="all_tls"?"⭐":c.type==="manager_tls"?"🧭":STORE.initials(c.title))+"</span>"+
+       '<div style="flex:1;min-width:0"><b style="font-size:13.5px">'+APP.esc(c.title)+'</b>'+
+       '<div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+APP.esc(prev)+"</div>"+
+       '<div class="small muted">'+TYPES[c.type]+"</div></div></div>";
+    }).join("")||'<div class="muted small" style="padding:20px;text-align:center">'+T("common.empty")+"</div>";
+  }
+  function renderMsgs(){
+    var box=document.getElementById("msgs");
+    if(!CUR){ box.innerHTML='<div class="muted" style="margin:auto;text-align:center">💬<br>'+T("common.empty")+"</div>"; return; }
+    document.getElementById("chatTitle").textContent=CUR.title;
+    box.innerHTML=CUR.msgs.map(function(m){
+      var mine=m.by===me.id,u=STORE.user(m.by);
+      if(m.deleted) return '<div class="chat-msg" style="align-self:'+(mine?"flex-end":"flex-start")+';max-width:75%">'+
+        '<div style="border:1.5px dashed var(--color-border);border-radius:12px;padding:8px 12px;color:var(--color-text-muted);font-style:italic;font-size:13px">🚫 '+T("chat.deleted")+"</div>"+
+        '<div class="small muted" style="margin-top:2px">'+u.name+" · "+m.at.slice(11)+"</div></div>";
+      var body=APP.esc(m.text||"");
+      if(m.link) body+=(body?"<br>":"")+'<a href="'+m.link+'" target="_blank" rel="noopener" style="'+(mine?"color:#fff;text-decoration:underline":"")+'">🔗 '+m.link+"</a>";
+      return '<div class="chat-msg" style="align-self:'+(mine?"flex-end":"flex-start")+';max-width:75%">'+
+       '<div style="background:'+(mine?"var(--color-primary)":"#fff")+';color:'+(mine?"#fff":"inherit")+';border:1px solid '+(mine?"var(--color-primary)":"var(--color-border)")+';border-radius:12px;padding:8px 12px;font-size:13.5px">'+body+"</div>"+
+       '<div class="small muted" style="margin-top:2px;text-align:'+(mine?"end":"start")+'">'+u.name+" · "+m.at.slice(11)+
+       (mine?' <span class="del" data-d="'+m.id+'">✕ '+T("common.delete")+"</span>":"")+"</div></div>";
+    }).join("");
+    box.scrollTop=box.scrollHeight;
+  }
+  function open(c){ CUR=c; renderConvs(); renderMsgs();
+    if(window.innerWidth<760){ document.getElementById("convCol").style.display="none";
+      document.getElementById("backBtn").style.display="inline-flex"; } }
+  document.getElementById("convs").addEventListener("click",function(e){
+    var r=e.target.closest("[data-c]"); if(!r) return;
+    open(STORE.DB.conversations.find(function(c){return c.id===+r.dataset.c}));
+  });
+  document.getElementById("backBtn").addEventListener("click",function(){
+    document.getElementById("convCol").style.display="flex"; this.style.display="none";
+  });
+  document.getElementById("cq").addEventListener("input",renderConvs);
+  document.getElementById("sendF").addEventListener("submit",function(e){
+    e.preventDefault();
+    if(!CUR){ APP.toast(T("toast.invalid"),"danger"); return; }
+    var v=document.getElementById("mi").value.trim(); if(!v) return;
+    var id=CUR.msgs.reduce(function(mx,m){return Math.max(mx,m.id)},0)+1;
+    var msg={id:id,by:me.id,at:STORE.now(),text:v};
+    if(/^https?:\/\/\S+$/.test(v)){ msg.text=""; msg.link=v; }
+    CUR.msgs.push(msg); STORE.save();
+    document.getElementById("mi").value=""; renderMsgs(); renderConvs();
+  });
+  document.getElementById("msgs").addEventListener("click",function(e){
+    var d=e.target.closest("[data-d]"); if(!d) return;
+    var m=CUR.msgs.find(function(x){return x.id===+d.dataset.d});
+    APP.confirm(T("chat.confirmdel"),function(){
+      m.deleted=true; m.text=""; m.link=null; /* content removed — never stored in audit */
+      STORE.audit("chat.message_deleted","conversation #"+CUR.id+" · msg #"+m.id,"—","deleted_for: all · content not stored");
+      STORE.save(); APP.toast(T("toast.deleted"),"success"); renderMsgs(); renderConvs();
+    },true);
+  });
+  renderConvs(); renderMsgs();
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+  document.querySelectorAll("[data-i18n-ph]").forEach(function(el){el.placeholder=T(el.dataset.i18nPh);});
+  if(window.innerWidth<760){ document.getElementById("wrap").style.gridTemplateColumns="1fr";
+    document.getElementById("msgCol").style.display="flex"; }
+};
+</script>
+</body>
+</html>

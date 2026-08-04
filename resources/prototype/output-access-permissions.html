@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Output Access</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="output">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.output">Output Access Permissions</h1>
+    <p class="muted small">Which department may view another department's outputs. <span class="badge b-neutral" data-i18n="common.demo">Demo Data</span></p></div>
+    <button class="btn btn-primary" id="add">＋ <span data-i18n="common.create">Create</span></button></div>
+  <div class="card"><div class="table-wrap"><table class="table" id="tb"></table></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t;
+  function render(){
+    var h="<thead><tr><th>Viewer</th><th>Source</th><th>Scope</th><th></th></tr></thead><tbody>";
+    STORE.DB.outputAccess.forEach(function(r,i){
+      h+="<tr><td><b>"+STORE.dept(r.viewer).name+"</b></td><td>"+STORE.dept(r.source).name+"</td>"+
+       '<td><span class="badge '+(r.scope==="all"?"b-progress":"b-approved")+'">'+(r.scope==="all"?"All outputs":"Final only")+"</span></td>"+
+       '<td style="text-align:end"><button class="btn btn-sm btn-outline" data-i="'+i+'" data-act="scope">⇄ scope</button> <button class="btn btn-sm btn-danger-outline" data-i="'+i+'" data-act="del">✕</button></td></tr>';
+    });
+    document.getElementById("tb").innerHTML=h+"</tbody>";
+  }
+  render();
+  document.getElementById("tb").addEventListener("click",function(e){
+    var b=e.target.closest("button[data-i]"); if(!b) return;
+    var r=STORE.DB.outputAccess[+b.dataset.i];
+    if(b.dataset.act==="scope"){ var o=r.scope; r.scope=o==="all"?"final":"all";
+      STORE.audit("output_access.updated",STORE.dept(r.viewer).name+" ← "+STORE.dept(r.source).name,"scope: "+o,"scope: "+r.scope);
+      STORE.save(); render(); APP.toast(T("toast.saved"),"success");
+    } else {
+      APP.confirm(T("common.delete")+"?",function(){
+        STORE.audit("output_access.removed",STORE.dept(r.viewer).name+" ← "+STORE.dept(r.source).name,"rule active","rule removed");
+        STORE.DB.outputAccess.splice(+b.dataset.i,1); STORE.save(); render(); APP.toast(T("toast.deleted"),"success");
+      },true);
+    }
+  });
+  document.getElementById("add").addEventListener("click",function(){
+    var opts=STORE.DB.departments.filter(function(d){return d.active}).map(function(d){return '<option value="'+d.id+'">'+d.name+"</option>"}).join("");
+    APP.modal({title:T("common.create"),body:
+     '<div class="field"><label>Viewer department</label><select id="v">'+opts+'</select></div>'+
+     '<div class="field"><label>Source department</label><select id="s">'+opts+'</select></div>'+
+     '<div class="field"><label>Scope</label><select id="sc"><option value="final">Final only</option><option value="all">All outputs</option></select></div>',
+     actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:T("common.create"),cls:"btn-primary",onclick:function(m){
+      var v=+m.querySelector("#v").value,s=+m.querySelector("#s").value,sc=m.querySelector("#sc").value;
+      if(v===s){ APP.toast(T("toast.invalid"),"danger"); return false; }
+      STORE.DB.outputAccess.push({viewer:v,source:s,scope:sc});
+      STORE.audit("output_access.created",STORE.dept(v).name+" ← "+STORE.dept(s).name,"—","scope: "+sc);
+      STORE.save(); render(); APP.toast(T("toast.created"),"success");
+     }}]});
+  });
+};
+</script>
+</body>
+</html>

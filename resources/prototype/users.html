@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Users</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="users">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 id="pTitle" data-i18n="nav.users">Users</h1><p class="muted small" id="pSub"></p></div>
+    <button class="btn btn-primary" id="add">＋ <span data-i18n="users.new">New user</span></button></div>
+  <div class="filters card" style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <select id="fRole" class="select"></select>
+    <select id="fDept" class="select"></select>
+    <div class="seg" id="segS">
+      <button class="on" data-s="">All</button><button data-s="active">Active</button>
+      <button data-s="on_leave">On leave</button><button data-s="disabled">Disabled</button></div>
+    <input id="fQ" type="search" class="select" style="min-width:170px" data-i18n-ph="common.search">
+  </div>
+  <div class="card"><div class="table-wrap"><table class="table" id="tb"></table></div>
+    <div class="card-body" id="pager" style="display:flex;gap:6px;align-items:center;padding-top:0"></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,role=APPG.session().role,mode=APP.params.get("mode");
+  var MGR=role==="admin"; /* admin manages managers; manager manages tl+employee */
+  if(MGR&&mode!=="managers"){ /* admin nav always uses mode=managers, but tolerate direct hits */ mode="managers"; }
+  if(mode==="managers") document.getElementById("pTitle").textContent=T("nav.managers");
+  document.getElementById("pSub").textContent=mode==="managers"
+    ? "Admin creates and manages Manager accounts. Operational accounts belong to the Manager."
+    : "Manager creates Team Leaders and Employees. No self-registration.";
+  var manageable=mode==="managers"?["manager"]:["tl","employee"];
+  function scope(){ return STORE.DB.users.filter(function(u){return manageable.indexOf(u.role)>-1}); }
+  var fR=document.getElementById("fRole"),fD=document.getElementById("fDept");
+  fR.innerHTML='<option value="">'+T("common.role")+" — "+T("common.all")+"</option>"+manageable.map(function(r){return '<option value="'+r+'">'+T("role."+r)+"</option>"}).join("");
+  if(mode==="managers") fR.style.display="none";
+  fD.innerHTML='<option value="">'+T("common.department")+" — "+T("common.all")+"</option>"+STORE.DB.departments.map(function(d){return '<option value="'+d.id+'">'+d.name+"</option>"}).join("");
+  if(mode==="managers") fD.style.display="none";
+  var FS="",PAGE=0,PS=8;
+  function stBadge(st){ return st==="active"?'<span class="badge b-approved"><span class="bdot"></span>Active</span>'
+    :st==="on_leave"?'<span class="badge b-hold"><span class="bdot"></span>On leave</span>'
+    :'<span class="badge b-cancel"><span class="bdot"></span>Disabled</span>'; }
+  function filtered(){
+    var q=document.getElementById("fQ").value.trim().toLowerCase();
+    return scope().filter(function(u){
+      if(fR.value&&u.role!==fR.value) return false;
+      if(fD.value&&u.dept!==+fD.value) return false;
+      if(FS&&u.status!==FS) return false;
+      if(q&&(u.name+" "+u.un+" "+u.email).toLowerCase().indexOf(q)===-1) return false;
+      return true;
+    });
+  }
+  function render(){
+    var list=filtered(),pages=Math.max(1,Math.ceil(list.length/PS));
+    if(PAGE>=pages) PAGE=pages-1;
+    var slice=list.slice(PAGE*PS,PAGE*PS+PS);
+    var h="<thead><tr><th>"+T("common.name")+"</th><th>"+T("common.role")+"</th><th>"+T("common.department")+"</th><th>"+T("common.email")+"</th><th>"+T("common.status")+"</th><th></th></tr></thead><tbody>";
+    if(!slice.length) h+='<tr><td colspan="6" class="muted" style="text-align:center;padding:30px">'+T("common.empty")+"</td></tr>";
+    slice.forEach(function(u){
+      h+="<tr><td>"+APP.userInline(u.id)+'<div class="small muted mono">@'+u.un+"</div></td>"+
+       "<td>"+T("role."+u.role)+"</td><td>"+(u.dept?STORE.dept(u.dept).name:"—")+"</td>"+
+       '<td><span class="mono small">'+u.email+"</span> "+(u.ver?'<span class="badge b-approved">✓</span>':'<span class="badge b-changes">✉ pending</span>')+"</td>"+
+       "<td>"+stBadge(u.status)+"</td>"+
+       '<td style="text-align:end;white-space:nowrap">'+
+       '<button class="btn btn-sm btn-outline" data-a="edit" data-u="'+u.id+'">'+T("common.edit")+"</button> "+
+       '<button class="btn btn-sm btn-outline" data-a="pw" data-u="'+u.id+'">🔑</button> '+
+       (!u.ver?'<button class="btn btn-sm btn-outline" data-a="rv" data-u="'+u.id+'">✉</button> ':"")+
+       (u.status!=="disabled"
+        ?'<button class="btn btn-sm btn-danger-outline" data-a="dis" data-u="'+u.id+'">'+T("users.disable")+"</button>"
+        :'<button class="btn btn-sm btn-outline" data-a="en" data-u="'+u.id+'">'+T("users.enable")+"</button>")+"</td></tr>";
+    });
+    document.getElementById("tb").innerHTML=h+"</tbody>";
+    var pg="";
+    for(var i=0;i<pages;i++) pg+='<button class="btn btn-sm '+(i===PAGE?"btn-primary":"btn-outline")+'" data-p="'+i+'">'+(i+1)+"</button>";
+    document.getElementById("pager").innerHTML='<span class="small muted">'+list.length+" users</span>"+pg;
+  }
+  function userModal(u){
+    var isNew=!u;
+    u=u||{name:"",un:"",role:manageable[0],dept:1,email:"",ver:false,status:"active"};
+    var roleOpts=manageable.map(function(r){return '<option value="'+r+'"'+(u.role===r?" selected":"")+'>'+T("role."+r)+"</option>"}).join("");
+    var deptOpts=STORE.DB.departments.filter(function(d){return d.active}).map(function(d){return '<option value="'+d.id+'"'+(u.dept===d.id?" selected":"")+'>'+d.name+"</option>"}).join("");
+    APP.modal({title:isNew?T("users.new"):T("common.edit")+" — "+u.name,body:
+     '<div class="form-row"><div class="field"><label>'+T("common.name")+'</label><input id="mn" value="'+APP.esc(u.name)+'"></div>'+
+     '<div class="field"><label>'+T("login.username")+'</label><input id="mu" value="'+APP.esc(u.un)+'"'+(isNew?"":" disabled")+"></div></div>"+
+     '<div class="form-row"><div class="field"><label>'+T("common.role")+'</label><select id="mr">'+roleOpts+"</select></div>"+
+     '<div class="field"><label>'+T("common.department")+'</label><select id="md">'+deptOpts+"</select></div></div>"+
+     '<div class="field"><label>'+T("common.email")+' <span class="small muted">(personal, verification required)</span></label><input id="me" type="email" value="'+APP.esc(u.email)+'"></div>'+
+     (isNew?'<p class="small muted">A temporary password is generated — the user must change it at first sign-in.</p>':""),
+     actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:isNew?T("common.create"):T("common.save"),cls:"btn-primary",onclick:function(m){
+       var n=m.querySelector("#mn").value.trim(),un=m.querySelector("#mu").value.trim(),
+           r=m.querySelector("#mr").value,d=+m.querySelector("#md").value,em=m.querySelector("#me").value.trim();
+       if(!n||!un||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ APP.toast(T("toast.invalid"),"danger"); return false; }
+       if(isNew){
+         if(STORE.DB.users.some(function(x){return x.un===un})){ APP.toast("Username already exists","danger"); return false; }
+         var id=STORE.DB.users.reduce(function(mx,x){return Math.max(mx,x.id)},0)+1;
+         STORE.DB.users.push({id:id,un:un,name:n,role:mode==="managers"?"manager":r,dept:mode==="managers"?null:d,email:em,ver:false,status:"active"});
+         STORE.audit("user.created","user #"+id+" · "+n,"—","role: "+r+" · verification email sent");
+         APP.toast(T("toast.created"),"success");
+       } else {
+         var before="role: "+u.role+" · dept: "+(u.dept?STORE.dept(u.dept).name:"—");
+         if(em!==u.email){ u.ver=false; STORE.audit("user.email_changed","user #"+u.id+" · "+n,u.email,em+" · verified: false"); }
+         u.name=n; u.role=mode==="managers"?"manager":r; u.dept=mode==="managers"?null:d; u.email=em;
+         STORE.audit("user.updated","user #"+u.id+" · "+n,before,"role: "+u.role+" · dept: "+(u.dept?STORE.dept(u.dept).name:"—"));
+         APP.toast(T("toast.updated"),"success");
+       }
+       STORE.save(); render();
+     }}]});
+  }
+  document.getElementById("add").addEventListener("click",function(){userModal(null);});
+  document.getElementById("tb").addEventListener("click",function(e){
+    var b=e.target.closest("button[data-a]"); if(!b) return;
+    var u=STORE.user(+b.dataset.u);
+    if(b.dataset.a==="edit") userModal(u);
+    if(b.dataset.a==="pw") APP.confirm(T("users.confirm.reset"),function(){
+      STORE.audit("user.password_reset","user #"+u.id+" · "+u.name,"—","temp password issued · must_change: true");
+      STORE.save(); APP.toast(T("toast.pwreset"),"success");
+    });
+    if(b.dataset.a==="rv"){ STORE.audit("user.verification_resent","user #"+u.id+" · "+u.name,"—","new 24h link sent");
+      STORE.save(); APP.toast(T("toast.sent"),"success"); }
+    if(b.dataset.a==="dis") APP.confirm(T("users.confirm.disable"),function(){
+      u.status="disabled";
+      STORE.audit("user.disabled","user #"+u.id+" · "+u.name,"status: active","status: disabled · open steps returned to TL");
+      STORE.save(); render(); APP.toast(T("toast.disabled"),"success");
+    },true);
+    if(b.dataset.a==="en") APP.confirm(T("users.enable")+"?",function(){
+      u.status="active";
+      STORE.audit("user.reactivated","user #"+u.id+" · "+u.name,"status: disabled","status: active");
+      STORE.save(); render(); APP.toast(T("toast.enabled"),"success");
+    });
+  });
+  document.getElementById("segS").addEventListener("click",function(e){
+    var b=e.target.closest("[data-s]"); if(!b) return;
+    this.querySelectorAll(".on").forEach(function(x){x.classList.remove("on")}); b.classList.add("on");
+    FS=b.dataset.s; PAGE=0; render();
+  });
+  document.getElementById("pager").addEventListener("click",function(e){
+    var b=e.target.closest("[data-p]"); if(b){ PAGE=+b.dataset.p; render(); }
+  });
+  [fR,fD].forEach(function(x){x.addEventListener("change",function(){PAGE=0;render();});});
+  document.getElementById("fQ").addEventListener("input",function(){PAGE=0;render();});
+  render();
+};
+</script>
+</body>
+</html>

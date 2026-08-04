@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Audit Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="audit">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.audit">Audit Log</h1>
+    <p class="muted small">Append-only · Admin access only · chat message <b>content</b> is never stored here. <span class="badge b-neutral" data-i18n="common.demo">Demo Data</span></p></div>
+    <button class="btn btn-outline" id="exp" data-i18n="common.export">Export CSV</button></div>
+  <div class="filters card" style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <select id="fActor" class="select"></select>
+    <select id="fAction" class="select"></select>
+    <input id="fDate" type="date" class="select">
+    <input id="fQ" type="search" class="select" style="min-width:170px" data-i18n-ph="common.search">
+  </div>
+  <div class="card"><div class="table-wrap"><table class="table" id="tb"></table></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t;
+  var actors={}; STORE.DB.audit.forEach(function(a){actors[a.actor]=1;});
+  document.getElementById("fActor").innerHTML='<option value="">Actor — '+T("common.all")+"</option>"+
+    Object.keys(actors).map(function(id){return '<option value="'+id+'">'+(+id?STORE.user(+id).name:"system")+"</option>"}).join("");
+  var actions={}; STORE.DB.audit.forEach(function(a){actions[a.action.split(".")[0]]=1;});
+  document.getElementById("fAction").innerHTML='<option value="">Action — '+T("common.all")+"</option>"+
+    Object.keys(actions).sort().map(function(a){return '<option value="'+a+'">'+a+"</option>"}).join("");
+  function render(){
+    var fa=document.getElementById("fActor").value,fc=document.getElementById("fAction").value,
+        fd=document.getElementById("fDate").value,q=document.getElementById("fQ").value.trim().toLowerCase();
+    var list=STORE.DB.audit.filter(function(a){
+      if(fa!==""&&a.actor!==+fa) return false;
+      if(fc&&a.action.indexOf(fc+".")!==0) return false;
+      if(fd&&a.at.slice(0,10)!==fd) return false;
+      if(q&&(a.action+" "+a.entity+" "+a.before+" "+a.after).toLowerCase().indexOf(q)===-1) return false;
+      return true;
+    });
+    var h="<thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Entity</th><th></th></tr></thead><tbody>";
+    if(!list.length) h+='<tr><td colspan="5" class="muted" style="text-align:center;padding:30px">'+T("common.empty")+"</td></tr>";
+    list.forEach(function(a,i){
+      var u=a.actor?STORE.user(a.actor):{name:"system",role:"system"};
+      h+='<tr><td class="mono small">'+a.at+"</td><td>"+(a.actor?APP.userInline(a.actor):'<span class="muted">⚙ system</span>')+"</td>"+
+       '<td><span class="mono small" style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:2px 7px">'+a.action+"</span></td>"+
+       "<td>"+APP.esc(a.entity)+"</td>"+
+       '<td style="text-align:end"><button class="btn btn-sm btn-outline" data-i="'+STORE.DB.audit.indexOf(a)+'">'+T("audit.details")+"</button></td></tr>";
+    });
+    document.getElementById("tb").innerHTML=h+"</tbody>";
+  }
+  ["fActor","fAction","fDate"].forEach(function(id){document.getElementById(id).addEventListener("change",render);});
+  document.getElementById("fQ").addEventListener("input",render);
+  document.getElementById("tb").addEventListener("click",function(e){
+    var b=e.target.closest("[data-i]"); if(!b) return;
+    var a=STORE.DB.audit[+b.dataset.i];
+    APP.modal({title:T("audit.details"),body:'<div>'+
+     '<div class="kv-row"><span>Timestamp</span><b class="mono">'+a.at+"</b></div>"+
+     '<div class="kv-row"><span>Actor</span><b>'+(a.actor?STORE.user(a.actor).name:"system")+"</b></div>"+
+     '<div class="kv-row"><span>Action</span><b class="mono">'+a.action+"</b></div>"+
+     '<div class="kv-row"><span>Entity</span><b>'+APP.esc(a.entity)+"</b></div>"+
+     '<div class="kv-row"><span>'+T("audit.before")+'</span><b class="mono small">'+APP.esc(a.before)+"</b></div>"+
+     '<div class="kv-row"><span>'+T("audit.after")+'</span><b class="mono small">'+APP.esc(a.after)+"</b></div>"+
+     '<div class="kv-row"><span>IP</span><b class="mono">'+a.ip+"</b></div></div>"});
+  });
+  document.getElementById("exp").addEventListener("click",function(){
+    APP.exportTable(document.getElementById("tb"),"agencyos-audit-log");
+  });
+  render();
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

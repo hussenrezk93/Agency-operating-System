@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: Tahoma, Arial, 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+
+    /* Agency OS primary identity: orange + white. */
+    --color-primary: #f97316;
+    --color-primary-hover: #ea580c;
+    --color-primary-soft: #fff7ed;
+    --color-primary-white: #ffffff;
+}
+
+:root {
+    --agencyos-primary-orange: #f97316;
+    --agencyos-primary-white: #ffffff;
+}
+
+html[dir='rtl'] body {
+    font-family: Tahoma, Arial, 'Segoe UI', sans-serif;
+}
+
+html[dir='ltr'] body {
+    font-family: Inter, 'Segoe UI', Arial, sans-serif;
+}

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Temporary TLs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="temptl">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.temptl">Temporary Team Leaders</h1>
+    <p class="muted small">One active delegation per department · main TL becomes view-only · auto-restore at end date.</p></div>
+    <button class="btn btn-primary" id="add">＋ <span data-i18n="tl.temp.new">New delegation</span></button></div>
+  <div class="card"><div class="table-wrap"><table class="table" id="tb"></table></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t;
+  function render(){
+    var h="<thead><tr><th data-i18n='common.department'>Department</th><th>Temporary TL</th><th>Main TL</th><th data-i18n='common.date'>Period</th><th data-i18n='common.status'>Status</th><th></th></tr></thead><tbody>";
+    var list=STORE.DB.tempTLs.slice().sort(function(a,b){return (b.active?1:0)-(a.active?1:0)});
+    if(!list.length) h+='<tr><td colspan="6" class="muted" style="text-align:center;padding:26px">'+T("common.empty")+"</td></tr>";
+    list.forEach(function(x){
+      var d=STORE.dept(x.dept), main=d.tl?STORE.user(d.tl).name:"—";
+      h+="<tr><td><b>"+d.name+"</b></td><td>"+APP.userInline(x.user)+"</td><td class='muted'>"+main+" <span class='small'>(view-only)</span></td>"+
+       "<td class='mono small'>"+x.start.slice(5)+" → "+x.end.slice(5)+"</td>"+
+       "<td>"+(x.active?'<span class="badge b-approved"><span class="bdot"></span>Active</span>':'<span class="badge b-neutral">Ended</span>')+"</td>"+
+       "<td style='text-align:end'>"+(x.active?'<button class="btn btn-sm btn-danger-outline" data-end="'+x.id+'">'+T("tl.temp.end")+"</button>":"")+"</td></tr>";
+    });
+    document.getElementById("tb").innerHTML=h+"</tbody>";
+    document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+  }
+  render();
+  document.getElementById("tb").addEventListener("click",function(e){
+    var b=e.target.closest("[data-end]"); if(!b) return;
+    var x=STORE.DB.tempTLs.find(function(t){return t.id===+b.dataset.end});
+    APP.confirm(T("tl.temp.end")+"? "+STORE.dept(x.dept).name+" returns to the main TL.",function(){
+      x.active=false;
+      STORE.audit("temp_tl.ended","dept "+STORE.dept(x.dept).name,"temp: "+STORE.user(x.user).name,"restored: main TL");
+      STORE.save(); render(); APP.toast(T("toast.updated"),"success");
+    });
+  });
+  document.getElementById("add").addEventListener("click",function(){
+    var dOpts=STORE.DB.departments.filter(function(d){return d.active}).map(function(d){return '<option value="'+d.id+'">'+d.name+"</option>"}).join("");
+    var uOpts=STORE.DB.users.filter(function(u){return u.status==="active"&&(u.role==="employee"||u.role==="tl")}).map(function(u){return '<option value="'+u.id+'">'+u.name+" · "+T("role."+u.role)+"</option>"}).join("");
+    APP.modal({title:T("tl.temp.new"),body:
+     '<div class="field"><label data-i18n="common.department">Department</label><select id="d">'+dOpts+"</select></div>"+
+     '<div class="field"><label>Temporary user</label><select id="u">'+uOpts+"</select></div>"+
+     '<div class="form-row"><div class="field"><label>'+T("common.start")+'</label><input id="s" type="date" value="'+STORE.TODAY+'"></div>'+
+     '<div class="field"><label>'+T("common.end")+'</label><input id="e" type="date"></div></div>'+
+     '<div class="alert" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 11px" class="small">Affected: all open steps of the department move under the temporary TL immediately.</div>',
+     actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:T("common.confirm"),cls:"btn-primary",onclick:function(m){
+       var d=+m.querySelector("#d").value,u=+m.querySelector("#u").value,s=m.querySelector("#s").value,e2=m.querySelector("#e").value;
+       if(!s||!e2||e2<s){ APP.toast(T("toast.invalid"),"danger"); return false; }
+       var overlap=STORE.DB.tempTLs.some(function(x){return x.dept===d&&x.active&&!(e2<x.start||s>x.end)});
+       if(overlap){ APP.toast(T("tl.temp.overlap"),"danger"); return false; }
+       var id=STORE.DB.tempTLs.reduce(function(mx,x){return Math.max(mx,x.id)},0)+1;
+       STORE.DB.tempTLs.push({id:id,dept:d,user:u,start:s,end:e2,active:true,by:STORE.me().id});
+       STORE.audit("temp_tl.assigned","dept "+STORE.dept(d).name,"tl: "+(STORE.dept(d).tl?STORE.user(STORE.dept(d).tl).name:"—"),"temp: "+STORE.user(u).name+" · "+s+" → "+e2);
+       STORE.notify("tl","system","Temporary TL activated — "+STORE.user(u).name+" leads "+STORE.dept(d).name,"Until "+e2+" · main TL view-only","departments.html");
+       STORE.save(); render(); APP.toast(T("toast.created"),"success");
+     }}]});
+  });
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="profile">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="profile.title">My profile</h1></div></div>
+  <div class="grid-2" style="align-items:start">
+    <div class="card"><div class="card-body" id="info"></div></div>
+    <div class="card"><div class="card-head"><h2 data-i18n="profile.email">Personal email</h2></div>
+      <div class="card-body" id="emailBox"></div></div>
+  </div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,u=STORE.me(),d=u.dept?STORE.dept(u.dept).name:"—";
+  document.getElementById("info").innerHTML=
+   '<div class="inline" style="gap:12px;margin-bottom:14px"><span class="avatar" style="width:52px;height:52px;font-size:18px">'+STORE.initials(u.name)+'</span>'+
+   '<div><div style="font-weight:800;font-size:17px">'+u.name+'</div><div class="muted small">@'+u.un+" · "+T("role."+u.role)+"</div></div></div>"+
+   '<div><div class="kv-row"><span data-i18n="common.role"></span><b>'+T("role."+u.role)+"</b></div>"+
+   '<div class="kv-row"><span data-i18n="common.department"></span><b>'+d+"</b></div>"+
+   '<div class="kv-row"><span>ID</span><b class="mono">#'+u.id+"</b></div></div>"+
+   '<a class="btn btn-outline" style="margin-top:14px" href="'+APP.withP("change-password.html")+'">'+T("pw.change")+"</a>";
+  function renderEmail(){
+    var v=u.ver;
+    document.getElementById("emailBox").innerHTML=
+     '<div class="inline" style="justify-content:space-between;width:100%;margin-bottom:10px"><b class="mono">'+u.email+"</b>"+
+     '<span class="badge '+(v?"b-approved":"b-changes")+'"><span class="bdot"></span>'+T(v?"profile.verified":"profile.unverified")+"</span></div>"+
+     '<p class="small muted">'+T("profile.emailnote")+"</p>"+
+     '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+     '<button class="btn btn-outline" id="chg">'+T("profile.changeemail")+"</button>"+
+     (!v?'<button class="btn btn-primary" id="resend">'+T("profile.resend")+"</button>":"")+"</div>";
+    document.getElementById("chg").addEventListener("click",function(){
+      APP.modal({title:T("profile.changeemail"),body:
+       '<div class="field"><label data-i18n="common.email">Email</label><input id="ne" type="email" value="'+u.email+'"></div>'+
+       '<p class="small muted">'+T("profile.emailnote")+"</p>",
+       actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:T("common.save"),cls:"btn-primary",onclick:function(m){
+        var v2=m.querySelector("#ne").value.trim();
+        if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v2)){ APP.toast(T("toast.invalid"),"danger"); return false; }
+        STORE.audit("user.email_changed","user #"+u.id+" · "+u.name,u.email,v2+" · verified: false");
+        u.email=v2; u.ver=false; STORE.save(); APP.toast(T("toast.updated"),"success"); renderEmail();
+       }}]});
+    });
+    var r=document.getElementById("resend");
+    if(r) r.addEventListener("click",function(){ APP.toast(T("toast.sent"),"success");
+      setTimeout(function(){location.href=APP.withP("email-verification-required.html");},600); });
+  }
+  renderEmail();
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

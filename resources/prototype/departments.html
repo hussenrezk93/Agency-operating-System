@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Departments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="departments">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.departments">Departments</h1>
+    <p class="muted small">Primary TL is mandatory · routing follows the Admin matrix.</p></div>
+    <button class="btn btn-primary" id="add">＋ <span data-i18n="dept.new">New department</span></button></div>
+  <div class="grid-3" id="cards" style="align-items:stretch"></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t;
+  function activeTasks(dId){
+    return STORE.DB.tasks.filter(function(t){return t.life!=="done"&&t.life!=="cancel"&&STORE.cur(t).dept===dId}).length;
+  }
+  function render(){
+    document.getElementById("cards").innerHTML=STORE.DB.departments.map(function(d){
+      var tl=STORE.effectiveTL(d.id),temp=STORE.DB.tempTLs.find(function(x){return x.dept===d.id&&x.active});
+      var mem=STORE.deptEmployees(d.id).length,at=activeTasks(d.id);
+      var routes=(STORE.DB.routing[d.id]||[]).map(function(x){return '<span class="rn">'+STORE.dept(x).name.slice(0,3)+"</span>"}).join(" ");
+      return '<div class="card" style="opacity:'+(d.active?1:.6)+'"><div class="card-body">'+
+       '<div class="inline" style="justify-content:space-between;width:100%"><b style="font-size:15.5px">'+d.name+"</b>"+
+       (d.active?'<span class="badge b-approved"><span class="bdot"></span>Active</span>':'<span class="badge b-cancel">Disabled</span>')+"</div>"+
+       '<div style="margin:10px 0"><div class="kv-row"><span>TL</span><b>'+(tl?tl.name:"—")+(temp?' <span class="badge b-hold">temp until '+temp.end.slice(5)+"</span>":"")+"</b></div>"+
+       '<div class="kv-row"><span>Members</span><b>'+mem+'</b></div>'+
+       '<div class="kv-row"><span>Active tasks</span><b>'+at+'</b></div>'+
+       '<div class="kv-row"><span>Routes to</span><span class="route-mini">'+(routes||"—")+"</span></div></div>"+
+       '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+       '<button class="btn btn-sm btn-outline" data-a="edit" data-d="'+d.id+'">'+T("common.edit")+"</button>"+
+       (d.active?'<button class="btn btn-sm btn-danger-outline" data-a="dis" data-d="'+d.id+'">'+T("users.disable")+"</button>"
+                :'<button class="btn btn-sm btn-outline" data-a="en" data-d="'+d.id+'">'+T("users.enable")+"</button>")+
+       "</div></div></div>";
+    }).join("");
+  }
+  function deptModal(d){
+    var isNew=!d;
+    d=d||{name:"",tl:null,active:true};
+    var tlOpts='<option value="">—</option>'+STORE.DB.users.filter(function(u){return u.role==="tl"&&u.status!=="disabled"})
+      .map(function(u){return '<option value="'+u.id+'"'+(d.tl===u.id?" selected":"")+'>'+u.name+"</option>"}).join("");
+    APP.modal({title:isNew?"🏢 "+T("dept.new"):T("common.edit")+" — "+d.name,
+     sub:isNew?"A department cannot exist without a primary Team Leader":"",body:
+     '<div class="field"><label for="dn">'+T("common.name")+' <span class="req">*</span></label><input id="dn" value="'+APP.esc(d.name)+'" placeholder="e.g. Motion Graphics"><div class="hint">Stored in English · must be unique</div></div>'+
+     '<div class="field" style="margin-bottom:0"><label for="dt">Primary Team Leader <span class="req">*</span></label><select id="dt">'+tlOpts+"</select>"+
+     '<div class="hint">'+T("dept.tlreq")+" The TL receives every task that reaches this department and assigns it onward.</div></div>",
+     actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:isNew?T("common.create"):T("common.save"),cls:"btn-primary",onclick:function(m){
+       var n=m.querySelector("#dn").value.trim(),tl=+m.querySelector("#dt").value||null;
+       if(!n){ APP.toast(T("toast.invalid"),"danger"); return false; }
+       if(STORE.DB.departments.some(function(x){return x.name.toLowerCase()===n.toLowerCase()&&x!==d})){ APP.toast(T("dept.dup"),"danger"); return false; }
+       if(!tl){ APP.toast(T("dept.tlreq"),"danger"); return false; }
+       if(isNew){
+         var id=STORE.DB.departments.reduce(function(mx,x){return Math.max(mx,x.id)},0)+1;
+         STORE.DB.departments.push({id:id,name:n,tl:tl,active:true});
+         STORE.DB.routing[id]=[];
+         STORE.audit("department.created","dept "+n,"—","tl: "+STORE.user(tl).name);
+         APP.toast(T("toast.created"),"success");
+       } else {
+         STORE.audit("department.updated","dept "+d.name,"name: "+d.name+" · tl: "+(d.tl?STORE.user(d.tl).name:"—"),"name: "+n+" · tl: "+STORE.user(tl).name);
+         d.name=n; d.tl=tl;
+         APP.toast(T("toast.updated"),"success");
+       }
+       STORE.save(); render();
+     }}]});
+  }
+  document.getElementById("add").addEventListener("click",function(){deptModal(null);});
+  document.getElementById("cards").addEventListener("click",function(e){
+    var b=e.target.closest("button[data-a]"); if(!b) return;
+    var d=STORE.dept(+b.dataset.d);
+    if(b.dataset.a==="edit") deptModal(d);
+    if(b.dataset.a==="dis"){
+      var at=activeTasks(d.id);
+      APP.confirm((at?("⚠ "+at+" active task(s). "+T("dept.disable.warn")+" "):"")+T("users.disable")+" "+d.name+"?",function(){
+        d.active=false;
+        STORE.audit("department.disabled","dept "+d.name,"status: active","status: disabled · "+at+" tasks need re-routing");
+        STORE.save(); render(); APP.toast(T("toast.disabled"),"success");
+      },true);
+    }
+    if(b.dataset.a==="en") APP.confirm(T("users.enable")+" "+d.name+"?",function(){
+      d.active=true;
+      STORE.audit("department.reactivated","dept "+d.name,"status: disabled","status: active");
+      STORE.save(); render(); APP.toast(T("toast.enabled"),"success");
+    });
+  });
+  render();
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

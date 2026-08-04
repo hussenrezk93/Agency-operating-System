@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agency OS — Clients</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-page="clients">
+<main class="page" data-live>
+  <div class="page-head"><div><h1 data-i18n="nav.clients">Clients</h1>
+    <p class="muted small">Simple client registry — no client portal in v1.</p></div>
+    <button class="btn btn-primary" id="add">＋ <span data-i18n="cl.new">New client</span></button></div>
+  <div class="filters card" style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <div class="seg" id="segS"><button class="on" data-s="">All</button><button data-s="active">Active</button><button data-s="inactive">Inactive</button></div>
+    <input id="fQ" type="search" class="select" style="min-width:180px" data-i18n-ph="common.search">
+  </div>
+  <div class="card"><div class="table-wrap"><table class="table" id="tb"></table></div></div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,FS="";
+  function projCount(cid){ return STORE.DB.projects.filter(function(p){return p.client===cid}).length; }
+  function render(){
+    var q=document.getElementById("fQ").value.trim().toLowerCase();
+    var list=STORE.DB.clients.filter(function(c){
+      if(FS&&c.status!==FS) return false;
+      if(q&&(c.name+" "+c.phone+" "+(c.email||"")).toLowerCase().indexOf(q)===-1) return false;
+      return true;
+    });
+    var h="<thead><tr><th>"+T("common.client")+"</th><th>"+T("common.phone")+"</th><th>"+T("common.email")+"</th><th>"+T("nav.projects")+"</th><th>"+T("common.status")+"</th><th></th></tr></thead><tbody>";
+    if(!list.length) h+='<tr><td colspan="6" class="muted" style="text-align:center;padding:30px">'+T("common.empty")+"</td></tr>";
+    list.forEach(function(c){
+      h+="<tr><td><b>"+APP.esc(c.name)+'</b><div class="small muted">'+APP.esc(c.desc||"")+"</div></td>"+
+       '<td class="mono small">'+c.phone+'</td><td class="mono small">'+(c.email||"—")+"</td>"+
+       '<td><a href="'+APP.withP("client-details.html?id="+c.id)+'">'+projCount(c.id)+" →</a></td>"+
+       "<td>"+(c.status==="active"?'<span class="badge b-approved"><span class="bdot"></span>Active</span>':'<span class="badge b-neutral">Inactive</span>')+"</td>"+
+       '<td style="text-align:end;white-space:nowrap"><button class="btn btn-sm btn-outline" data-a="edit" data-c="'+c.id+'">'+T("common.edit")+"</button> "+
+       (c.status==="active"?'<button class="btn btn-sm btn-danger-outline" data-a="dis" data-c="'+c.id+'">'+T("users.disable")+"</button>"
+        :'<button class="btn btn-sm btn-outline" data-a="en" data-c="'+c.id+'">'+T("users.enable")+"</button>")+"</td></tr>";
+    });
+    document.getElementById("tb").innerHTML=h+"</tbody>";
+  }
+  function clientModal(c){
+    var isNew=!c; c=c||{name:"",phone:"",email:"",web:"",desc:"",status:"active"};
+    APP.modal({size:"lg",title:isNew?"✨ "+T("cl.new"):T("common.edit")+" — "+c.name,
+     sub:isNew?"Saved to the client registry · one client can own many projects":"",body:
+     '<div class="form-grid">'+
+     '<div class="field span2"><label for="cn">'+T("common.name")+' <span class="req">*</span></label><input id="cn" value="'+APP.esc(c.name)+'" placeholder="e.g. Horizon Retail"></div>'+
+     '<div class="field"><label for="cp">'+T("common.phone")+' <span class="req">*</span></label><input id="cp" value="'+APP.esc(c.phone)+'" placeholder="+20 1xx xxx xxxx"><div class="hint">Primary contact number</div></div>'+
+     '<div class="field"><label for="ce">'+T("common.email")+' <span class="hint" style="display:inline">('+T("common.optional")+')</span></label><input id="ce" type="email" value="'+APP.esc(c.email||"")+'" placeholder="contact@client.com"></div>'+
+     '<div class="field"><label for="cw">Website <span class="hint" style="display:inline">('+T("common.optional")+')</span></label><input id="cw" value="'+APP.esc(c.web||"")+'" placeholder="client.com"></div>'+
+     '<div class="field"><label for="cd">'+T("common.notes")+'</label><input id="cd" value="'+APP.esc(c.desc||"")+'" placeholder="Industry · relationship notes"></div>'+
+     "</div>",
+     actions:[{label:T("common.cancel"),cls:"btn-outline"},{label:isNew?T("common.create"):T("common.save"),cls:"btn-primary",onclick:function(m){
+       var n=m.querySelector("#cn").value.trim(),p=m.querySelector("#cp").value.trim(),
+           e=m.querySelector("#ce").value.trim(),w=m.querySelector("#cw").value.trim(),d=m.querySelector("#cd").value.trim();
+       if(!n){ APP.toast(T("toast.invalid"),"danger"); return false; }
+       if(!/^\+?[0-9\s\-()]{7,18}$/.test(p)){ APP.toast(T("cl.phone.invalid"),"danger"); return false; }
+       if(e&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){ APP.toast(T("toast.invalid"),"danger"); return false; }
+       if(isNew){
+         var id=STORE.DB.clients.reduce(function(mx,x){return Math.max(mx,x.id)},0)+1;
+         STORE.DB.clients.push({id:id,name:n,phone:p,email:e,web:w,desc:d,status:"active"});
+         STORE.audit("client.created","client "+n,"—","phone: "+p);
+         APP.toast(T("toast.created"),"success");
+       } else {
+         STORE.audit("client.updated","client "+c.name,"phone: "+c.phone,"phone: "+p);
+         c.name=n;c.phone=p;c.email=e;c.web=w;c.desc=d;
+         APP.toast(T("toast.updated"),"success");
+       }
+       STORE.save(); render();
+     }}]});
+  }
+  document.getElementById("add").addEventListener("click",function(){clientModal(null);});
+  document.getElementById("tb").addEventListener("click",function(e){
+    var b=e.target.closest("button[data-a]"); if(!b) return;
+    var c=STORE.client(+b.dataset.c);
+    if(b.dataset.a==="edit") clientModal(c);
+    if(b.dataset.a==="dis") APP.confirm(T("users.disable")+" "+c.name+"? Existing projects keep their history.",function(){
+      c.status="inactive"; STORE.audit("client.disabled","client "+c.name,"status: active","status: inactive");
+      STORE.save(); render(); APP.toast(T("toast.disabled"),"success");
+    },true);
+    if(b.dataset.a==="en") APP.confirm(T("users.enable")+" "+c.name+"?",function(){
+      c.status="active"; STORE.audit("client.reactivated","client "+c.name,"status: inactive","status: active");
+      STORE.save(); render(); APP.toast(T("toast.enabled"),"success");
+    });
+  });
+  document.getElementById("segS").addEventListener("click",function(e){
+    var b=e.target.closest("[data-s]"); if(!b) return;
+    this.querySelectorAll(".on").forEach(function(x){x.classList.remove("on")}); b.classList.add("on");
+    FS=b.dataset.s; render();
+  });
+  document.getElementById("fQ").addEventListener("input",render);
+  render();
+  document.querySelectorAll("[data-i18n]").forEach(function(el){el.textContent=T(el.dataset.i18n);});
+};
+</script>
+</body>
+</html>

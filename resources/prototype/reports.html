@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reports — Agency OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/agencyos.css">
+<script defer src="assets/i18n.js"></script>
+<script defer src="assets/guards.js"></script>
+<script defer src="assets/mock-data.js"></script>
+<script defer src="assets/demo-store.js"></script>
+<script defer src="assets/agencyos.js"></script>
+<script defer src="assets/locale-patch.js"></script>
+</head>
+<body data-role="manager" data-page="reports">
+<main class="page">
+  <div class="page-head">
+    <div>
+      <h1 data-i18n="nav.reports">Reports — July 2026</h1>
+      <div class="page-sub">Three report types, one formula: on-time steps ÷ steps due in the month × 100. On-hold time excluded · cancelled steps excluded · "changes requested" still counts on time if final approval lands before the deadline · no due steps → <span class="score-na">N/A</span>.</div>
+    </div>
+    <div class="page-actions">
+      <div class="seg"><button>May</button><button>Jun</button><button class="on">Jul</button></div>
+      <button class="btn btn-outline">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- Report type switcher -->
+  <div class="toolbar">
+    <div class="seg">
+      <button class="on">🏢 Department reports</button>
+      <button>👤 Team Leader reports</button>
+      <button>🙋 Employee reports</button>
+    </div>
+    <div class="grow"></div>
+    <span class="small muted">Manager sees all three and the comparison · a TL sees their department + their own · an employee sees only their own</span>
+  </div>
+
+  <div class="grid grid-4" style="margin-bottom:18px">
+    <div class="card kpi k-accent"><span class="k-label">Company on-time rate</span><span class="k-value">85%</span><span class="k-delta k-up">▲ 3 pts vs June</span></div>
+    <div class="card kpi"><span class="k-label">Steps due in July</span><span class="k-value">96</span><span class="k-delta muted">82 on time · 14 late</span></div>
+    <div class="card kpi k-danger"><span class="k-label">Overdue right now</span><span class="k-value">4</span><span class="k-delta muted">4.2% of open steps</span></div>
+    <div class="card kpi k-success"><span class="k-label">Tasks completed</span><span class="k-value">31</span><span class="k-delta k-up">best month this year</span></div>
+  </div>
+
+  <!-- ============ 1 · DEPARTMENT REPORT ============ -->
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-head">
+      <h2>🏢 Department report</h2>
+      <div class="page-actions"><span class="tag">due steps · on time · late · compliance %</span></div>
+    </div>
+    <div class="table-wrap" style="border:0;border-radius:0">
+      <table>
+        <thead><tr><th data-i18n="common.department">Department</th><th>Due steps</th><th>On time</th><th>Late</th><th>Compliance</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="cell-main">Content</td><td>18</td><td>17</td><td>1</td>
+            <td><b style="color:var(--color-success)">94%</b></td>
+            <td><div class="bar" style="min-width:130px"><i class="g" style="width:94%"></i></div></td></tr>
+          <tr><td class="cell-main">Marketing</td><td>23</td><td>21</td><td>2</td>
+            <td><b style="color:var(--color-success)">91%</b></td>
+            <td><div class="bar" style="min-width:130px"><i class="g" style="width:91%"></i></div></td></tr>
+          <tr><td class="cell-main">Moderation</td><td>8</td><td>7</td><td>1</td>
+            <td><b>88%</b></td>
+            <td><div class="bar" style="min-width:130px"><i style="width:88%"></i></div></td></tr>
+          <tr><td class="cell-main">Design</td><td>21</td><td>18</td><td>3</td>
+            <td><b>86%</b></td>
+            <td><div class="bar" style="min-width:130px"><i style="width:86%"></i></div></td></tr>
+          <tr><td class="cell-main">Editing</td><td>11</td><td>9</td><td>2</td>
+            <td><b>82%</b></td>
+            <td><div class="bar" style="min-width:130px"><i style="width:82%"></i></div></td></tr>
+          <tr style="background:var(--color-danger-soft)"><td class="cell-main">Photography</td><td>15</td><td>10</td><td>5</td>
+            <td><b style="color:var(--color-danger)">68%</b></td>
+            <td><div class="bar" style="min-width:130px"><i class="r" style="width:68%"></i></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-foot small muted">Photography impacted by mid-month TL leave and one disabled account (2 steps reassigned). A step belongs to the month its deadline falls in.</div>
+  </div>
+
+  <!-- ============ 2 · TEAM LEADER REPORT ============ -->
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-head">
+      <h2>👤 Team Leader report</h2>
+      <div class="page-actions"><span class="tag">personal score &amp; team overrun — always separate</span></div>
+    </div>
+    <div class="table-wrap" style="border:0;border-radius:0">
+      <table>
+        <thead><tr><th>Team Leader</th><th data-i18n="common.department">Department</th><th>Personal score <span style="font-weight:400">(self-assigned steps)</span></th><th>Team deadline-overrun rate</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="inline"><span class="avatar sm">SM</span><span class="cell-main">Sara Mostafa</span></span></td>
+            <td>Marketing</td>
+            <td><b style="color:var(--color-success)">100%</b> <span class="muted small">3 of 3</span><div class="bar" style="max-width:130px;margin-top:4px"><i class="g" style="width:100%"></i></div></td>
+            <td><b>9%</b> <span class="muted small">2 of 23 late</span><div class="bar" style="max-width:130px;margin-top:4px"><i style="width:9%;background:var(--color-warning)"></i></div></td>
+            <td class="small muted">Personal steps reviewed by Manager</td>
+          </tr>
+          <tr>
+            <td><span class="inline"><span class="avatar sm">AH</span><span class="cell-main">Ahmed Hassan</span></span></td>
+            <td>Content</td>
+            <td><b style="color:var(--color-success)">100%</b> <span class="muted small">2 of 2</span><div class="bar" style="max-width:130px;margin-top:4px"><i class="g" style="width:100%"></i></div></td>
+            <td><b>6%</b> <span class="muted small">1 of 18 late</span><div class="bar" style="max-width:130px;margin-top:4px"><i style="width:6%;background:var(--color-warning)"></i></div></td>
+            <td class="small muted">—</td>
+          </tr>
+          <tr>
+            <td><span class="inline"><span class="avatar sm">MK</span><span class="cell-main">Mona Khalil</span></span></td>
+            <td>Editing</td>
+            <td><b style="color:#B45309">75%</b> <span class="muted small">3 of 4</span><div class="bar" style="max-width:130px;margin-top:4px"><i style="width:75%;background:var(--color-warning)"></i></div></td>
+            <td><b>18%</b> <span class="muted small">2 of 11 late</span><div class="bar" style="max-width:130px;margin-top:4px"><i class="r" style="width:18%"></i></div></td>
+            <td class="small muted">Hero-video revision cycle</td>
+          </tr>
+          <tr>
+            <td><span class="inline"><span class="avatar sm">LF</span><span class="cell-main">Laila Farouk</span></span></td>
+            <td>Design</td>
+            <td><span class="score-na">N/A</span> <span class="muted small">no self-assigned steps due</span></td>
+            <td><b>14%</b> <span class="muted small">3 of 21 late</span><div class="bar" style="max-width:130px;margin-top:4px"><i style="width:14%;background:var(--color-warning)"></i></div></td>
+            <td class="small muted">—</td>
+          </tr>
+          <tr>
+            <td><span class="inline"><span class="avatar sm">KF</span><span class="cell-main">Karim Fathy</span> <span class="tag">temp TL</span></span></td>
+            <td>Photography</td>
+            <td><b>80%</b> <span class="muted small">4 of 5 · scored as employee + temp TL</span><div class="bar" style="max-width:130px;margin-top:4px"><i style="width:80%"></i></div></td>
+            <td><b style="color:var(--color-danger)">33%</b> <span class="muted small">5 of 15 late · covers 20 Jul →</span><div class="bar" style="max-width:130px;margin-top:4px"><i class="r" style="width:33%"></i></div></td>
+            <td class="small muted">Covering Youssef Nabil's leave</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-foot small muted">Per BRD §17: a TL's personal task performance and their team's deadline-overrun rate are reported separately — one never dilutes the other.</div>
+  </div>
+
+  <!-- ============ 3 · EMPLOYEE REPORT ============ -->
+  <div class="grid grid-main">
+    <div class="card">
+      <div class="card-head">
+        <h2>🙋 Employee report — all employees (Manager view)</h2>
+        <div class="page-actions"><select class="input" style="width:auto;padding:6px 10px"><option>All departments</option><option>Marketing</option><option>Content</option><option>Design</option></select></div>
+      </div>
+      <div class="table-wrap" style="border:0;border-radius:0">
+        <table>
+          <thead><tr><th>Employee</th><th data-i18n="common.department">Department</th><th>Due steps</th><th>On time</th><th>Late</th><th>Score</th></tr></thead>
+          <tbody>
+            <tr><td><span class="inline"><span class="avatar sm">SN</span><span class="cell-main">Salma Nagy</span></span></td><td>Marketing</td><td>5</td><td>5</td><td>0</td>
+              <td><b style="color:var(--color-success)">100%</b></td></tr>
+            <tr><td><span class="inline"><span class="avatar sm">DS</span><span class="cell-main">Dina Saeed</span></span></td><td>Content</td><td>7</td><td>7</td><td>0</td>
+              <td><b style="color:var(--color-success)">100%</b></td></tr>
+            <tr style="background:var(--color-primary-soft)"><td><span class="inline"><span class="avatar sm">MA</span><span class="cell-main">Mohamed Ali</span></span></td><td>Marketing</td><td>8</td><td>7</td><td>1</td>
+              <td><b>88%</b></td></tr>
+            <tr><td><span class="inline"><span class="avatar sm">AI</span><span class="cell-main">Aya Ibrahim</span></span></td><td>Design</td><td>6</td><td>4</td><td>2</td>
+              <td><b style="color:#B45309">67%</b></td></tr>
+            <tr><td><span class="inline"><span class="avatar sm">OF</span><span class="cell-main">Omar Farid</span></span></td><td>Marketing</td><td>4</td><td>2</td><td>2</td>
+              <td><b style="color:var(--color-danger)">50%</b></td></tr>
+            <tr><td><span class="inline"><span class="avatar sm grey">RS</span><span class="cell-main">Reem Shaker</span></span></td><td>Moderation</td><td>0</td><td>—</td><td>—</td>
+              <td><span class="score-na">N/A</span> <span class="muted small">joined 22 Jul</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-foot small muted">Highlighted row = the individual report shown alongside. Employees open only their own report — never a colleague's.</div>
+    </div>
+
+    <!-- Individual employee report card (what the employee himself sees) -->
+    <div class="stack">
+      <div class="card">
+        <div class="card-head">
+          <span class="avatar">MA</span>
+          <div><h2 style="margin:0">Mohamed Ali — my report</h2><div class="small muted">Employee's own view · July 2026</div></div>
+        </div>
+        <div class="card-pad" style="display:flex;gap:18px;align-items:center">
+          <div class="donut" style="--p:88"><div>88%</div></div>
+          <dl class="kv" style="grid-template-columns:110px 1fr">
+            <dt>Due steps</dt><dd>8</dd>
+            <dt>On time</dt><dd>7</dd>
+            <dt>Late</dt><dd>1 <span class="muted small">(TSK-2026-00316 · +1 day)</span></dd>
+            <dt>On hold</dt><dd>1 step · 2 days excluded</dd>
+          </dl>
+        </div>
+        <div class="list" style="border-top:1px solid var(--color-border)">
+          <div class="list-item"><div class="li-main"><div class="li-title small">Ramadan social calendar — week 1</div><div class="li-sub">due 18 Jul · approved 17 Jul</div></div><span class="badge b-approved"><span class="bdot"></span>On time</span></div>
+          <div class="list-item"><div class="li-main"><div class="li-title small">Landing banners brief</div><div class="li-sub">due 15 Jul · 2 change rounds · final approved 15 Jul 21:40</div></div><span class="badge b-approved"><span class="bdot"></span>On time</span></div>
+          <div class="list-item"><div class="li-main"><div class="li-title small">Store visit recap</div><div class="li-sub">due 10 Jul · submitted 11 Jul</div></div><span class="badge b-overdue"><span class="bdot"></span>Late</span></div>
+        </div>
+        <div class="card-foot small muted">History: Jun 100% · May <span class="score-na">N/A</span> (no due steps)</div>
+      </div>
+
+      <div class="alert alert-info">
+        <div class="small"><b>Snapshot rule:</b> monthly figures freeze on the 1st of the following month; the current month recalculates live. Manager additionally gets the cross-comparison of departments, TLs and employees on this page.</div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+window.PAGE_INIT=function(){
+  var T=APP.t,role=APPG.session().role,me=STORE.me();
+  /* --- role scoping: Employee sees only their own report --- */
+  if(role==="employee"){ location.replace(APP.withP("employee-performance.html")); return; }
+  /* Demo Data label */
+  var h1=document.querySelector(".page-head h1");
+  if(h1) h1.insertAdjacentHTML("beforeend",' <span class="badge b-neutral" style="vertical-align:middle">'+T("common.demo")+"</span>");
+  /* real Export + Print */
+  var actions=document.querySelector(".page-actions");
+  if(actions){
+    actions.setAttribute("data-live","");
+    var exp=actions.querySelector(".btn");
+    if(exp) exp.addEventListener("click",function(e){e.stopPropagation();
+      APP.exportTable(document.querySelector("table"),"agencyos-reports-july");});
+    var pr=document.createElement("button"); pr.className="btn btn-outline"; pr.textContent=T("common.print");
+    pr.addEventListener("click",function(e){e.stopPropagation();window.print();});
+    actions.appendChild(pr);
+  }
+  /* report-type switcher scrolls to section */
+  var segs=document.querySelectorAll(".toolbar .seg button");
+  var heads=[].slice.call(document.querySelectorAll("h2")).filter(function(h){return /report/i.test(h.textContent)});
+  var tb=document.querySelector(".toolbar"); if(tb) tb.setAttribute("data-live","");
+  segs.forEach(function(b,i){
+    b.addEventListener("click",function(e){
+      e.stopPropagation();
+      segs.forEach(function(x){x.classList.remove("on")}); b.classList.add("on");
+      if(heads[i]) heads[i].scrollIntoView({behavior:"smooth",block:"start"});
+    });
+  });
+  /* live department filter on the employee table (last table) */
+  var tables=document.querySelectorAll("table");
+  var empT=tables[tables.length-1];
+  if(empT){
+    var wrap=empT.closest(".card");
+    if(wrap){
+      wrap.setAttribute("data-live","");
+      var sel=document.createElement("select"); sel.className="select"; sel.style.margin="10px 18px 0";
+      sel.innerHTML='<option value="">'+T("common.department")+" — "+T("common.all")+"</option>"+
+        STORE.DB.departments.map(function(d){return '<option>'+d.name+"</option>"}).join("");
+      wrap.insertBefore(sel,wrap.querySelector(".table-wrap")||empT.parentElement);
+      sel.addEventListener("change",function(){
+        [].forEach.call(empT.querySelectorAll("tbody tr"),function(tr){
+          tr.style.display=!sel.value||tr.textContent.indexOf(sel.value)>-1?"":"none";
+        });
+      });
+    }
+  }
+
+  /* --- role scoping: TL sees only their department, their employees, and their own score --- */
+  if(role==="tl"){
+    var myDept=STORE.dept(me.dept).name;
+    var myPeople=STORE.deptEmployees(me.dept).map(function(u){return u.name}).concat([me.name]);
+    var tables2=document.querySelectorAll("table");
+    /* department table: own department row only */
+    if(tables2[0]) [].forEach.call(tables2[0].querySelectorAll("tbody tr"),function(tr){
+      if(tr.textContent.indexOf(myDept)===-1) tr.style.display="none";
+    });
+    /* TL table: own row only */
+    if(tables2[1]) [].forEach.call(tables2[1].querySelectorAll("tbody tr"),function(tr){
+      if(tr.textContent.indexOf(me.name)===-1) tr.style.display="none";
+    });
+    /* employee table: own department members only */
+    if(tables2[2]) [].forEach.call(tables2[2].querySelectorAll("tbody tr"),function(tr){
+      var hit=myPeople.some(function(n){return tr.textContent.indexOf(n)>-1})||tr.textContent.indexOf(myDept)>-1;
+      if(!hit) tr.style.display="none";
+    });
+    /* no company-wide comparison for a TL */
+    var kpis=document.querySelector(".grid-4"); if(kpis) kpis.style.display="none";
+    var note=document.querySelector(".toolbar .small"); if(note) note.textContent="Team Leader view — your department, your employees, and your own score only.";
+    var mgrHead=[].slice.call(document.querySelectorAll("h2")).find(function(h){return /all employees/i.test(h.textContent)});
+    if(mgrHead) mgrHead.textContent="🙋 Employee report — "+myDept;
+    var sel=document.querySelector("select.select"); if(sel){ sel.value=myDept; sel.disabled=true; }
+  }
+};
+</script>
+</body>
+</html>
