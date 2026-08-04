@@ -306,6 +306,11 @@ return [
             'subtitle' => 'Members are derived automatically from the participating departments.',
             'submit' => 'Create project',
             'cancel' => 'Cancel',
+            'existing_client' => 'Existing client',
+            'existing_client_hint' => 'Pick from the registry',
+            'new_client' => 'New client',
+            'new_client_hint' => 'Create one right here',
+            'new_client_saved_hint' => 'The client is saved to the registry the moment the project is created.',
         ],
         'fields' => [
             'client' => 'Client',

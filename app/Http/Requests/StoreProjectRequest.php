@@ -32,10 +32,21 @@ class StoreProjectRequest extends FormRequest
         ]);
     }
 
+    /** BRD §7.2 — a new client may be created inline instead of picking an existing one. */
+    public function isNewClient(): bool
+    {
+        return $this->input('client_source') === 'new';
+    }
+
     public function rules(): array
     {
+        $isNewClient = $this->isNewClient();
+
         return [
-            'client_id' => ['required', 'integer', 'exists:clients,id'],
+            'client_id' => [$isNewClient ? 'nullable' : 'required', 'integer', 'exists:clients,id'],
+            'new_client_name' => [$isNewClient ? 'required' : 'nullable', 'string', 'max:255'],
+            'new_client_phone' => [$isNewClient ? 'required' : 'nullable', 'string', 'max:50'],
+            'new_client_email' => ['nullable', 'email', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'department_ids' => ['required', 'array', 'min:1'],

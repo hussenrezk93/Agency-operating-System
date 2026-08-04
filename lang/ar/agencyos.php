@@ -306,6 +306,11 @@ return [
             'subtitle' => 'يتم اشتقاق الأعضاء تلقائيًا من الأقسام المشاركة.',
             'submit' => 'إنشاء المشروع',
             'cancel' => 'إلغاء',
+            'existing_client' => 'عميل موجود',
+            'existing_client_hint' => 'اختر من السجل',
+            'new_client' => 'عميل جديد',
+            'new_client_hint' => 'أنشئه هنا مباشرة',
+            'new_client_saved_hint' => 'يتم حفظ العميل في السجل فور إنشاء المشروع.',
         ],
         'fields' => [
             'client' => 'العميل',

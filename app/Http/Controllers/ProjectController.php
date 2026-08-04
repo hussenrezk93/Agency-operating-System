@@ -10,6 +10,7 @@ use App\Http\Requests\UpdateProjectRequest;
 use App\Models\Client;
 use App\Models\Department;
 use App\Models\Project;
+use App\Services\ClientService;
 use App\Services\ProjectService;
 use App\Services\ProjectWhatsappService;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +24,7 @@ class ProjectController extends Controller
     public function __construct(
         private readonly ProjectService $service,
         private readonly ProjectWhatsappService $whatsapp,
+        private readonly ClientService $clients,
     ) {}
 
     public function index(Request $request): JsonResponse|View
@@ -98,9 +100,17 @@ class ProjectController extends Controller
 
     public function store(StoreProjectRequest $request): JsonResponse|RedirectResponse
     {
+        $client = $request->isNewClient()
+            ? $this->clients->create([
+                'name' => $request->string('new_client_name')->toString(),
+                'phone' => $request->string('new_client_phone')->toString(),
+                'company_email' => $request->filled('new_client_email') ? $request->string('new_client_email')->toString() : null,
+            ], $request->user())
+            : Client::findOrFail($request->integer('client_id'));
+
         $project = $this->service->create(
             $request->only(['name', 'description']),
-            Client::findOrFail($request->integer('client_id')),
+            $client,
             $request->input('department_ids'),
             $request->input('links', []),
             $request->user(),

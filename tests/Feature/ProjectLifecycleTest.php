@@ -57,6 +57,33 @@ class ProjectLifecycleTest extends TestCase
         $this->assertDatabaseHas('project_links', ['url' => 'https://example.test/brief']);
     }
 
+    /** BRD §7.2 — a new client may be created inline instead of picking an existing one. */
+    public function test_manager_creates_a_project_with_a_brand_new_client(): void
+    {
+        $response = $this->actingAs($this->manager)->postJson('/projects', [
+            'client_source' => 'new',
+            'new_client_name' => 'Horizon Retail',
+            'new_client_phone' => '+20 100 000 0000',
+            'name' => 'Horizon Launch',
+            'department_ids' => [$this->marketing->id],
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('clients', ['name' => 'Horizon Retail', 'phone' => '+20 100 000 0000']);
+
+        $client = Client::where('name', 'Horizon Retail')->firstOrFail();
+        $this->assertSame($client->id, $response->json('data.client_id'));
+    }
+
+    public function test_creating_a_project_with_a_new_client_but_no_name_is_rejected(): void
+    {
+        $this->actingAs($this->manager)->postJson('/projects', [
+            'client_source' => 'new',
+            'new_client_phone' => '+20 100 000 0000',
+            'name' => 'Horizon Launch',
+            'department_ids' => [$this->marketing->id],
+        ])->assertStatus(422)->assertJsonValidationErrors('new_client_name');
+    }
+
     public function test_a_team_leader_may_add_their_own_department_and_allowed_targets(): void
     {
         $allowed = Department::factory()->create();
