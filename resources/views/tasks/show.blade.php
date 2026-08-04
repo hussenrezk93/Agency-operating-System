@@ -24,7 +24,12 @@
                 <span class="tag {{ $priorityTag['class'] }}">{{ $priorityTag['label'] }}</span>
             </div>
         </div>
-        <div class="page-actions"><a class="small" href="{{ route('tasks.index') }}">{{ __('agencyos.tasks.show.back_to_tasks') }}</a></div>
+        <div class="page-actions">
+            @if($canEdit)
+                <a class="btn btn-outline btn-sm" href="{{ route('tasks.edit-form', $task) }}">{{ __('agencyos.tasks.show.edit') }}</a>
+            @endif
+            <a class="small" href="{{ route('tasks.index') }}">{{ __('agencyos.tasks.show.back_to_tasks') }}</a>
+        </div>
     </div>
 
     @if(session('status'))

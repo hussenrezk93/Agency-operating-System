@@ -104,6 +104,11 @@ return [
             'submit' => 'Create task',
             'cancel' => 'Cancel',
         ],
+        'edit' => [
+            'title' => 'Edit task',
+            'subtitle' => 'Only the creator can edit, and only before the first step is assigned.',
+            'submit' => 'Save changes',
+        ],
         'fields' => [
             'title' => 'Title',
             'brief' => 'Brief',
@@ -119,6 +124,7 @@ return [
             'label' => 'Label',
         ],
         'show' => [
+            'edit' => 'Edit',
             'route' => 'Department route',
             'details' => 'Details',
             'outputs' => 'Output links',
@@ -220,6 +226,7 @@ return [
         ],
         'flash' => [
             'created' => 'Task created.',
+            'updated' => 'Task updated.',
             'assigned' => 'Assigned.',
             'reassigned' => 'Reassigned.',
             'output_added' => 'Output link added.',

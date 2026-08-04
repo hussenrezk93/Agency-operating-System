@@ -163,6 +163,39 @@ class TaskWorkflowService
         });
     }
 
+    /**
+     * BRD §8 — the creator edits title/brief/notes/priority up until the first step is
+     * ever assigned (`TaskPolicy::update()` — once execution starts, priority and every
+     * other field are frozen; there is no separate "priority immutable" rule to enforce
+     * here because the policy already refuses the whole action at that point).
+     *
+     * @param  array{title: string, brief: string, notes?: ?string, priority?: string}  $data
+     */
+    public function updateTask(Task $task, array $data, User $actor): Task
+    {
+        Gate::forUser($actor)->authorize('update', $task);
+
+        $before = $task->only(['title', 'brief', 'notes', 'priority']);
+
+        $task->fill([
+            'title' => $data['title'],
+            'brief' => $data['brief'],
+            'notes' => $data['notes'] ?? null,
+            'priority' => $data['priority'] ?? $task->priority->value,
+        ])->save();
+
+        $this->audit->log(
+            action: 'task.updated',
+            entityType: 'task',
+            entityId: $task->id,
+            before: $before,
+            after: $task->only(['title', 'brief', 'notes', 'priority']),
+            actorId: $actor->id,
+        );
+
+        return $task->refresh();
+    }
+
     // ---------------------------------------------------------------- assign
 
     /**

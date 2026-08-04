@@ -8,6 +8,7 @@ use App\Http\Requests\CancelTaskRequest;
 use App\Http\Requests\HoldTaskRequest;
 use App\Http\Requests\RedirectTaskRequest;
 use App\Http\Requests\StoreTaskRequest;
+use App\Http\Requests\UpdateTaskRequest;
 use App\Models\Department;
 use App\Models\Project;
 use App\Models\Task;
@@ -99,6 +100,25 @@ class TaskController extends Controller
         return response()->json(['data' => $task], 201);
     }
 
+    /** Blade-only — the creator's edit form, only reachable before the task is assigned. */
+    public function edit(Request $request, Task $task): View
+    {
+        $this->authorize('update', $task);
+
+        return view('tasks.edit', ['task' => $task]);
+    }
+
+    public function update(UpdateTaskRequest $request, Task $task): JsonResponse|RedirectResponse
+    {
+        $updated = $this->workflow->updateTask($task, $request->validated(), $request->user());
+
+        if (! $request->expectsJson()) {
+            return redirect()->route('tasks.show', $updated)->with('status', __('agencyos.tasks.flash.updated'));
+        }
+
+        return response()->json(['data' => $updated]);
+    }
+
     public function show(Request $request, Task $task): JsonResponse|View
     {
         $this->authorize('view', $task);
@@ -136,6 +156,7 @@ class TaskController extends Controller
             'canSubmit' => $step !== null && $actor->can('submit', $step),
             'canReview' => $step !== null && $actor->can('review', $step),
             'canTransfer' => $step !== null && $actor->can('transfer', $step),
+            'canEdit' => $actor->can('update', $task),
             'canComplete' => $actor->can('complete', $task),
             'canCancel' => $actor->can('cancel', $task),
             'canHold' => $actor->can('hold', $task),

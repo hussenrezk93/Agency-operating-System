@@ -79,6 +79,26 @@ php artisan tinker
 | `MAIL_*` | real SMTP credentials (approved decision Q27 — provider-agnostic; every notification email, the 2-hour chat digest, WhatsApp invite emails, and forced-password-reset hand-offs depend on this) |
 | `QUEUE_CONNECTION` | `database` is fine at this scale; move to Redis only if queue depth becomes a real bottleneck |
 
+### Mail domain authentication (SPF / DKIM / DMARC)
+
+Not configurable from `.env` — this lives in DNS for whatever domain `MAIL_FROM_ADDRESS`
+uses, and it's the single biggest factor in whether notification/digest/WhatsApp-invite
+emails land in an inbox instead of spam:
+
+- **SPF**: a TXT record on the sending domain authorizing your SMTP provider's servers
+  (e.g. `v=spf1 include:<provider>.com ~all`). Ask your SMTP provider for their exact
+  `include` value.
+- **DKIM**: the SMTP provider generates a key pair and gives you a CNAME/TXT record to
+  publish; they sign outgoing mail with the private half.
+- **DMARC**: a TXT record (`_dmarc.<domain>`) stating what to do with mail that fails
+  SPF/DKIM — start with `p=none` (monitor only) and tighten to `p=quarantine`/`p=reject`
+  once SPF/DKIM are confirmed passing in your provider's delivery logs.
+
+Verify all three with a real test send before go-live (most SMTP providers' dashboards
+show pass/fail per message). This was flagged as an unchecked item in the Phase 0 plan
+and is genuinely an infrastructure/DNS task, not application code — nothing in this
+repository can do it for you.
+
 ## 4. Long-running processes
 
 Two things must run continuously in every environment, or the application silently stops

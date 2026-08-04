@@ -236,6 +236,8 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
 
             Route::middleware('role:manager,tl')->group(function (): void {
                 Route::post('/', [TaskController::class, 'store'])->name('tasks.store');
+                Route::get('/{task}/edit', [TaskController::class, 'edit'])->name('tasks.edit-form');
+                Route::patch('/{task}', [TaskController::class, 'update'])->name('tasks.update');
                 Route::post('/{task}/cancel', [TaskController::class, 'cancel'])->name('tasks.cancel');
                 Route::post('/{task}/hold', [TaskController::class, 'hold'])->name('tasks.hold');
                 Route::post('/{task}/resume', [TaskController::class, 'resume'])->name('tasks.resume');
