@@ -12,37 +12,37 @@
         : null;
     $workspaceNav = match($role) {
         'admin' => [
-            ['real:users.index', '♙', app()->isLocale('ar') ? 'المديرون' : 'Managers'],
-            ['real:department-routes.index', '⇄', app()->isLocale('ar') ? 'صلاحيات التحويل' : 'Routing permissions'],
-            ['real:department-output-access.index', '◫', app()->isLocale('ar') ? 'صلاحيات المخرجات' : 'Output access'],
-            ['system-settings.html', '⚙', app()->isLocale('ar') ? 'إعدادات النظام' : 'System settings'],
-            ['audit-log.html', '◇', app()->isLocale('ar') ? 'سجل التدقيق' : 'Audit log'],
-            ['real:chat.index', '💬', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
+            ['real:users.index', 'users', app()->isLocale('ar') ? 'المديرون' : 'Managers'],
+            ['real:department-routes.index', 'shuffle', app()->isLocale('ar') ? 'صلاحيات التحويل' : 'Routing permissions'],
+            ['real:department-output-access.index', 'layout-grid', app()->isLocale('ar') ? 'صلاحيات المخرجات' : 'Output access'],
+            ['system-settings.html', 'settings', app()->isLocale('ar') ? 'إعدادات النظام' : 'System settings'],
+            ['audit-log.html', 'shield-check', app()->isLocale('ar') ? 'سجل التدقيق' : 'Audit log'],
+            ['real:chat.index', 'message-circle', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
         ],
         'manager' => [
-            ['real:tasks.index', '☑', app()->isLocale('ar') ? 'المهام' : 'Tasks'],
-            ['real:projects.index', '▱', app()->isLocale('ar') ? 'المشروعات' : 'Projects'],
-            ['real:clients.index', '☆', app()->isLocale('ar') ? 'العملاء' : 'Clients'],
-            ['real:reports.index', '▥', app()->isLocale('ar') ? 'التقارير' : 'Reports'],
-            ['real:users.index', '♙', app()->isLocale('ar') ? 'المستخدمون' : 'Users'],
-            ['real:departments.index', '▦', app()->isLocale('ar') ? 'الأقسام' : 'Departments'],
-            ['real:temporary-leadership.index', '◷', app()->isLocale('ar') ? 'قائد الفريق المؤقت' : 'Temporary TL'],
-            ['real:chat.index', '💬', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
+            ['real:tasks.index', 'list-checks', app()->isLocale('ar') ? 'المهام' : 'Tasks'],
+            ['real:projects.index', 'folder-kanban', app()->isLocale('ar') ? 'المشروعات' : 'Projects'],
+            ['real:clients.index', 'star', app()->isLocale('ar') ? 'العملاء' : 'Clients'],
+            ['real:reports.index', 'bar-chart-3', app()->isLocale('ar') ? 'التقارير' : 'Reports'],
+            ['real:users.index', 'users', app()->isLocale('ar') ? 'المستخدمون' : 'Users'],
+            ['real:departments.index', 'building-2', app()->isLocale('ar') ? 'الأقسام' : 'Departments'],
+            ['real:temporary-leadership.index', 'clock', app()->isLocale('ar') ? 'قائد الفريق المؤقت' : 'Temporary TL'],
+            ['real:chat.index', 'message-circle', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
         ],
         'tl' => [
-            ['real:tasks.index', '☑', app()->isLocale('ar') ? 'المهام' : 'Tasks'],
-            ['tl-review.html', '⌕', app()->isLocale('ar') ? 'قائمة المراجعة' : 'Review queue'],
-            ['real:tasks.index:my', '✓', app()->isLocale('ar') ? 'مهامي' : 'My tasks'],
-            ['real:projects.index', '▱', app()->isLocale('ar') ? 'المشروعات' : 'Projects'],
-            ['real:clients.index', '☆', app()->isLocale('ar') ? 'العملاء' : 'Clients'],
-            ['real:reports.index', '▥', app()->isLocale('ar') ? 'التقارير' : 'Reports'],
-            ['real:chat.index', '💬', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
+            ['real:tasks.index', 'list-checks', app()->isLocale('ar') ? 'المهام' : 'Tasks'],
+            ['tl-review.html', 'search', app()->isLocale('ar') ? 'قائمة المراجعة' : 'Review queue'],
+            ['real:tasks.index:my', 'check-circle', app()->isLocale('ar') ? 'مهامي' : 'My tasks'],
+            ['real:projects.index', 'folder-kanban', app()->isLocale('ar') ? 'المشروعات' : 'Projects'],
+            ['real:clients.index', 'star', app()->isLocale('ar') ? 'العملاء' : 'Clients'],
+            ['real:reports.index', 'bar-chart-3', app()->isLocale('ar') ? 'التقارير' : 'Reports'],
+            ['real:chat.index', 'message-circle', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
         ],
         default => [
-            ['real:tasks.index', '☑', app()->isLocale('ar') ? 'مهامي' : 'My tasks'],
-            ['real:projects.index', '▱', app()->isLocale('ar') ? 'المشروعات' : 'Projects'],
-            ['real:performance.show', '▥', app()->isLocale('ar') ? 'الأداء' : 'Performance'],
-            ['real:chat.index', '💬', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
+            ['real:tasks.index', 'list-checks', app()->isLocale('ar') ? 'مهامي' : 'My tasks'],
+            ['real:projects.index', 'folder-kanban', app()->isLocale('ar') ? 'المشروعات' : 'Projects'],
+            ['real:performance.show', 'bar-chart-3', app()->isLocale('ar') ? 'الأداء' : 'Performance'],
+            ['real:chat.index', 'message-circle', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
         ],
     };
 @endphp
@@ -98,7 +98,7 @@
         <span class="role-chip role-{{ $role }}">{{ $roleLabel }}</span>
         <nav class="nav">
             <div class="nav-label">{{ app()->isLocale('ar') ? 'الرئيسية' : 'Main' }}</div>
-            <a @class(['active' => request()->routeIs('dashboard')]) href="{{ route('dashboard') }}"><span class="ic">⌂</span><span>{{ __('agencyos.dashboard.page_title') }}</span></a>
+            <a @class(['active' => request()->routeIs('dashboard')]) href="{{ route('dashboard') }}"><span class="ic"><x-icon name="home"/></span><span>{{ __('agencyos.dashboard.page_title') }}</span></a>
             <div class="nav-label">{{ app()->isLocale('ar') ? 'مساحة العمل' : 'Workspace' }}</div>
             @foreach($workspaceNav as [$screen, $icon, $label])
                 @if(str_starts_with($screen, 'real:'))
@@ -110,29 +110,29 @@
                         $routePrefix = explode('.', $routeName)[0];
                         $isActive = request()->routeIs($routePrefix.'.*') && ($isMyTasks === (request()->query('view') === 'my'));
                     @endphp
-                    <a @class(['active' => $isActive]) href="{{ $href }}"><span class="ic">{{ $icon }}</span><span>{{ $label }}</span></a>
+                    <a @class(['active' => $isActive]) href="{{ $href }}"><span class="ic"><x-icon :name="$icon"/></span><span>{{ $label }}</span></a>
                 @else
                     @php
                         [$screenName, $query] = array_pad(explode('?', $screen, 2), 2, null);
                         $href = $uiUrl($screenName).($query ? '?'.$query : '');
                     @endphp
-                    <a @class(['active' => $currentScreen === $screenName]) href="{{ $href }}"><span class="ic">{{ $icon }}</span><span>{{ $label }}</span></a>
+                    <a @class(['active' => $currentScreen === $screenName]) href="{{ $href }}"><span class="ic"><x-icon :name="$icon"/></span><span>{{ $label }}</span></a>
                 @endif
             @endforeach
             <a @class(['active' => request()->routeIs('notifications.*')]) href="{{ route('notifications.index') }}">
-                <span class="ic">◉</span><span>{{ app()->isLocale('ar') ? 'الإشعارات' : 'Notifications' }}</span>
+                <span class="ic"><x-icon name="bell"/></span><span>{{ app()->isLocale('ar') ? 'الإشعارات' : 'Notifications' }}</span>
                 @if($unreadNotificationCount > 0)<span class="badge b-changes" style="margin-left:6px">{{ $unreadNotificationCount }}</span>@endif
             </a>
-            <a @class(['active' => $currentScreen === 'profile.html']) href="{{ $uiUrl('profile.html') }}"><span class="ic">○</span><span>{{ app()->isLocale('ar') ? 'الملف الشخصي' : 'Profile' }}</span></a>
+            <a @class(['active' => $currentScreen === 'profile.html']) href="{{ $uiUrl('profile.html') }}"><span class="ic"><x-icon name="user"/></span><span>{{ app()->isLocale('ar') ? 'الملف الشخصي' : 'Profile' }}</span></a>
         </nav>
         <div class="sidebar-foot">v1.1 · Africa/Cairo · Laravel</div>
     </aside>
     <div class="main">
         <header class="topbar">
-            <button class="burger" id="burger" type="button" aria-label="Menu">☰</button>
+            <button class="burger" id="burger" type="button" aria-label="Menu"><x-icon name="menu"/></button>
             @if($role !== 'admin')
                 <form class="searchbox" method="GET" action="{{ route('search.index') }}">
-                    <span class="ic">⌕</span>
+                    <span class="ic"><x-icon name="search"/></span>
                     <input type="search" name="q" value="{{ request('q') }}" placeholder="{{ app()->isLocale('ar') ? 'البحث في النظام...' : 'Search Agency OS...' }}">
                 </form>
             @else
@@ -145,7 +145,7 @@
                         <button type="submit" name="locale" value="ar"><span class="lang-choice lang-ar">العربية</span></button>
                     </div>
                 </form>
-                <a class="icon-btn" href="{{ route('notifications.index') }}" aria-label="Notifications">◉@if($unreadNotificationCount > 0)<sup>{{ $unreadNotificationCount }}</sup>@endif</a>
+                <a class="icon-btn" href="{{ route('notifications.index') }}" aria-label="Notifications"><x-icon name="bell" class="ic"/>@if($unreadNotificationCount > 0)<sup>{{ $unreadNotificationCount }}</sup>@endif</a>
                 <div class="userbox"><div class="avatar">{{ $initials ?: 'U' }}</div><div><div class="uname">{{ $currentUser?->full_name ?? $currentUser?->username }}</div><div class="urole">{{ $roleLabel }}</div></div></div>
                 <form class="logout-form" method="POST" action="{{ route('logout') }}">@csrf<button class="lang-btn" type="submit">{{ __('agencyos.common.logout') }}</button></form>
             </div>
