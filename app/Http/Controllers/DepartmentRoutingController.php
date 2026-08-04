@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UpsertDepartmentRouteRequest;
 use App\Models\Department;
 use App\Models\DepartmentRoute;
+use App\Services\DepartmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,10 +14,13 @@ use Illuminate\View\View;
 /**
  * Admin-only matrix editor over `department_routes` (BRD §15). The routing DECISION
  * at "Send to Next Department" is TaskRoutingService's job — this only edits the
- * matrix it reads from.
+ * matrix it reads from. Writes go through DepartmentService so the change is audited,
+ * same as every other mutation in the app.
  */
 class DepartmentRoutingController extends Controller
 {
+    public function __construct(private readonly DepartmentService $departments) {}
+
     public function index(Request $request): JsonResponse|View
     {
         $this->authorize('viewAny', DepartmentRoute::class);
@@ -42,16 +46,11 @@ class DepartmentRoutingController extends Controller
 
     public function upsert(UpsertDepartmentRouteRequest $request): JsonResponse|RedirectResponse
     {
-        $route = DepartmentRoute::updateOrCreate(
-            [
-                'from_department_id' => $request->integer('from_department_id'),
-                'to_department_id' => $request->integer('to_department_id'),
-            ],
-            [
-                'is_allowed' => $request->boolean('is_allowed'),
-                'updated_by' => $request->user()->id,
-                'updated_at' => now(),
-            ],
+        $route = $this->departments->upsertRoute(
+            $request->integer('from_department_id'),
+            $request->integer('to_department_id'),
+            $request->boolean('is_allowed'),
+            $request->user(),
         );
 
         if (! $request->expectsJson()) {

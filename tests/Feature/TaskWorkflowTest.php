@@ -211,6 +211,31 @@ class TaskWorkflowTest extends TestCase
         $this->assertFalse($output->is_final);
         $this->assertSame(WorkflowStatus::UnderReview, $step->refresh()->workflow_status);
         $this->assertNotNull($step->submitted_at);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_user_id' => $this->employee->id,
+            'action' => 'task_step.output_added',
+            'entity_type' => 'task_step',
+            'entity_id' => $step->id,
+        ]);
+    }
+
+    public function test_superseding_an_output_points_the_old_row_at_the_replacement_and_is_audited(): void
+    {
+        [, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+
+        $original = $this->workflow()->addOutput($step, $this->employee, 'https://drive.example.com/cut-1');
+        $replacement = $this->workflow()->addOutput($step, $this->employee, 'https://drive.example.com/cut-1-fixed');
+
+        $this->workflow()->supersedeOutput($original, $replacement, $this->employee);
+
+        $this->assertSame($replacement->id, $original->fresh()->superseded_by_output_id);
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_user_id' => $this->employee->id,
+            'action' => 'task_step.output_superseded',
+            'entity_type' => 'task_step',
+            'entity_id' => $step->id,
+        ]);
     }
 
     /** BRD §22.2 — the rule the whole review cycle depends on. */

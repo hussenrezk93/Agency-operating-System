@@ -48,6 +48,12 @@ class DepartmentRoutingTest extends TestCase
             'to_department_id' => $this->design->id,
             'is_allowed' => true,
         ]);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_user_id' => $this->admin->id,
+            'action' => 'department_route.updated',
+            'entity_type' => 'department_route',
+        ]);
     }
 
     public function test_upserting_the_same_pair_updates_rather_than_duplicates(): void

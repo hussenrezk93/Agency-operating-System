@@ -402,6 +402,14 @@ class TaskWorkflowService
                 'submission_no' => $output->submission_no,
             ]);
 
+            $this->audit->log(
+                action: 'task_step.output_added',
+                entityType: 'task_step',
+                entityId: $step->id,
+                after: ['output_id' => $output->id, 'submission_no' => $output->submission_no],
+                actorId: $actor->id,
+            );
+
             return $output;
         });
     }
@@ -416,6 +424,15 @@ class TaskWorkflowService
         }
 
         $old->forceFill(['superseded_by_output_id' => $replacement->id])->save();
+
+        $this->audit->log(
+            action: 'task_step.output_superseded',
+            entityType: 'task_step',
+            entityId: $old->task_step_id,
+            before: ['output_id' => $old->id],
+            after: ['output_id' => $old->id, 'superseded_by_output_id' => $replacement->id],
+            actorId: $actor->id,
+        );
     }
 
     /**

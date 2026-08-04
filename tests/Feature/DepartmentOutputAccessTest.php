@@ -45,6 +45,12 @@ class DepartmentOutputAccessTest extends TestCase
             'source_department_id' => $this->design->id,
             'scope' => 'final_only',
         ]);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_user_id' => $this->admin->id,
+            'action' => 'department_output_access.updated',
+            'entity_type' => 'department_output_access',
+        ]);
     }
 
     public function test_upserting_the_same_pair_updates_rather_than_duplicates(): void

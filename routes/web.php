@@ -45,7 +45,10 @@ Route::get('/', fn () => redirect()->route('login'))->name('root');
 Route::post('/locale', LocaleController::class)->name('locale.update');
 
 // BRD §18.1 — unauthenticated on purpose; the token proves the click, not the session.
+// Throttled defense-in-depth against token-guessing, even though a 40-char random token
+// is already computationally infeasible to brute force.
 Route::get('/email/verify/{user}/{token}', [EmailVerificationController::class, 'verify'])
+    ->middleware('throttle:10,1')
     ->name('email.verify');
 
 Route::middleware('guest')->group(function (): void {
@@ -292,6 +295,7 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
         });
 
         Route::post('/email/resend-verification', [EmailVerificationController::class, 'resend'])
+            ->middleware('throttle:3,1')
             ->name('email.resend-verification');
 
         // Admin can reach chat for the company directory and general direct messages only —

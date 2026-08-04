@@ -5,14 +5,20 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UpsertDepartmentOutputAccessRequest;
 use App\Models\Department;
 use App\Models\DepartmentOutputAccess;
+use App\Services\DepartmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/** Admin-only matrix editor over `department_output_access` (BRD §15). */
+/**
+ * Admin-only matrix editor over `department_output_access` (BRD §15). Writes go through
+ * DepartmentService so the change is audited, same as every other mutation in the app.
+ */
 class DepartmentOutputAccessController extends Controller
 {
+    public function __construct(private readonly DepartmentService $departments) {}
+
     public function index(Request $request): JsonResponse|View
     {
         $this->authorize('viewAny', DepartmentOutputAccess::class);
@@ -33,17 +39,12 @@ class DepartmentOutputAccessController extends Controller
 
     public function upsert(UpsertDepartmentOutputAccessRequest $request): JsonResponse|RedirectResponse
     {
-        $rule = DepartmentOutputAccess::updateOrCreate(
-            [
-                'viewer_department_id' => $request->integer('viewer_department_id'),
-                'source_department_id' => $request->integer('source_department_id'),
-            ],
-            [
-                'scope' => $request->string('scope')->toString(),
-                'is_allowed' => $request->boolean('is_allowed'),
-                'updated_by' => $request->user()->id,
-                'updated_at' => now(),
-            ],
+        $rule = $this->departments->upsertOutputAccess(
+            $request->integer('viewer_department_id'),
+            $request->integer('source_department_id'),
+            $request->string('scope')->toString(),
+            $request->boolean('is_allowed'),
+            $request->user(),
         );
 
         if (! $request->expectsJson()) {

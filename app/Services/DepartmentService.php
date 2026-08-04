@@ -6,6 +6,8 @@ use App\Enums\ActivationState;
 use App\Enums\LeadershipType;
 use App\Enums\RoleCode;
 use App\Models\Department;
+use App\Models\DepartmentOutputAccess;
+use App\Models\DepartmentRoute;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -51,6 +53,58 @@ class DepartmentService
             );
 
             return $department->refresh();
+        });
+    }
+
+    /** BRD §15 — the Admin routing-permissions matrix `TaskRoutingService` reads from. */
+    public function upsertRoute(int $fromDepartmentId, int $toDepartmentId, bool $isAllowed, User $actor): DepartmentRoute
+    {
+        return DB::transaction(function () use ($fromDepartmentId, $toDepartmentId, $isAllowed, $actor): DepartmentRoute {
+            $before = DepartmentRoute::where('from_department_id', $fromDepartmentId)
+                ->where('to_department_id', $toDepartmentId)
+                ->first();
+
+            $route = DepartmentRoute::updateOrCreate(
+                ['from_department_id' => $fromDepartmentId, 'to_department_id' => $toDepartmentId],
+                ['is_allowed' => $isAllowed, 'updated_by' => $actor->id, 'updated_at' => now()],
+            );
+
+            $this->audit->log(
+                action: 'department_route.updated',
+                entityType: 'department_route',
+                entityId: $route->id,
+                before: ['is_allowed' => $before?->is_allowed],
+                after: ['from_department_id' => $fromDepartmentId, 'to_department_id' => $toDepartmentId, 'is_allowed' => $isAllowed],
+                actorId: $actor->id,
+            );
+
+            return $route;
+        });
+    }
+
+    /** BRD §15 — the Admin output-access matrix controlling cross-department output visibility. */
+    public function upsertOutputAccess(int $viewerDepartmentId, int $sourceDepartmentId, string $scope, bool $isAllowed, User $actor): DepartmentOutputAccess
+    {
+        return DB::transaction(function () use ($viewerDepartmentId, $sourceDepartmentId, $scope, $isAllowed, $actor): DepartmentOutputAccess {
+            $before = DepartmentOutputAccess::where('viewer_department_id', $viewerDepartmentId)
+                ->where('source_department_id', $sourceDepartmentId)
+                ->first();
+
+            $rule = DepartmentOutputAccess::updateOrCreate(
+                ['viewer_department_id' => $viewerDepartmentId, 'source_department_id' => $sourceDepartmentId],
+                ['scope' => $scope, 'is_allowed' => $isAllowed, 'updated_by' => $actor->id, 'updated_at' => now()],
+            );
+
+            $this->audit->log(
+                action: 'department_output_access.updated',
+                entityType: 'department_output_access',
+                entityId: $rule->id,
+                before: ['is_allowed' => $before?->is_allowed, 'scope' => $before?->scope],
+                after: ['viewer_department_id' => $viewerDepartmentId, 'source_department_id' => $sourceDepartmentId, 'scope' => $scope, 'is_allowed' => $isAllowed],
+                actorId: $actor->id,
+            );
+
+            return $rule;
         });
     }
 }
