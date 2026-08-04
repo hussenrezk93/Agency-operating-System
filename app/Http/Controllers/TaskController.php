@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Enums\RoleCode;
+use App\Enums\TaskLifecycle;
 use App\Enums\UserStatus;
 use App\Http\Requests\CancelTaskRequest;
 use App\Http\Requests\HoldTaskRequest;
+use App\Http\Requests\PublishDraftTaskRequest;
 use App\Http\Requests\RedirectTaskRequest;
 use App\Http\Requests\StoreTaskRequest;
 use App\Http\Requests\UpdateTaskRequest;
@@ -94,10 +96,38 @@ class TaskController extends Controller
             ->load(['currentStep.department', 'referenceLinks']);
 
         if (! $request->expectsJson()) {
-            return redirect()->route('tasks.show', $task)->with('status', __('agencyos.tasks.flash.created'));
+            $flash = $request->isDraft() ? 'agencyos.tasks.flash.draft_saved' : 'agencyos.tasks.flash.created';
+
+            return redirect()->route('tasks.show', $task)->with('status', __($flash));
         }
 
         return response()->json(['data' => $task], 201);
+    }
+
+    public function publish(PublishDraftTaskRequest $request, Task $task): JsonResponse|RedirectResponse
+    {
+        $department = Department::findOrFail($request->integer('first_department_id'));
+
+        $published = $this->workflow->publishDraft($task, $request->user(), $department);
+
+        if (! $request->expectsJson()) {
+            return redirect()->route('tasks.show', $published)->with('status', __('agencyos.tasks.flash.published'));
+        }
+
+        return response()->json(['data' => $published]);
+    }
+
+    public function destroy(Request $request, Task $task): JsonResponse|RedirectResponse
+    {
+        $this->authorize('deleteDraft', $task);
+
+        $this->workflow->deleteDraft($task, $request->user());
+
+        if (! $request->expectsJson()) {
+            return redirect()->route('tasks.index')->with('status', __('agencyos.tasks.flash.draft_deleted'));
+        }
+
+        return response()->json(null, 204);
     }
 
     /** Blade-only — the creator's edit form, only reachable before the task is assigned. */
@@ -132,6 +162,15 @@ class TaskController extends Controller
         ]);
 
         if (! $request->expectsJson()) {
+            if ($task->lifecycle_status === TaskLifecycle::Draft) {
+                return view('tasks.draft', [
+                    'task' => $task,
+                    'departments' => Department::where('is_active', true)->orderBy('name')->get(),
+                    'canPublish' => $request->user()->can('publish', $task),
+                    'canDelete' => $request->user()->can('deleteDraft', $task),
+                ]);
+            }
+
             return $this->showView($request->user(), $task);
         }
 

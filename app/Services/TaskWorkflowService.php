@@ -93,6 +93,12 @@ class TaskWorkflowService
     {
         Gate::forUser($actor)->authorize('create', Task::class);
 
+        // BRD §8 — no first department yet means "save as draft": the task record is
+        // created but never enters the workflow (no step opens) until publishDraft().
+        if (! isset($data['first_department_id'])) {
+            return $this->saveDraft($actor, $data);
+        }
+
         $department = Department::findOrFail($data['first_department_id']);
 
         if (! $department->is_active) {
@@ -102,37 +108,10 @@ class TaskWorkflowService
         }
 
         $this->assertFirstDepartmentAllowed($department, $actor);
-
-        // Q23 — a project on hold (or closed) accepts no new tasks.
-        if (isset($data['project_id'])) {
-            $project = Project::findOrFail($data['project_id']);
-
-            if (! $project->acceptsNewTasks()) {
-                throw ValidationException::withMessages([
-                    'project_id' => __('This project does not accept new tasks right now.'),
-                ]);
-            }
-        }
+        $this->assertProjectAcceptsNewTasks($data['project_id'] ?? null);
 
         return DB::transaction(function () use ($actor, $data, $department): Task {
-            $task = Task::create([
-                'task_code' => $this->nextTaskCode(),
-                'project_id' => $data['project_id'] ?? null,
-                'title' => $data['title'],
-                'brief' => $data['brief'],
-                'notes' => $data['notes'] ?? null,
-                'priority' => $data['priority'] ?? Priority::Medium->value,
-                'lifecycle_status' => TaskLifecycle::Active->value,
-                'created_by' => $actor->id,
-            ]);
-
-            foreach ($data['reference_links'] ?? [] as $link) {
-                $task->referenceLinks()->create([
-                    'added_by' => $actor->id,
-                    'url' => $link['url'],
-                    'label' => $link['label'] ?? null,
-                ]);
-            }
+            $task = $this->createTaskRecord($actor, $data, TaskLifecycle::Active);
 
             $step = $this->openStep($task, $department, sequenceNo: 1);
 
@@ -161,6 +140,132 @@ class TaskWorkflowService
 
             return $task->refresh();
         });
+    }
+
+    /** BRD §8 — a task saved with no first department yet: no step, nothing sent anywhere. */
+    private function saveDraft(User $actor, array $data): Task
+    {
+        $this->assertProjectAcceptsNewTasks($data['project_id'] ?? null);
+
+        return DB::transaction(function () use ($actor, $data): Task {
+            $task = $this->createTaskRecord($actor, $data, TaskLifecycle::Draft);
+
+            $this->record($task, null, TaskEvent::Created, $actor, null, null, null, [
+                'draft' => true,
+                'priority' => $task->priority->value,
+                'project_id' => $task->project_id,
+            ]);
+
+            $this->audit->log(
+                action: 'task.draft_saved',
+                entityType: 'task',
+                entityId: $task->id,
+                after: ['task_code' => $task->task_code, 'project_id' => $task->project_id],
+                actorId: $actor->id,
+            );
+
+            return $task->refresh();
+        });
+    }
+
+    /**
+     * BRD §8 — publishing a draft is the moment it actually enters the workflow: the
+     * first department is chosen now (it was optional at draft-save time) and step 1
+     * opens exactly the way a non-draft task's does.
+     */
+    public function publishDraft(Task $task, User $actor, Department $department): Task
+    {
+        Gate::forUser($actor)->authorize('publish', $task);
+
+        if (! $department->is_active) {
+            throw ValidationException::withMessages([
+                'first_department_id' => __('The receiving department is not active.'),
+            ]);
+        }
+
+        $this->assertFirstDepartmentAllowed($department, $actor);
+        $this->assertProjectAcceptsNewTasks($task->project_id);
+
+        return DB::transaction(function () use ($task, $actor, $department): Task {
+            $task->forceFill(['lifecycle_status' => TaskLifecycle::Active->value])->save();
+
+            $step = $this->openStep($task, $department, sequenceNo: 1);
+
+            $this->record($task, $step, TaskEvent::Published, $actor, null, null, null, [
+                'first_department_id' => $department->id,
+            ]);
+
+            $this->record($task, $step, TaskEvent::SentToDepartment, $actor,
+                null, WorkflowStatus::WaitingAssignment, null,
+                ['department_id' => $department->id, 'sequence_no' => 1],
+            );
+
+            $this->audit->log(
+                action: 'task.published',
+                entityType: 'task',
+                entityId: $task->id,
+                after: ['first_department_id' => $department->id],
+                actorId: $actor->id,
+            );
+
+            return $task->refresh();
+        });
+    }
+
+    /** BRD §8 — a draft may be deleted outright; it never entered the workflow. */
+    public function deleteDraft(Task $task, User $actor): void
+    {
+        Gate::forUser($actor)->authorize('deleteDraft', $task);
+
+        $taskId = $task->id;
+        $task->delete();
+
+        $this->audit->log(
+            action: 'task.draft_deleted',
+            entityType: 'task',
+            entityId: $taskId,
+            actorId: $actor->id,
+        );
+    }
+
+    private function createTaskRecord(User $actor, array $data, TaskLifecycle $lifecycle): Task
+    {
+        $task = Task::create([
+            'task_code' => $this->nextTaskCode(),
+            'project_id' => $data['project_id'] ?? null,
+            'title' => $data['title'],
+            'brief' => $data['brief'],
+            'notes' => $data['notes'] ?? null,
+            'priority' => $data['priority'] ?? Priority::Medium->value,
+            'lifecycle_status' => $lifecycle->value,
+            'created_by' => $actor->id,
+        ]);
+
+        foreach ($data['reference_links'] ?? [] as $link) {
+            $task->referenceLinks()->create([
+                'added_by' => $actor->id,
+                'url' => $link['url'],
+                'label' => $link['label'] ?? null,
+            ]);
+        }
+
+        return $task;
+    }
+
+    /** Q23 — a project on hold (or closed) accepts no new tasks, draft or otherwise. */
+    private function assertProjectAcceptsNewTasks(?int $projectId): void
+    {
+        if ($projectId === null) {
+            return;
+        }
+
+        $project = Project::findOrFail($projectId);
+
+        if (! $project->acceptsNewTasks()) {
+            throw ValidationException::withMessages([
+                'project_id' => __('This project does not accept new tasks right now.'),
+            ]);
+        }
     }
 
     /**

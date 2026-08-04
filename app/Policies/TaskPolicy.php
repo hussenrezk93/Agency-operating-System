@@ -49,6 +49,12 @@ class TaskPolicy
             return false;
         }
 
+        // A creator can always see their own task — most importantly a draft, which has
+        // no steps yet for the department-scoped checks below to find anything through.
+        if ($task->created_by === $actor->id) {
+            return true;
+        }
+
         if ($actor->hasRole(RoleCode::Manager)) {
             return true;
         }
@@ -80,6 +86,18 @@ class TaskPolicy
         return ! $task->steps()
             ->whereHas('assignments')
             ->exists();
+    }
+
+    /** BRD §8 — only the creator publishes their own draft. */
+    public function publish(User $actor, Task $task): bool
+    {
+        return $task->lifecycle_status === TaskLifecycle::Draft && $task->created_by === $actor->id;
+    }
+
+    /** BRD §8 — delete is only ever available before workflow entry, i.e. while still a draft. */
+    public function deleteDraft(User $actor, Task $task): bool
+    {
+        return $task->lifecycle_status === TaskLifecycle::Draft && $task->created_by === $actor->id;
     }
 
     /**

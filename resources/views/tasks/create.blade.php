@@ -81,6 +81,7 @@
 
         <div class="form-actions-sticky">
             <a class="btn btn-outline" href="{{ route('tasks.index') }}">{{ __('agencyos.tasks.create.cancel') }}</a>
+            <button type="submit" name="intent" value="draft" formnovalidate class="btn btn-outline">{{ __('agencyos.tasks.draft.save_button') }}</button>
             <button type="submit" class="btn btn-primary">{{ __('agencyos.tasks.create.submit') }}</button>
         </div>
     </form>

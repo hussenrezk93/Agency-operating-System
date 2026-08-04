@@ -109,6 +109,16 @@ return [
             'subtitle' => 'Only the creator can edit, and only before the first step is assigned.',
             'submit' => 'Save changes',
         ],
+        'draft' => [
+            'title' => 'Draft task',
+            'badge' => 'Draft',
+            'notice' => 'This task is a draft — it has not been sent to any department yet.',
+            'save_button' => 'Save as draft',
+            'publish_title' => 'Publish',
+            'publish_button' => 'Publish',
+            'delete_button' => 'Delete draft',
+            'delete_confirm' => 'Delete this draft? This cannot be undone.',
+        ],
         'fields' => [
             'title' => 'Title',
             'brief' => 'Brief',
@@ -227,6 +237,9 @@ return [
         'flash' => [
             'created' => 'Task created.',
             'updated' => 'Task updated.',
+            'draft_saved' => 'Draft saved.',
+            'published' => 'Task published.',
+            'draft_deleted' => 'Draft deleted.',
             'assigned' => 'Assigned.',
             'reassigned' => 'Reassigned.',
             'output_added' => 'Output link added.',

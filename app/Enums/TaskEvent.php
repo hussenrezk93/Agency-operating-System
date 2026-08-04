@@ -9,6 +9,7 @@ namespace App\Enums;
 enum TaskEvent: string
 {
     case Created = 'created';
+    case Published = 'published';
     case SentToDepartment = 'sent_to_department';
     case Assigned = 'assigned';
     case Reassigned = 'reassigned';
