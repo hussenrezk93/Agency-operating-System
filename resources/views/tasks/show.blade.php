@@ -179,7 +179,11 @@
                                 </div>
                                 <div class="field"><label class="req">{{ __('agencyos.tasks.actions.start_date') }}</label><input type="date" name="start_date" required></div>
                                 <div class="field"><label class="req">{{ __('agencyos.tasks.actions.due_date') }}</label><input type="date" name="due_date" required></div>
-                                <div class="field"><label class="req">{{ __('agencyos.tasks.actions.reason') }}</label><textarea name="reason" required></textarea></div>
+                                <div class="field">
+                                    <label>{{ __('agencyos.tasks.actions.reason') }}</label>
+                                    <textarea name="reason"></textarea>
+                                    <div class="hint">{{ __('agencyos.tasks.actions.reason_hint') }}</div>
+                                </div>
                                 <button type="submit" class="btn btn-outline btn-sm">{{ __('agencyos.tasks.actions.reassign') }}</button>
                             </form>
                         @endif

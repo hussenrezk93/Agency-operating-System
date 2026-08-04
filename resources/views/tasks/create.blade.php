@@ -63,10 +63,12 @@
 
         <div class="form-section">
             <div class="form-section-head"><span class="n">2</span><h2>{{ __('agencyos.tasks.fields.reference_links') }}</h2></div>
+            <div class="hint" style="margin:-6px 0 12px">{{ __('agencyos.tasks.fields.reference_links_hint') }}</div>
+            @error('reference_links')<div class="alert alert-danger" style="margin-bottom:12px"><div>{{ $message }}</div></div>@enderror
             <div class="form-grid">
                 @for($i = 0; $i < 3; $i++)
                     <div class="field">
-                        <label>{{ __('agencyos.tasks.fields.reference_link_n', ['n' => $i + 1]) }} — {{ __('agencyos.tasks.fields.url') }}</label>
+                        <label @class(['req' => $i === 0])>{{ __('agencyos.tasks.fields.reference_link_n', ['n' => $i + 1]) }} — {{ __('agencyos.tasks.fields.url') }}</label>
                         <input type="url" name="reference_links[{{ $i }}][url]" value="{{ old("reference_links.$i.url") }}" placeholder="https://">
                     </div>
                     <div class="field">

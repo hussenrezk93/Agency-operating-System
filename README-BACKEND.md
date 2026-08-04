@@ -1,3 +1,8 @@
+> **This document describes the Phase 1A snapshot only and is now historical.** Every
+> feature this file lists under "intentionally missing" (§11) has since been built —
+> Phases 1B through 9 are complete. For current setup and deployment steps, see
+> `docs/05-Deployment-Operations-Guide.md`.
+
 # Agency OS Backend — Phase 1A (Safe Foundation)
 
 Authentication, roles, organization structure, and audit infrastructure for the Agency OS

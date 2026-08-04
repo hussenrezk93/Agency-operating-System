@@ -113,6 +113,7 @@ return [
             'project_none' => 'Standalone task (no project)',
             'first_department' => 'First department',
             'reference_links' => 'Reference links',
+            'reference_links_hint' => 'At least one reference link is required.',
             'reference_link_n' => 'Reference link :n',
             'url' => 'URL',
             'label' => 'Label',
@@ -144,6 +145,8 @@ return [
         'actions' => [
             'assign' => 'Assign',
             'reassign' => 'Reassign',
+            'deadline_only_reason' => 'Deadline updated.',
+            'reason_hint' => 'Required only when changing who the step is assigned to.',
             'assignee' => 'Assignee',
             'start_date' => 'Start date',
             'due_date' => 'Due date (23:59 Africa/Cairo)',

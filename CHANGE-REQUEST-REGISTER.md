@@ -136,6 +136,22 @@ Status: `applied 1A.1` = schema/authority landed now · `queued 1B` = implementa
 
 ---
 
+## CR-009 — General notification emails batch every 3 hours, not immediately
+
+| Field | Detail |
+|---|---|
+| Previous rule | BRD §11.1 / Appendix B / BAC#18: every in-app notification email is sent immediately, matching the in-app event 1:1. Only chat (§14) is explicitly allowed to batch, on a 2-hour window. |
+| Approved rule | **Retroactive approval, Phase 10 audit finding.** General (non-chat) notification emails — deadline reminders, assignments, reviews, etc. — batch into one digest per recipient every 3 hours, the same shape as the chat digest, to avoid flooding an inbox during a busy workflow. In-app notifications remain immediate and mandatory; only the *email* leg is batched. An empty window sends nothing, matching the chat digest's own rule. |
+| BRD sections | §11.1, Appendix B (event/trigger table), §20.1 (mail-fatigue risk), BAC#18 |
+| ERD entities | `notifications`, `notification_deliveries`, no new tables |
+| Frontend screens | none — email-only behavior change |
+| Backend impact | `NotificationService::notify()`, `App\Console\Commands\NotificationDigestSweep`; `App\Mail\NotificationMail` (the old immediate mailable) is now dead code, kept for reference rather than deleted |
+| Migration impact | none |
+| Test impact | already covered — `tests/Feature/NotificationDigestSweepTest.php` |
+| Status | **applied** (was already implemented and tested; this entry retroactively documents it as an approved deviation rather than leaving it undocumented) |
+
+---
+
 ## Corrections applied to the existing foundation
 
 | Item | Was | Now |

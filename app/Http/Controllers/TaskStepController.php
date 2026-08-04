@@ -39,13 +39,19 @@ class TaskStepController extends Controller
 
     public function reassign(AssignTaskStepRequest $request, TaskStep $step): JsonResponse|RedirectResponse
     {
+        // BRD §11 — editing the deadline alone needs no reason; the service's history/audit
+        // trail still wants a string, so a pure date edit gets a system-generated one.
+        $reason = $request->isEmployeeChanging()
+            ? $request->string('reason')->toString()
+            : __('agencyos.tasks.actions.deadline_only_reason');
+
         $assignment = $this->workflow->reassign(
             $step,
             $request->user(),
             User::findOrFail($request->integer('assignee_id')),
             $request->date('start_date')->toDateString(),
             $request->date('due_date')->toDateString(),
-            $request->string('reason')->toString(),
+            $reason,
         );
 
         return $this->respond($request, $step, $assignment, __('agencyos.tasks.flash.reassigned'), 201);

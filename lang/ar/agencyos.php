@@ -113,6 +113,7 @@ return [
             'project_none' => 'مهمة مستقلة (بدون مشروع)',
             'first_department' => 'القسم الأول',
             'reference_links' => 'روابط مرجعية',
+            'reference_links_hint' => 'مطلوب رابط مرجعي واحد على الأقل.',
             'reference_link_n' => 'رابط مرجعي :n',
             'url' => 'الرابط',
             'label' => 'الوصف',
@@ -144,6 +145,8 @@ return [
         'actions' => [
             'assign' => 'تعيين',
             'reassign' => 'إعادة تعيين',
+            'deadline_only_reason' => 'تم تحديث الموعد النهائي.',
+            'reason_hint' => 'مطلوب فقط عند تغيير الموظف المسؤول عن المرحلة.',
             'assignee' => 'الموظف',
             'start_date' => 'تاريخ البداية',
             'due_date' => 'تاريخ الاستحقاق (11:59 م بتوقيت القاهرة)',

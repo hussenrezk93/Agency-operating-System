@@ -42,7 +42,8 @@ class StoreTaskRequest extends FormRequest
                 'integer',
                 Rule::exists('departments', 'id')->where('is_active', true),
             ],
-            'reference_links' => ['sometimes', 'array', 'max:20'],
+            // BRD §8 — a task needs one or more reference links.
+            'reference_links' => ['required', 'array', 'min:1', 'max:20'],
             'reference_links.*.url' => ['required', 'url', 'max:2048'],
             'reference_links.*.label' => ['nullable', 'string', 'max:255'],
         ];

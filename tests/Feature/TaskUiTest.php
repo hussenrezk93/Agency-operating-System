@@ -73,9 +73,9 @@ class TaskUiTest extends TestCase
             'title' => 'Classic form task',
             'brief' => 'Created through the real Blade form.',
             'first_department_id' => $this->marketing->id,
-            // Three blank reference-link rows, exactly like the create form always posts.
+            // The create form always posts 3 rows; only the first is filled in here.
             'reference_links' => [
-                ['url' => '', 'label' => ''],
+                ['url' => 'https://drive.example.com/brief', 'label' => 'Brief'],
                 ['url' => '', 'label' => ''],
                 ['url' => '', 'label' => ''],
             ],
@@ -85,6 +85,54 @@ class TaskUiTest extends TestCase
 
         $response->assertRedirect(route('tasks.show', $task));
         $this->assertSame($this->marketing->id, $task->currentStep->department_id);
+    }
+
+    /** BRD §8 — a task needs one or more reference links. */
+    public function test_creating_a_task_with_no_reference_links_is_rejected(): void
+    {
+        $this->actingAs($this->manager)->post('/tasks', [
+            'title' => 'Linkless task',
+            'brief' => 'No reference links attached.',
+            'first_department_id' => $this->marketing->id,
+            'reference_links' => [
+                ['url' => '', 'label' => ''],
+                ['url' => '', 'label' => ''],
+                ['url' => '', 'label' => ''],
+            ],
+        ])->assertSessionHasErrors('reference_links');
+
+        $this->assertDatabaseMissing('tasks', ['title' => 'Linkless task']);
+    }
+
+    /** BRD §11 — editing the deadline alone (same assignee) needs no reason. */
+    public function test_reassigning_the_same_employee_needs_no_reason(): void
+    {
+        [, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+
+        $response = $this->actingAs($this->leader)->post(route('tasks.steps.reassign', $step), [
+            'assignee_id' => $this->employee->id,
+            'start_date' => now()->toDateString(),
+            'due_date' => now()->addDays(5)->toDateString(),
+        ]);
+
+        $response->assertSessionDoesntHaveErrors('reason');
+        $this->assertDatabaseHas('task_status_history', [
+            'task_step_id' => $step->id,
+            'reason' => __('agencyos.tasks.actions.deadline_only_reason'),
+        ]);
+    }
+
+    /** BRD §11 — replacing the employee still requires a reason. */
+    public function test_reassigning_to_a_different_employee_requires_a_reason(): void
+    {
+        [, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $otherEmployee = $this->makeEmployee($this->marketing);
+
+        $this->actingAs($this->leader)->post(route('tasks.steps.reassign', $step), [
+            'assignee_id' => $otherEmployee->id,
+            'start_date' => now()->toDateString(),
+            'due_date' => now()->addDays(5)->toDateString(),
+        ])->assertSessionHasErrors('reason');
     }
 
     public function test_the_task_detail_page_renders_with_the_right_actions_per_role(): void

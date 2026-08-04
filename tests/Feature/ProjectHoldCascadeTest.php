@@ -95,4 +95,43 @@ class ProjectHoldCascadeTest extends TestCase
 
         $this->newTask($this->marketing, $this->manager, ['project_id' => $this->project->id]);
     }
+
+    /** BAC#10 — cancelling a project cancels every one of its unfinished tasks too. */
+    public function test_cancelling_a_project_cancels_its_unfinished_tasks(): void
+    {
+        $task = $this->newTask($this->marketing, $this->manager, ['project_id' => $this->project->id]);
+
+        $this->projects()->cancel($this->project, 'Client cancelled the engagement', $this->manager);
+
+        $this->assertTrue($task->fresh()->isClosed());
+        $this->assertSame('cancelled', $task->fresh()->lifecycle_status->value);
+    }
+
+    public function test_cancelling_a_project_leaves_an_already_completed_task_alone(): void
+    {
+        $employee = $this->makeEmployee($this->marketing);
+        $leader = $this->makeTeamLeader($this->marketing);
+        $task = $this->newTask($this->marketing, $this->manager, ['project_id' => $this->project->id]);
+        $step = $task->currentStep;
+
+        $this->workflow()->assign($step, $leader, $employee, now()->toDateString(), now()->addDays(3)->toDateString());
+        $this->workflow()->addOutput($step, $employee, 'https://drive.example.com/final');
+        $this->workflow()->submit($step, $employee);
+        $this->workflow()->approve($step, $leader);
+        $this->workflow()->completeTask($step->fresh(), $leader);
+
+        $this->projects()->cancel($this->project, 'Wrapping up', $this->manager);
+
+        $this->assertSame('completed', $task->fresh()->lifecycle_status->value);
+    }
+
+    public function test_cancelling_a_project_leaves_an_individually_held_task_alone(): void
+    {
+        $individuallyHeld = $this->newTask($this->marketing, $this->manager, ['project_id' => $this->project->id]);
+        $this->workflow()->hold($individuallyHeld, $this->manager, 'Paused before the project was');
+
+        $this->projects()->cancel($this->project, 'Client cancelled the engagement', $this->manager);
+
+        $this->assertTrue($individuallyHeld->fresh()->isOnHold());
+    }
 }

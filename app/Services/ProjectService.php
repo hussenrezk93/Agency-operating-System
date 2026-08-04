@@ -150,6 +150,7 @@ class ProjectService
         return $project->refresh();
     }
 
+    /** BAC#10 — cancelling a project cancels every one of its unfinished tasks too. */
     public function cancel(Project $project, string $reason, User $actor): Project
     {
         Gate::forUser($actor)->authorize('cancel', $project);
@@ -160,25 +161,41 @@ class ProjectService
             ]);
         }
 
-        $project->forceFill([
-            'status' => ProjectStatus::Cancelled->value,
-            'cancelled_at' => now(),
-            'cancelled_by' => $actor->id,
-            'cancelled_reason' => $reason,
-        ])->save();
+        return DB::transaction(function () use ($project, $reason, $actor): Project {
+            $project->forceFill([
+                'status' => ProjectStatus::Cancelled->value,
+                'cancelled_at' => now(),
+                'cancelled_by' => $actor->id,
+                'cancelled_reason' => $reason,
+            ])->save();
 
-        $this->audit->log(
-            action: 'project.cancelled',
-            entityType: 'project',
-            entityId: $project->id,
-            after: ['reason' => $reason],
-            actorId: $actor->id,
-        );
+            $cascaded = 0;
 
-        $cancelled = $project->refresh();
-        ProjectCancelled::dispatch($cancelled);
+            foreach ($project->unfinishedTasks() as $task) {
+                // Matches hold()'s own cascade condition: a task already on hold accepts
+                // no workflow action (TaskWorkflowService::assertTaskMutable()) including
+                // cancellation, so it's left for its own hold to be resolved individually.
+                if ($task->isOnHold() || $task->isClosed()) {
+                    continue;
+                }
 
-        return $cancelled;
+                $this->taskWorkflow->cancelTask($task, $actor, $reason);
+                $cascaded++;
+            }
+
+            $this->audit->log(
+                action: 'project.cancelled',
+                entityType: 'project',
+                entityId: $project->id,
+                after: ['reason' => $reason, 'cascaded_task_count' => $cascaded],
+                actorId: $actor->id,
+            );
+
+            $cancelled = $project->refresh();
+            ProjectCancelled::dispatch($cancelled);
+
+            return $cancelled;
+        });
     }
 
     public function hold(Project $project, string $reason, User $actor): Project
