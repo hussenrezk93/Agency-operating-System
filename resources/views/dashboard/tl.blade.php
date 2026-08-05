@@ -58,7 +58,14 @@
                         <div class="kv-row" style="display:block;margin-bottom:8px">
                             <div style="font-weight:700">{{ $assignments->first()->assignee->full_name ?? '—' }}</div>
                             @foreach($assignments as $a)
-                                <div class="small muted">{{ $a->step->task->title ?? '—' }}</div>
+                                <div class="small muted" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+                                    <span>{{ $a->step->task->title ?? '—' }}</span>
+                                    @if($a->first_seen_at)
+                                        <span class="seen-badge seen-yes">{{ __('agencyos.dashboard_tl.opened_at', ['time' => $a->first_seen_at->format('M d, H:i')]) }}</span>
+                                    @else
+                                        <span class="seen-badge seen-no">{{ __('agencyos.dashboard_tl.not_opened') }}</span>
+                                    @endif
+                                </div>
                             @endforeach
                         </div>
                     @empty

@@ -42,7 +42,13 @@
                                 <td class="small muted">{{ $step->department->name ?? '—' }}</td></tr>
                         @empty
                         @endforelse
-                        @if($overdueSteps->isEmpty() && $onHoldTasks->isEmpty() && $awaitingManagerReview->isEmpty())
+                        @forelse($redirectedAwaitingAssignment as $step)
+                            <tr><td><a href="{{ route('tasks.show', $step->task_id) }}">{{ $step->task->title ?? '—' }}</a></td>
+                                <td><span class="badge b-changes">{{ __('agencyos.dashboard_manager.needs_reassignment') }}</span></td>
+                                <td class="small muted">{{ $step->department->name ?? '—' }}</td></tr>
+                        @empty
+                        @endforelse
+                        @if($overdueSteps->isEmpty() && $onHoldTasks->isEmpty() && $awaitingManagerReview->isEmpty() && $redirectedAwaitingAssignment->isEmpty())
                             <tr><td class="muted" style="text-align:center;padding:16px">{{ __('agencyos.dashboard_manager.empty') }}</td></tr>
                         @endif
                         </tbody>

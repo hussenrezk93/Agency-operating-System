@@ -732,6 +732,8 @@ return [
         'tasks_by_employee' => 'Department tasks by employee',
         'my_tasks' => 'My tasks',
         'next_deadlines' => 'Next deadlines',
+        'opened_at' => 'Opened :time',
+        'not_opened' => 'Not opened yet',
     ],
 
     'dashboard_manager' => [
@@ -743,6 +745,7 @@ return [
         'overdue' => 'Overdue',
         'on_hold' => 'On hold',
         'your_review' => 'Your review',
+        'needs_reassignment' => 'Redirected — needs assignment',
         'empty' => 'Nothing needs attention right now.',
         'department_on_time_rate' => 'Department on-time rate',
         'active_temp_tls' => 'Active Temporary Team Leaders',

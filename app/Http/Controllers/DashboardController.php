@@ -13,6 +13,7 @@ use App\Models\DepartmentLeadershipAssignment;
 use App\Models\MonthlyPerformanceSnapshot;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\TaskRedirect;
 use App\Models\TaskStep;
 use App\Models\TaskStepAssignment;
 use App\Models\User;
@@ -96,6 +97,11 @@ class DashboardController extends Controller
                 ->with('currentStep.department:id,name')->limit(10)->get(),
             'awaitingManagerReview' => TaskStep::where('workflow_status', WorkflowStatus::UnderReview->value)
                 ->whereHas('activeAssignment', fn ($q) => $q->where('is_self_assigned', true))
+                ->with(['task:id,title,task_code', 'department:id,name'])->limit(10)->get(),
+            // BRD §16.3 — a step a Manager's Redirect sent somewhere new, still waiting
+            // for that department's TL to pick it up.
+            'redirectedAwaitingAssignment' => TaskStep::whereIn('id', TaskRedirect::query()->pluck('to_step_id'))
+                ->where('workflow_status', WorkflowStatus::WaitingAssignment->value)
                 ->with(['task:id,title,task_code', 'department:id,name'])->limit(10)->get(),
             'departmentScores' => MonthlyPerformanceSnapshot::ofType(SnapshotType::Department)
                 ->forMonth($monthStart)->with('department:id,name')->get(),

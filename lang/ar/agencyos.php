@@ -732,6 +732,8 @@ return [
         'tasks_by_employee' => 'مهام القسم حسب الموظف',
         'my_tasks' => 'مهامي',
         'next_deadlines' => 'أقرب المواعيد النهائية',
+        'opened_at' => 'فُتحت :time',
+        'not_opened' => 'لم تُفتح بعد',
     ],
 
     'dashboard_manager' => [
@@ -743,6 +745,7 @@ return [
         'overdue' => 'متأخرة',
         'on_hold' => 'متوقفة مؤقتًا',
         'your_review' => 'مراجعتك',
+        'needs_reassignment' => 'محوّلة — بحاجة لتعيين',
         'empty' => 'لا يوجد ما يحتاج انتباه حاليًا.',
         'department_on_time_rate' => 'معدل الالتزام بالمواعيد للأقسام',
         'active_temp_tls' => 'قادة الفرق المؤقتون النشطون',
