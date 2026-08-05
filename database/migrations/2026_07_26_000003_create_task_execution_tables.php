@@ -60,23 +60,47 @@ return new class extends Migration
             $t->index('task_step_id');
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement("ALTER TABLE task_step_reviews ADD CONSTRAINT tsr_decision_check
-                CHECK (decision IN ('approved','changes_requested'))");
-            // BRD §9.7 — requesting changes without a comment is not allowed anywhere.
-            DB::statement("ALTER TABLE task_step_reviews ADD CONSTRAINT tsr_comment_required_check
-                CHECK (decision <> 'changes_requested'
-                       OR (comment IS NOT NULL AND length(trim(comment)) > 0))");
-            DB::statement('ALTER TABLE task_step_outputs ADD CONSTRAINT tso_submission_check
-                CHECK (submission_no > 0)');
-            // An output cannot supersede itself.
-            DB::statement('ALTER TABLE task_step_outputs ADD CONSTRAINT tso_no_self_supersede
-                CHECK (superseded_by_output_id IS NULL OR superseded_by_output_id <> id)');
-        }
+        DB::statement("ALTER TABLE task_step_reviews ADD CONSTRAINT tsr_decision_check
+            CHECK (decision IN ('approved','changes_requested'))");
+        // BRD §9.7 — requesting changes without a comment is not allowed anywhere.
+        DB::statement("ALTER TABLE task_step_reviews ADD CONSTRAINT tsr_comment_required_check
+            CHECK (decision <> 'changes_requested'
+                   OR (comment IS NOT NULL AND length(trim(comment)) > 0))");
+        DB::statement('ALTER TABLE task_step_outputs ADD CONSTRAINT tso_submission_check
+            CHECK (submission_no > 0)');
+
+        // An output cannot supersede itself. MySQL/MariaDB refuse a CHECK constraint
+        // that references an AUTO_INCREMENT column ("Function or expression cannot be
+        // used in the CHECK clause of `id`", error 1901) — the original Postgres CHECK
+        // (`superseded_by_output_id <> id`) has no direct MySQL equivalent, so this one
+        // rule moves to a trigger instead of a CHECK. supersede always happens via
+        // UPDATE in the real flow (TaskWorkflowService::supersedeOutput() sets it on the
+        // already-existing old row) — the INSERT trigger is defensive symmetry, since a
+        // freshly inserted row's own id is never known at insert time in practice.
+        DB::unprepared('
+            CREATE TRIGGER tso_no_self_supersede_ins BEFORE INSERT ON task_step_outputs
+            FOR EACH ROW
+            BEGIN
+                IF NEW.superseded_by_output_id IS NOT NULL AND NEW.superseded_by_output_id = NEW.id THEN
+                    SIGNAL SQLSTATE \'45000\' SET MESSAGE_TEXT = \'An output cannot supersede itself\';
+                END IF;
+            END
+        ');
+        DB::unprepared('
+            CREATE TRIGGER tso_no_self_supersede_upd BEFORE UPDATE ON task_step_outputs
+            FOR EACH ROW
+            BEGIN
+                IF NEW.superseded_by_output_id IS NOT NULL AND NEW.superseded_by_output_id = NEW.id THEN
+                    SIGNAL SQLSTATE \'45000\' SET MESSAGE_TEXT = \'An output cannot supersede itself\';
+                END IF;
+            END
+        ');
     }
 
     public function down(): void
     {
+        DB::unprepared('DROP TRIGGER IF EXISTS tso_no_self_supersede_ins');
+        DB::unprepared('DROP TRIGGER IF EXISTS tso_no_self_supersede_upd');
         Schema::dropIfExists('task_step_reviews');
         Schema::dropIfExists('task_step_comments');
         Schema::table('task_step_outputs', function (Blueprint $t) {

@@ -33,6 +33,12 @@ return new class extends Migration
             $t->timestampTz('ended_at')->nullable();
             $t->foreignId('resumed_by')->nullable()->constrained('users');
             $t->index(['project_id', 'ended_at']);
+
+            // NULL unless this hold is still open — collapses to "one open hold per
+            // project at a time." MySQL has no partial/filtered index equivalent.
+            $t->unsignedBigInteger('open_project_id')->nullable()
+                ->virtualAs('CASE WHEN ended_at IS NULL THEN project_id END');
+            $t->unique('open_project_id', 'project_holds_one_open');
         });
 
         Schema::create('task_holds', function (Blueprint $t) {
@@ -48,6 +54,12 @@ return new class extends Migration
             $t->foreignId('resumed_by')->nullable()->constrained('users');
             $t->unsignedBigInteger('paused_seconds')->nullable(); // written on resume
             $t->index(['task_id', 'ended_at']);
+
+            // NULL unless this hold is still open — collapses to "one open hold per
+            // task at a time," same technique as project_holds above.
+            $t->unsignedBigInteger('open_task_id')->nullable()
+                ->virtualAs('CASE WHEN ended_at IS NULL THEN task_id END');
+            $t->unique('open_task_id', 'task_holds_one_open');
         });
 
         Schema::create('task_redirects', function (Blueprint $t) {
@@ -77,21 +89,16 @@ return new class extends Migration
             $t->index(['task_id', 'created_at']);
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            // Only one open hold per task at a time — prevents double-pausing the clock.
-            DB::statement('CREATE UNIQUE INDEX task_holds_one_open
-                ON task_holds (task_id) WHERE ended_at IS NULL');
-            DB::statement('CREATE UNIQUE INDEX project_holds_one_open
-                ON project_holds (project_id) WHERE ended_at IS NULL');
-            DB::statement('ALTER TABLE task_holds ADD CONSTRAINT task_holds_reason_check
-                CHECK (length(trim(reason)) > 0)');
-            DB::statement('ALTER TABLE project_holds ADD CONSTRAINT project_holds_reason_check
-                CHECK (length(trim(reason)) > 0)');
-            DB::statement('ALTER TABLE task_redirects ADD CONSTRAINT task_redirects_reason_check
-                CHECK (length(trim(reason)) > 0)');
-            DB::statement('ALTER TABLE task_redirects ADD CONSTRAINT task_redirects_no_self
-                CHECK (to_step_id IS NULL OR to_step_id <> from_step_id)');
-        }
+        // Only one open hold per task/project at a time — prevents double-pausing the
+        // clock (enforced above via the generated-column + unique-index pairs).
+        DB::statement('ALTER TABLE task_holds ADD CONSTRAINT task_holds_reason_check
+            CHECK (length(trim(reason)) > 0)');
+        DB::statement('ALTER TABLE project_holds ADD CONSTRAINT project_holds_reason_check
+            CHECK (length(trim(reason)) > 0)');
+        DB::statement('ALTER TABLE task_redirects ADD CONSTRAINT task_redirects_reason_check
+            CHECK (length(trim(reason)) > 0)');
+        DB::statement('ALTER TABLE task_redirects ADD CONSTRAINT task_redirects_no_self
+            CHECK (to_step_id IS NULL OR to_step_id <> from_step_id)');
     }
 
     public function down(): void

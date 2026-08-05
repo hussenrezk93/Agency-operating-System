@@ -59,22 +59,25 @@ return new class extends Migration
             $t->timestampTz('ended_at')->nullable();
             $t->text('end_reason')->nullable();
             $t->index(['assignee_id', 'ended_at']);
+
+            // NULL unless this assignment is still open — collapses to "exactly one open
+            // assignment per step" (BRD §9.3). MySQL has no partial/filtered index, so
+            // this generated column + a plain unique index stands in for what was a
+            // PostgreSQL `CREATE UNIQUE INDEX ... WHERE ended_at IS NULL`.
+            $t->unsignedBigInteger('open_task_step_id')->nullable()
+                ->virtualAs('CASE WHEN ended_at IS NULL THEN task_step_id END');
+            $t->unique('open_task_step_id', 'tsa_one_open_assignment');
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement("ALTER TABLE task_steps ADD CONSTRAINT task_steps_workflow_check
-                CHECK (workflow_status IN ('waiting_assignment','in_progress','under_review',
-                       'changes_requested','approved','redirected','cancelled'))");
-            DB::statement("ALTER TABLE task_steps ADD CONSTRAINT task_steps_deadline_check
-                CHECK (deadline_status IN ('not_started','on_time','due_soon','overdue','paused','closed'))");
-            DB::statement('ALTER TABLE task_steps ADD CONSTRAINT task_steps_sequence_check
-                CHECK (sequence_no > 0)');
-            // Exactly ONE open assignment per step (BRD §9.3 — one employee at a time).
-            DB::statement('CREATE UNIQUE INDEX tsa_one_open_assignment
-                ON task_step_assignments (task_step_id) WHERE ended_at IS NULL');
-            DB::statement('ALTER TABLE task_step_assignments ADD CONSTRAINT tsa_date_order_check
-                CHECK (due_date >= start_date)');
-        }
+        DB::statement("ALTER TABLE task_steps ADD CONSTRAINT task_steps_workflow_check
+            CHECK (workflow_status IN ('waiting_assignment','in_progress','under_review',
+                   'changes_requested','approved','redirected','cancelled'))");
+        DB::statement("ALTER TABLE task_steps ADD CONSTRAINT task_steps_deadline_check
+            CHECK (deadline_status IN ('not_started','on_time','due_soon','overdue','paused','closed'))");
+        DB::statement('ALTER TABLE task_steps ADD CONSTRAINT task_steps_sequence_check
+            CHECK (sequence_no > 0)');
+        DB::statement('ALTER TABLE task_step_assignments ADD CONSTRAINT tsa_date_order_check
+            CHECK (due_date >= start_date)');
     }
 
     public function down(): void
