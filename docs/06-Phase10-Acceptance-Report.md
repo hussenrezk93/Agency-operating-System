@@ -1,9 +1,7 @@
 # 06 — Phase 10 Acceptance Report
 
-Status: **in progress** — 4 of 5 planned BRD-comparison audit sections are back and every
-finding from them has been fixed and tested; the 5th (Users/Departments/Security) is still
-running. This report will be updated to "final" once it lands. Everything below it is
-otherwise complete and current as of this commit.
+Status: **final** — all 5 planned BRD-comparison audit sections are back and every finding
+from every section has been fixed and tested.
 
 ---
 
@@ -32,12 +30,11 @@ Five parallel sub-audits were run, each covering a slice of the BRD against the 
 codebase (not the roadmap doc's own stale "queued" labels, which were checked against
 actual `database/migrations/` and confirmed out of date — all 10 phases are in fact built).
 
-**Sections back: Task workflow/outputs (§8,9,10,13,15,22), Clients/Projects/WhatsApp
-(§7.x), Permissions/Dashboards/Reports (§15-17,20-22), Deadlines/Notifications/Chat
-(§11,11.1,12,14,20,22).**
-**Section pending: Users/Departments/Security.**
+**Sections: Task workflow/outputs (§8,9,10,13,15,22), Clients/Projects/WhatsApp (§7.x),
+Permissions/Dashboards/Reports (§15-17,20-22), Deadlines/Notifications/Chat
+(§11,11.1,12,14,20,22), Users/Departments/Security (§5,6,15,18,19).**
 
-Every genuine gap found in the four returned sections was fixed and covered by a new
+Every genuine gap found across all five sections was fixed and covered by a new
 regression test in the same commit:
 
 1. Project cancel didn't cascade to cancel its unfinished tasks (BAC#10) — now mirrors
@@ -74,11 +71,36 @@ more pre-existing spots using `margin-left`/`margin-right` instead of the logica
 properties (`margin-inline-start`/`-end`) the rest of the CSS already uses consistently —
 fixed.
 
+The 5th section (Users/Departments/Security) added five more:
+
+11. Urgent-priority tasks weren't sorted to the top of the main `/tasks` list (BRD
+    §8/§16), even though the dashboard widgets already did this — the list query was
+    missing the same `ORDER BY` case the dashboards had.
+12. `DepartmentController::update()`/`deactivate()`/`reactivate()` wrote straight through
+    Eloquent with zero audit trail, bypassing `DepartmentService` entirely — the same
+    anti-pattern already found and fixed for the routing/output-access matrices in item 6.
+    Now routed through new audited `DepartmentService` methods.
+13. BRD §6 — disabling an employee left their in-progress step assigned to a now-disabled
+    account with no way for the department to reassign it. Disabling now releases any
+    `InProgress`/`ChangesRequested` step back to Waiting Assignment (a step already
+    `UnderReview` is left alone — that round is the reviewer's responsibility, not the
+    disabled assignee's). This required widening `WorkflowStatus::allowedNextStatuses()`,
+    since the transition didn't exist in the map before.
+14. BRD §6 — deactivating a department that still has active tasks went silent; now every
+    Manager gets an in-app alert.
+15. BRD §18.1 — "a user can edit their own email from their profile" had no real
+    implementation behind it. The sidebar's Profile link pointed at a disconnected,
+    mock-only prototype screen with no backend at all. Built a genuine self-service
+    `/profile` route, open to every role and carrying no `{user}` route parameter (so
+    there is nothing to IDOR), reusing `UserService::updateProfile()`'s existing
+    pending-email + verification flow so the audit trail and email-change behavior are
+    identical to an Admin/Manager-driven edit.
+
 ## 4. Test suite
 
-606 tests passing, 0 failing, as of this report. `./vendor/bin/pint` clean. Every fix in
+615 tests passing, 0 failing, as of this report. `./vendor/bin/pint` clean. Every fix in
 §2 and §3 shipped with at least one new regression test in the same commit — see
-`git log` for the batch-by-batch breakdown (7 batches, each independently tested and
+`git log` for the batch-by-batch breakdown (8 batches, each independently tested and
 committed).
 
 ## 5. Deployment readiness
@@ -93,8 +115,6 @@ is an individually reviewable, revertable commit.
 
 ## 6. What's NOT done
 
-- **Users/Departments/Security audit section** — still running; this report will be
-  amended once it returns, and any gap it finds will be fixed the same way as §3's.
 - **Mobile/tablet testing in an actual browser** — not possible from this environment (no
   browser/screenshot tool available). The responsive CSS was reviewed, not visually
   verified.
@@ -110,8 +130,8 @@ is an individually reviewable, revertable commit.
 
 | Criterion | Status |
 |---|---|
-| All tests pass | ✅ 606/606 |
+| All tests pass | ✅ 615/615 |
 | No known critical vulnerabilities | ✅ per §2's sweep |
-| Final comparison against BRD/ERD | ⏳ 4/5 sections done, all findings fixed; 1 pending |
+| Final comparison against BRD/ERD | ✅ 5/5 sections done, every finding fixed |
 
-**This report is not yet final sign-off** — pending the 5th audit section.
+**This is the final sign-off for Phase 10.**
