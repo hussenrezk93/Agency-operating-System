@@ -426,6 +426,17 @@ return [
         ],
     ],
 
+    'profile' => [
+        'title' => 'الملف الشخصي',
+        'subtitle' => 'البند 18.1 من وثيقة المتطلبات — يمكنك تغيير بريدك الشخصي هنا.',
+        'current_email' => 'البريد الحالي',
+        'pending_email' => 'التغيير إلى :email بانتظار التحقق. تحقق من صندوق الوارد الخاص به لرابط التفعيل.',
+        'submit' => 'حفظ التغييرات',
+        'flash' => [
+            'email_updated' => 'تم تحديث البريد الإلكتروني. تم إرسال رابط تحقق إلى العنوان الجديد.',
+        ],
+    ],
+
     'departments' => [
         'index' => [
             'title' => 'الأقسام',
@@ -649,6 +660,8 @@ return [
             'whatsapp_member_left_body' => ':user لم يعد في قسم :department — من فضلك أزله من مجموعات واتساب الخاصة بمشروعات القسم.',
             'whatsapp_department_removed_title' => 'إزالة القسم من مجموعة واتساب',
             'whatsapp_department_removed_body' => 'تم إزالة قسم :department من مشروع :project — من فضلك أزل أعضاءه من مجموعة واتساب الخاصة بالمشروع.',
+            'department_deactivated_title' => 'تعطيل قسم لديه مهام نشطة',
+            'department_deactivated_body' => 'تم تعطيل قسم :department وبه مهام نشطة حتى الآن. من فضلك راجعها.',
             'delivery_failure_title' => 'إخفاقات إرسال البريد',
             'delivery_failure_body' => ':bounced مرتد، :exhausted استنفدت محاولات الإعادة خلال اليوم الماضي.',
             'chat_message_title' => 'رسالة دردشة جديدة',

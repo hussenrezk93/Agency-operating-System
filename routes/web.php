@@ -14,6 +14,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MyTasksController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PerformanceController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectDepartmentController;
 use App\Http\Controllers\ProjectLinkController;
@@ -64,6 +65,11 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
 
     Route::middleware('password.changed')->group(function (): void {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+        // BRD §18.1 — every role edits their own personal email here; no {user} route
+        // parameter, so there is nothing to authorize beyond "is authenticated."
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
         // Approved 51-screen UI, now protected by Laravel auth and server-side role checks.
         Route::get('/app/{screen?}', ApprovedUiController::class)

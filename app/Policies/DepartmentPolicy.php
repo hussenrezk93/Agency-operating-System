@@ -34,7 +34,8 @@ class DepartmentPolicy
         return $actor->hasRole(RoleCode::Manager);
     }
 
-    // Disable-with-active-tasks behavior (BRD §6) is a TASK-dependent rule → later phase.
+    // BRD §6 — deactivation with active tasks is still ALLOWED; it is not blocked here.
+    // DepartmentService::deactivate() alerts every Manager instead (see its own doc comment).
 
     /** BRD §17 — a Manager sees every department's report; a TL only their own. */
     public function viewPerformance(User $actor, Department $department): bool

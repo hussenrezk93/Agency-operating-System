@@ -418,6 +418,54 @@ class TaskWorkflowService
         });
     }
 
+    /**
+     * BRD §6 — disabling an employee releases every open step they hold back to Waiting
+     * Assignment, so the department's Team Leader can hand it to someone else. Only
+     * InProgress/ChangesRequested steps are eligible: a step UnderReview is the reviewer's
+     * responsibility, not the (now disabled) assignee's, so it is left untouched.
+     * Called from UserService::disable(); not a user-facing action of its own.
+     */
+    public function releaseAssignmentsForDisabledUser(User $employee, User $actor): void
+    {
+        TaskStepAssignment::query()
+            ->whereNull('ended_at')
+            ->where('assignee_id', $employee->id)
+            ->with('step')
+            ->get()
+            ->each(function (TaskStepAssignment $assignment) use ($actor): void {
+                $step = $assignment->step;
+
+                if ($step === null || ! in_array($step->workflow_status, [WorkflowStatus::InProgress, WorkflowStatus::ChangesRequested], true)) {
+                    return;
+                }
+
+                DB::transaction(function () use ($step, $assignment, $actor): void {
+                    $assignment->forceFill(['ended_at' => now(), 'end_reason' => 'assignee disabled'])->save();
+
+                    $from = $step->workflow_status;
+
+                    $this->moveStep($step, WorkflowStatus::WaitingAssignment, [
+                        'current_start_date' => null,
+                        'current_due_at' => null,
+                        'deadline_status' => DeadlineStatus::NotStarted->value,
+                    ]);
+
+                    $this->record($step->task, $step, TaskEvent::Reassigned, $actor, $from, WorkflowStatus::WaitingAssignment, 'Assignee disabled', [
+                        'released_user_id' => $assignment->assignee_id,
+                    ]);
+
+                    $this->audit->log(
+                        action: 'task_step.released_for_disabled_user',
+                        entityType: 'task_step',
+                        entityId: $step->id,
+                        before: ['workflow_status' => $from->value],
+                        after: ['workflow_status' => WorkflowStatus::WaitingAssignment->value],
+                        actorId: $actor->id,
+                    );
+                });
+            });
+    }
+
     // ------------------------------------------------------------ first seen
 
     /**

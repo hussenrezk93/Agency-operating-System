@@ -123,7 +123,7 @@
                 <span class="ic"><x-icon name="bell"/></span><span>{{ app()->isLocale('ar') ? 'الإشعارات' : 'Notifications' }}</span>
                 @if($unreadNotificationCount > 0)<span class="badge b-changes" style="margin-inline-start:6px">{{ $unreadNotificationCount }}</span>@endif
             </a>
-            <a @class(['active' => $currentScreen === 'profile.html']) href="{{ $uiUrl('profile.html') }}"><span class="ic"><x-icon name="user"/></span><span>{{ app()->isLocale('ar') ? 'الملف الشخصي' : 'Profile' }}</span></a>
+            <a @class(['active' => request()->routeIs('profile.*')]) href="{{ route('profile.edit') }}"><span class="ic"><x-icon name="user"/></span><span>{{ app()->isLocale('ar') ? 'الملف الشخصي' : 'Profile' }}</span></a>
         </nav>
         <div class="sidebar-foot">v1.1 · Africa/Cairo · Laravel</div>
     </aside>

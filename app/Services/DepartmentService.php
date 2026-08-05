@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Enums\ActivationState;
 use App\Enums\LeadershipType;
 use App\Enums\RoleCode;
+use App\Enums\UserStatus;
 use App\Models\Department;
 use App\Models\DepartmentOutputAccess;
 use App\Models\DepartmentRoute;
+use App\Models\Task;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -19,7 +21,10 @@ use Illuminate\Validation\ValidationException;
  */
 class DepartmentService
 {
-    public function __construct(private readonly AuditService $audit) {}
+    public function __construct(
+        private readonly AuditService $audit,
+        private readonly NotificationService $notifications,
+    ) {}
 
     public function createWithPrimaryLeader(string $name, User $primaryLeader, User $actor): Department
     {
@@ -106,5 +111,89 @@ class DepartmentService
 
             return $rule;
         });
+    }
+
+    public function rename(Department $department, string $name, User $actor): Department
+    {
+        $before = $department->name;
+
+        $department->update(['name' => $name]);
+
+        $this->audit->log(
+            action: 'department.updated',
+            entityType: 'department',
+            entityId: $department->id,
+            before: ['name' => $before],
+            after: ['name' => $name],
+            actorId: $actor->id,
+        );
+
+        return $department;
+    }
+
+    /** BRD §6 — deactivating a department that still has active tasks alerts every Manager. */
+    public function deactivate(Department $department, User $actor): Department
+    {
+        $department->update(['is_active' => false]);
+
+        $this->audit->log(
+            action: 'department.deactivated',
+            entityType: 'department',
+            entityId: $department->id,
+            before: ['is_active' => true],
+            after: ['is_active' => false],
+            actorId: $actor->id,
+        );
+
+        if ($this->hasActiveTasks($department)) {
+            $this->alertManagersOfActiveTasks($department);
+        }
+
+        return $department;
+    }
+
+    private function hasActiveTasks(Department $department): bool
+    {
+        return Task::query()
+            ->whereHas('currentStep', fn ($q) => $q->where('department_id', $department->id))
+            ->whereNotIn('lifecycle_status', ['completed', 'cancelled'])
+            ->exists();
+    }
+
+    private function alertManagersOfActiveTasks(Department $department): void
+    {
+        User::query()
+            ->whereHas('role', fn ($q) => $q->where('code', RoleCode::Manager->value))
+            ->where('status', UserStatus::Active->value)
+            ->get()
+            ->each(function (User $manager) use ($department): void {
+                $this->notifications->notify(
+                    $manager,
+                    'department.deactivated_with_active_tasks',
+                    __('agencyos.notifications.messages.department_deactivated_title'),
+                    __('agencyos.notifications.messages.department_deactivated_body', [
+                        'department' => $department->name,
+                    ]),
+                    'department',
+                    $department->id,
+                    allowEmail: false,
+                );
+            });
+    }
+
+    public function reactivate(Department $department, User $actor): Department
+    {
+        $department->update(['is_active' => true]);
+
+        $this->audit->log(
+            action: 'department.reactivated',
+            entityType: 'department',
+            entityId: $department->id,
+            before: ['is_active' => false],
+            after: ['is_active' => true],
+            actorId: $actor->id,
+        );
+
+        return $department;
     }
 }

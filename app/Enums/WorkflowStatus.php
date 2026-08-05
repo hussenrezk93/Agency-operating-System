@@ -56,9 +56,11 @@ enum WorkflowStatus: string
     {
         return match ($this) {
             self::WaitingAssignment => [self::InProgress, self::Redirected, self::Cancelled],
-            self::InProgress => [self::UnderReview, self::Redirected, self::Cancelled],
+            // BRD §6 — disabling the assignee releases the step back to Waiting Assignment.
+            // UnderReview is excluded: a submitted step's ball is in the reviewer's court.
+            self::InProgress => [self::UnderReview, self::WaitingAssignment, self::Redirected, self::Cancelled],
             self::UnderReview => [self::Approved, self::ChangesRequested, self::Redirected, self::Cancelled],
-            self::ChangesRequested => [self::UnderReview, self::Redirected, self::Cancelled],
+            self::ChangesRequested => [self::UnderReview, self::WaitingAssignment, self::Redirected, self::Cancelled],
             // Approved is the end of the step. Onward movement creates a new step
             // (Send to Next Department) or completes the task (Finish Task).
             self::Approved, self::Redirected, self::Cancelled => [],

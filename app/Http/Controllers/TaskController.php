@@ -36,7 +36,10 @@ class TaskController extends Controller
         $this->authorize('viewAny', Task::class);
         $actor = $request->user();
 
-        $query = Task::query()->with(['currentStep.department:id,name', 'project:id,name'])->latest('id');
+        // BRD §8/§16 — Urgent-priority tasks sort to the top everywhere task lists appear.
+        $query = Task::query()->with(['currentStep.department:id,name', 'project:id,name'])
+            ->orderByRaw("CASE WHEN priority = 'urgent' THEN 0 ELSE 1 END")
+            ->latest('id');
 
         if ($actor->hasRole(RoleCode::Employee)) {
             $query->whereHas('steps.assignments', fn (Builder $q) => $q->where('assignee_id', $actor->id));

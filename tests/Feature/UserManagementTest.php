@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\RoleCode;
+use App\Enums\WorkflowStatus;
 use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Concerns\BuildsWorkflowScenarios;
 use Tests\TestCase;
 
 /**
@@ -18,6 +20,7 @@ use Tests\TestCase;
  */
 class UserManagementTest extends TestCase
 {
+    use BuildsWorkflowScenarios;
     use RefreshDatabase;
 
     private User $admin;
@@ -162,6 +165,37 @@ class UserManagementTest extends TestCase
         $otherManager = User::factory()->role(RoleCode::Manager)->create();
 
         $this->actingAs($this->manager)->postJson("/users/{$otherManager->id}/disable")->assertForbidden();
+    }
+
+    /** BRD §6 — a disabled employee's in-progress step is released back to the department. */
+    public function test_disabling_an_employee_releases_their_in_progress_step_to_waiting_assignment(): void
+    {
+        $leader = $this->makeTeamLeader($this->department);
+        $employee = $this->makeEmployee($this->department);
+        [, $step] = $this->taskInProgress($this->department, $leader, $employee);
+
+        $this->actingAs($this->manager)->postJson("/users/{$employee->id}/disable")->assertOk();
+
+        $step->refresh();
+        $this->assertSame(WorkflowStatus::WaitingAssignment, $step->workflow_status);
+        $this->assertNull($step->activeAssignment);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'task_step.released_for_disabled_user',
+            'entity_type' => 'task_step',
+            'entity_id' => $step->id,
+        ]);
+    }
+
+    /** A step already under review is the reviewer's responsibility, so disabling leaves it alone. */
+    public function test_disabling_an_employee_does_not_release_a_step_under_review(): void
+    {
+        $leader = $this->makeTeamLeader($this->department);
+        $employee = $this->makeEmployee($this->department);
+        [, $step] = $this->taskUnderReview($this->department, $leader, $employee);
+
+        $this->actingAs($this->manager)->postJson("/users/{$employee->id}/disable")->assertOk();
+
+        $this->assertSame(WorkflowStatus::UnderReview, $step->fresh()->workflow_status);
     }
 
     public function test_admin_resets_a_managers_password_and_forces_change(): void

@@ -426,6 +426,17 @@ return [
         ],
     ],
 
+    'profile' => [
+        'title' => 'Profile',
+        'subtitle' => 'BRD §18.1 — you may change your own personal email here.',
+        'current_email' => 'Current email',
+        'pending_email' => 'A change to :email is pending verification. Check its inbox for the link.',
+        'submit' => 'Save changes',
+        'flash' => [
+            'email_updated' => 'Email updated. A verification link was sent to the new address.',
+        ],
+    ],
+
     'departments' => [
         'index' => [
             'title' => 'Departments',
@@ -649,6 +660,8 @@ return [
             'whatsapp_member_left_body' => ':user is no longer in :department — please remove them from that department\'s project WhatsApp groups.',
             'whatsapp_department_removed_title' => 'Remove department from WhatsApp group',
             'whatsapp_department_removed_body' => ':department was removed from :project — please remove its members from that project\'s WhatsApp group.',
+            'department_deactivated_title' => 'Department deactivated with active tasks',
+            'department_deactivated_body' => ':department was deactivated while it still had active tasks. Please review them.',
             'delivery_failure_title' => 'Email delivery failures',
             'delivery_failure_body' => ':bounced bounced, :exhausted exhausted their retries in the last day.',
             'chat_message_title' => 'New chat message',

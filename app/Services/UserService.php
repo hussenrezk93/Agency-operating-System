@@ -24,6 +24,7 @@ class UserService
         private readonly AuditService $audit,
         private readonly EmailVerificationService $emailVerification,
         private readonly ProjectWhatsappService $whatsapp,
+        private readonly TaskWorkflowService $workflow,
     ) {}
 
     /**
@@ -155,6 +156,10 @@ class UserService
         if ($department !== null) {
             $this->whatsapp->alertLeaderToRemoveMember($subject, $department);
         }
+
+        // BRD §6 — a disabled account cannot receive work, so any step it currently
+        // holds is released back to Waiting Assignment for the department to reassign.
+        $this->workflow->releaseAssignmentsForDisabledUser($subject, $actor);
 
         return $subject->refresh();
     }

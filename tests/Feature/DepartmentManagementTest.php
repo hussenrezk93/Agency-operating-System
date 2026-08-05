@@ -8,6 +8,7 @@ use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Concerns\BuildsWorkflowScenarios;
 use Tests\TestCase;
 
 /**
@@ -17,6 +18,7 @@ use Tests\TestCase;
  */
 class DepartmentManagementTest extends TestCase
 {
+    use BuildsWorkflowScenarios;
     use RefreshDatabase;
 
     private User $manager;
@@ -77,6 +79,12 @@ class DepartmentManagementTest extends TestCase
             ->assertOk();
 
         $this->assertSame('New Name', $department->fresh()->name);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'department.updated',
+            'entity_type' => 'department',
+            'entity_id' => $department->id,
+            'actor_user_id' => $this->manager->id,
+        ]);
     }
 
     public function test_manager_deactivates_and_reactivates_a_department(): void
@@ -87,11 +95,55 @@ class DepartmentManagementTest extends TestCase
             ->postJson("/departments/{$department->id}/deactivate")
             ->assertOk();
         $this->assertFalse((bool) $department->fresh()->is_active);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'department.deactivated',
+            'entity_type' => 'department',
+            'entity_id' => $department->id,
+            'actor_user_id' => $this->manager->id,
+        ]);
 
         $this->actingAs($this->manager)
             ->postJson("/departments/{$department->id}/reactivate")
             ->assertOk();
         $this->assertTrue((bool) $department->fresh()->is_active);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'department.reactivated',
+            'entity_type' => 'department',
+            'entity_id' => $department->id,
+            'actor_user_id' => $this->manager->id,
+        ]);
+    }
+
+    /** BRD §6 — deactivating a department that still has active tasks alerts every Manager. */
+    public function test_deactivating_a_department_with_active_tasks_alerts_managers(): void
+    {
+        $department = $this->makeDepartment('Design');
+        $this->newTask($department, $this->manager);
+        $otherManager = User::factory()->role(RoleCode::Manager)->create();
+
+        $this->actingAs($this->manager)
+            ->postJson("/departments/{$department->id}/deactivate")
+            ->assertOk();
+
+        foreach ([$this->manager, $otherManager] as $recipient) {
+            $this->assertDatabaseHas('notifications', [
+                'user_id' => $recipient->id,
+                'type' => 'department.deactivated_with_active_tasks',
+            ]);
+        }
+    }
+
+    public function test_deactivating_a_department_with_no_active_tasks_does_not_alert_managers(): void
+    {
+        $department = Department::factory()->create();
+
+        $this->actingAs($this->manager)
+            ->postJson("/departments/{$department->id}/deactivate")
+            ->assertOk();
+
+        $this->assertDatabaseMissing('notifications', [
+            'type' => 'department.deactivated_with_active_tasks',
+        ]);
     }
 
     /** @return array<string, array{RoleCode}> */

@@ -49,6 +49,20 @@ class TaskUiTest extends TestCase
         }
     }
 
+    /** BRD §8/§16 — Urgent-priority tasks sort to the top of the main task list. */
+    public function test_urgent_tasks_sort_to_the_top_of_the_task_list(): void
+    {
+        $normal = $this->newTask($this->marketing, $this->manager, ['title' => 'Normal task']);
+        $urgent = $this->newTask($this->marketing, $this->manager, ['title' => 'Urgent task', 'priority' => 'urgent']);
+
+        $response = $this->actingAs($this->manager)->get('/tasks');
+
+        $response->assertOk();
+        $tasks = $response->viewData('tasks');
+        $this->assertSame($urgent->id, $tasks->first()->id);
+        $this->assertTrue($tasks->search(fn ($t) => $t->id === $normal->id) > $tasks->search(fn ($t) => $t->id === $urgent->id));
+    }
+
     public function test_an_employee_only_sees_tasks_they_are_assigned_to(): void
     {
         [$assignedTask] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);

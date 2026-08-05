@@ -78,38 +78,38 @@ class DepartmentController extends Controller
 
     public function update(UpdateDepartmentRequest $request, Department $department): JsonResponse|RedirectResponse
     {
-        $department->update(['name' => $request->string('name')->toString()]);
+        $department = $this->service->rename($department, $request->string('name')->toString(), $request->user());
 
         if (! $request->expectsJson()) {
             return redirect()->route('departments.index')->with('status', __('agencyos.departments.flash.updated'));
         }
 
-        return response()->json(['data' => $department->refresh()]);
+        return response()->json(['data' => $department]);
     }
 
     public function deactivate(Request $request, Department $department): JsonResponse|RedirectResponse
     {
         $this->authorize('deactivate', $department);
 
-        $department->update(['is_active' => false]);
+        $department = $this->service->deactivate($department, $request->user());
 
         if (! $request->expectsJson()) {
             return redirect()->route('departments.index')->with('status', __('agencyos.departments.flash.deactivated'));
         }
 
-        return response()->json(['data' => $department->refresh()]);
+        return response()->json(['data' => $department]);
     }
 
     public function reactivate(Request $request, Department $department): JsonResponse|RedirectResponse
     {
         $this->authorize('reactivate', $department);
 
-        $department->update(['is_active' => true]);
+        $department = $this->service->reactivate($department, $request->user());
 
         if (! $request->expectsJson()) {
             return redirect()->route('departments.index')->with('status', __('agencyos.departments.flash.reactivated'));
         }
 
-        return response()->json(['data' => $department->refresh()]);
+        return response()->json(['data' => $department]);
     }
 }
