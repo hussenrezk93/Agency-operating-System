@@ -37,7 +37,11 @@ class TaskController extends Controller
         $actor = $request->user();
 
         // BRD §8/§16 — Urgent-priority tasks sort to the top everywhere task lists appear.
-        $query = Task::query()->with(['currentStep.department:id,name', 'project:id,name'])
+        $query = Task::query()->with([
+            'currentStep.department:id,name',
+            'currentStep.activeAssignment.assignee:id,full_name',
+            'project:id,name',
+        ])
             ->orderByRaw("CASE WHEN priority = 'urgent' THEN 0 ELSE 1 END")
             ->latest('id');
 
@@ -162,6 +166,9 @@ class TaskController extends Controller
             'currentStep.department:id,name',
             'currentStep.activeAssignment.assignee:id,full_name',
             'referenceLinks',
+            'steps.department:id,name',
+            'steps.activeAssignment.assignee:id,full_name',
+            'history.changedBy:id,full_name',
         ]);
 
         if (! $request->expectsJson()) {

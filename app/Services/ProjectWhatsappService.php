@@ -248,13 +248,29 @@ class ProjectWhatsappService
         return $members->values();
     }
 
-    /** @return Collection<int, array{user: User, source: InviteRecipientSource, department_id: ?int}> */
+    /**
+     * PERFORMANCE: re-fetches the given departments with `users` (active only) and
+     * `leadershipAssignments.user` eager-loaded, regardless of what the caller passed
+     * in — turns what used to be 2 extra queries PER department into a fixed 3 queries
+     * total. Same filter (`status = active`), same department set (by id), so the
+     * resulting membership map is identical either way.
+     *
+     * @return Collection<int, array{user: User, source: InviteRecipientSource, department_id: ?int}>
+     */
     private function membersForDepartments(iterable $departments): Collection
     {
+        $departments = Department::query()
+            ->whereIn('id', collect($departments)->pluck('id'))
+            ->with([
+                'users' => fn ($q) => $q->where('status', UserStatus::Active->value),
+                'leadershipAssignments.user',
+            ])
+            ->get();
+
         $members = collect();
 
         foreach ($departments as $department) {
-            foreach ($department->users()->where('status', UserStatus::Active->value)->get() as $user) {
+            foreach ($department->users as $user) {
                 $members->put($user->id, [
                     'user' => $user, 'source' => InviteRecipientSource::Department, 'department_id' => $department->id,
                 ]);

@@ -55,8 +55,10 @@
     <link rel="icon" type="image/png" href="{{ asset('images/agencyos-favicon-64.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('assets/agencyos.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/agencyos-laravel.css') }}">
+    {{-- filemtime cache-busting lets the .htaccess far-future cache header below be safe:
+         a deploy that changes either file changes its URL, so nothing is ever served stale. --}}
+    <link rel="stylesheet" href="{{ asset('assets/agencyos.css') }}?v={{ filemtime(public_path('assets/agencyos.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/agencyos-laravel.css') }}?v={{ filemtime(public_path('assets/agencyos-laravel.css')) }}">
     <style>
         /* SAFE SMOOTH NAVIGATION — CSS only.
            Native cross-document View Transitions where the browser supports them; every

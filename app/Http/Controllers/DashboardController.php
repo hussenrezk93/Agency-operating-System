@@ -38,7 +38,7 @@ class DashboardController extends Controller
 
     private function employeeDashboard(User $user): View
     {
-        $openAssignments = $user->openStepAssignments()->with('step')->get();
+        $openAssignments = $user->openStepAssignments()->with('step.task:id,title,task_code')->get();
 
         return view('dashboard.employee', [
             'current' => $openAssignments->where('step.workflow_status', WorkflowStatus::InProgress)->count(),
@@ -100,7 +100,7 @@ class DashboardController extends Controller
                 ->with(['task:id,title,task_code', 'department:id,name'])->limit(10)->get(),
             // BRD §16.3 — a step a Manager's Redirect sent somewhere new, still waiting
             // for that department's TL to pick it up.
-            'redirectedAwaitingAssignment' => TaskStep::whereIn('id', TaskRedirect::query()->pluck('to_step_id'))
+            'redirectedAwaitingAssignment' => TaskStep::whereIn('id', TaskRedirect::query()->select('to_step_id'))
                 ->where('workflow_status', WorkflowStatus::WaitingAssignment->value)
                 ->with(['task:id,title,task_code', 'department:id,name'])->limit(10)->get(),
             'departmentScores' => MonthlyPerformanceSnapshot::ofType(SnapshotType::Department)

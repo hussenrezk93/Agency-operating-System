@@ -219,16 +219,21 @@ class ChatService
      */
     public function directory(User $actor): array
     {
+        // Every person here is rendered with `$person->roleCode()` (the directory view's
+        // role-label badge), which lazy-loads `role` per row if it isn't already there —
+        // so `role` is eager-loaded on all three lists below.
         $departments = Department::where('is_active', true)
             ->orderBy('name')
+            ->with(['users' => function ($query) use ($actor): void {
+                $query->where('status', UserStatus::Active->value)
+                    ->whereKeyNot($actor->id)
+                    ->orderBy('full_name')
+                    ->with('role');
+            }])
             ->get()
             ->map(fn (Department $department) => [
                 'department' => $department,
-                'members' => $department->users()
-                    ->where('status', UserStatus::Active->value)
-                    ->whereKeyNot($actor->id)
-                    ->orderBy('full_name')
-                    ->get(),
+                'members' => $department->users,
             ])
             ->filter(fn (array $group) => $group['members']->isNotEmpty())
             ->values();
@@ -237,12 +242,14 @@ class ChatService
             ->where('status', UserStatus::Active->value)
             ->whereKeyNot($actor->id)
             ->orderBy('full_name')
+            ->with('role')
             ->get();
 
         $admins = User::whereHas('role', fn ($q) => $q->where('code', RoleCode::Admin->value))
             ->where('status', UserStatus::Active->value)
             ->whereKeyNot($actor->id)
             ->orderBy('full_name')
+            ->with('role')
             ->get();
 
         return ['departments' => $departments, 'managers' => $managers, 'admins' => $admins];
@@ -367,6 +374,7 @@ class ChatService
     private function currentEffectiveTeamLeaders(): Collection
     {
         return Department::where('is_active', true)
+            ->with('leadershipAssignments.user')
             ->get()
             ->map(fn (Department $department) => $department->effectiveLeader())
             ->filter()

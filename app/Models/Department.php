@@ -88,6 +88,13 @@ class Department extends Model
     /** The assignment that currently confers leadership, temporary taking precedence. */
     public function activeLeadershipAssignment(): ?DepartmentLeadershipAssignment
     {
+        if ($this->relationLoaded('leadershipAssignments')) {
+            return $this->leadershipAssignments
+                ->filter(fn (DepartmentLeadershipAssignment $a) => $a->isEffective())
+                ->sortBy(fn (DepartmentLeadershipAssignment $a) => $a->assignment_type === LeadershipType::Temporary ? 0 : 1)
+                ->first();
+        }
+
         return $this->leadershipAssignments()
             ->currentlyActive()
             ->orderByRaw("CASE WHEN assignment_type = 'temporary' THEN 0 ELSE 1 END")
@@ -100,9 +107,21 @@ class Department extends Model
      * deactivated while a temporary leader covers the department (approved decision
      * Q14) — the primary TL keeps the assignment and merely loses authority, so this
      * method must never be used on its own to decide whether an action is permitted.
+     *
+     * PERFORMANCE: when the caller has already eager-loaded `leadershipAssignments.user`
+     * (e.g. looping over many departments), this filters the in-memory collection
+     * instead of firing a fresh query per department — identical result, same rule
+     * (`DepartmentLeadershipAssignment::isEffective()` mirrors `scopeCurrentlyActive()`
+     * exactly), just no extra round trip. Falls back to the query when it isn't loaded.
      */
     public function primaryLeader(): ?User
     {
+        if ($this->relationLoaded('leadershipAssignments')) {
+            return $this->leadershipAssignments
+                ->first(fn (DepartmentLeadershipAssignment $a) => $a->isEffective()
+                    && $a->assignment_type === LeadershipType::Primary)?->user;
+        }
+
         return $this->leadershipAssignments()
             ->currentlyActive()
             ->where('assignment_type', LeadershipType::Primary->value)
@@ -118,6 +137,12 @@ class Department extends Model
 
     public function temporaryLeadershipAssignment(): ?DepartmentLeadershipAssignment
     {
+        if ($this->relationLoaded('leadershipAssignments')) {
+            return $this->leadershipAssignments
+                ->first(fn (DepartmentLeadershipAssignment $a) => $a->isEffective()
+                    && $a->assignment_type === LeadershipType::Temporary);
+        }
+
         return $this->leadershipAssignments()
             ->currentlyActive()
             ->where('assignment_type', LeadershipType::Temporary->value)

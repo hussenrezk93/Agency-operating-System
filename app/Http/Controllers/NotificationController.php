@@ -11,8 +11,9 @@ class NotificationController extends Controller
 {
     public function index(Request $request): View
     {
+        // The list view never touches per-channel delivery rows — only the notification
+        // itself — so there is nothing to eager-load here.
         $notifications = $request->user()->notifications()
-            ->with('deliveries')
             ->orderByDesc('created_at')
             ->limit(100)
             ->get();

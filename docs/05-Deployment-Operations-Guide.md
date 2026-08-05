@@ -169,7 +169,44 @@ Application logs: `storage/logs/laravel.log` (`LOG_CHANNEL=stack`). Nothing sens
 ever logged deliberately — `AuditService` explicitly never receives passwords, hashes, or
 chat message content — but review log retention/access anyway before go-live.
 
-## 7. Rolling back a bad deploy
+## 7. Production performance checklist
+
+The application-level optimization pass (eager-loading N+1 fixes, missing indexes,
+static-asset cache-busting + headers) is committed to the repo and needs nothing extra
+to take effect. These four, by contrast, are **deploy-time steps** — they cache
+environment-specific state to disk, so they must run on every deploy, not once:
+
+```bash
+composer install --no-dev --optimize-autoloader   # classmap instead of PSR-4 filesystem lookups
+php artisan config:cache                          # freezes .env reads into one file
+php artisan route:cache                           # skips re-registering every route on each request
+php artisan view:cache                             # precompiles every Blade template
+```
+
+**Why these are safe here specifically** (verified during the optimization pass, not
+assumed): no controller, service, or view calls `env()` directly outside `config/*.php`
+(the one thing that silently breaks after `config:cache`), and every route in
+`routes/web.php` — including its handful of closures — cached and served correctly under
+`route:cache`. Re-run all four after every deploy that changes `.env`, routes, config, or
+Blade files; a stale cache serves the OLD version of whichever one you skipped.
+
+**Never run `config:cache`/`route:cache`/`view:cache` in local development or before
+running the test suite** — `phpunit.xml`'s environment overrides (test database,
+`SESSION_DRIVER`, etc.) are only honored when config is read live. This is not
+theoretical: enabling them during this optimization pass caused an immediate,
+reproducible CSRF/session test failure until cleared. `php artisan optimize:clear` undoes
+all four at once.
+
+Also confirm before go-live:
+- **OPcache** is enabled in `php.ini` (`opcache.enable=1`, `opcache.validate_timestamps=0`
+  in production — the last one means a deploy MUST restart PHP-FPM/the app server to pick
+  up new code, since OPcache stops checking file mtimes).
+- The queue worker and scheduler (§4) are both actually running — several of this app's
+  performance-relevant behaviors (the notification digest sweep, the deadline
+  reclassification pass) are background jobs, not request-time work, and do nothing if
+  the worker is down.
+
+## 8. Rolling back a bad deploy
 
 This repository now has git history (initialized during the Phase 10 hardening pass — see
 `git log`). A bad code deploy can be reverted with the normal `git revert`/redeploy flow.
@@ -179,10 +216,13 @@ survive — several migrations in this app add CHECK constraints and NOT NULL co
 are not safely reversible once real rows exist under them. When in doubt, roll forward
 with a fix instead of rolling the schema back.
 
-## 8. What Phase 10 did NOT cover
+## 9. What Phase 10 did NOT cover
 
 - Infrastructure choice (server, containers, CDN, TLS termination) — not part of this
   application's scope; deploy it the way your organization deploys any Laravel app.
-- Load/performance testing at scale.
+- Load/performance testing at scale. The optimization pass eliminated known N+1 queries
+  and added missing indexes and verified them with query-count regression tests
+  (`tests/Feature/PerformanceRegressionTest.php`), but that is code-level correctness, not
+  a substitute for load-testing under real concurrent traffic.
 - A formal WCAG accessibility audit (the UI follows sensible contrast/focus-state
   practices throughout, but this was not independently verified against WCAG criteria).

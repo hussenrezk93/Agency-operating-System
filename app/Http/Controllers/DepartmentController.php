@@ -26,7 +26,10 @@ class DepartmentController extends Controller
     {
         $this->authorize('viewAny', Department::class);
 
-        $departments = Department::query()->orderBy('name')->get();
+        // The Blade list shows each department's primary leader — eager-loading
+        // leadershipAssignments.user lets Department::primaryLeader() resolve it
+        // in-memory instead of firing one query per row.
+        $departments = Department::query()->orderBy('name')->with('leadershipAssignments.user')->get();
 
         if (! $request->expectsJson()) {
             return view('departments.index', [
