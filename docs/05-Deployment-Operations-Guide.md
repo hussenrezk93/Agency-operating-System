@@ -12,16 +12,22 @@ Phase 1A snapshot in `README-BACKEND.md`, which is now historical only.
 |---|---|
 | PHP | 8.2+ |
 | Laravel | 12.x |
-| PostgreSQL | 14+ (16 recommended) — **mandatory**, not a preference (see below) |
+| MySQL | 8.0.16+ — **mandatory**, not a preference (see below); MariaDB is not a supported substitute |
 | Composer | 2.x |
-| PHP extensions | `pdo_pgsql`, `mbstring`, `openssl`, `tokenizer`, `xml`, `ctype`, `json`, `bcmath` |
-| PostgreSQL extension | `btree_gist` (the temporary-TL `EXCLUDE` constraint needs it; the migration creates it itself, so the DB role needs `CREATE EXTENSION` rights, or pre-create it) |
+| PHP extensions | `pdo_mysql`, `mbstring`, `openssl`, `tokenizer`, `xml`, `ctype`, `json`, `bcmath` |
 
-The application relies on PostgreSQL-specific features throughout: `jsonb` columns,
-partial unique indexes, `EXCLUDE USING gist`, and CHECK constraints on nearly every table
-(chat conversation types, task workflow transitions, review decisions, digest windows,
-etc.) — many of the business invariants this app enforces live in the schema, not just in
-PHP. Deploying on any other database engine would silently drop that protection.
+The schema relies on MySQL 8-specific features throughout: native `CHECK` constraint
+support (8.0.16+), generated/virtual columns standing in for what would be partial unique
+indexes on other engines, and two `SIGNAL SQLSTATE`-based trigger pairs enforcing
+`audit_logs` append-only and blocking an output from superseding itself — many of the
+business invariants this app enforces live in the schema, not just in PHP. The one rule
+that has no MySQL-native equivalent at all — no two active temporary Team Leader periods
+may overlap on the same department — is enforced in
+`TemporaryLeadershipService::assertNoTemporaryOverlap()` instead, under a row lock; see
+that method's doc comment for why the schema alone can't guarantee it here. Deploying on
+any other database engine, or MariaDB, is unverified and may silently drop some of this
+protection (MariaDB in particular does not enforce `CHECK` constraints on some older
+default configurations).
 
 ## 2. First-time setup
 
@@ -31,14 +37,20 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Create the database and role:
+Create the database and user:
 
 ```bash
-sudo -u postgres psql <<'SQL'
-CREATE ROLE agencyos LOGIN PASSWORD 'choose-a-strong-password';
-CREATE DATABASE agencyos OWNER agencyos ENCODING 'UTF8';
+mysql -u root -p <<'SQL'
+CREATE DATABASE agencyos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'agencyos'@'localhost' IDENTIFIED BY 'choose-a-strong-password';
+GRANT ALL PRIVILEGES ON agencyos.* TO 'agencyos'@'localhost';
+FLUSH PRIVILEGES;
 SQL
 ```
+
+On Hostinger shared/business hosting (cPanel), create the database, user, and grant
+through cPanel's "MySQL Databases" tool instead — it enforces `utf8mb4` by default and
+there's no shell access to run the above directly.
 
 Edit `.env` — see §3 for what needs real values before this is production-safe. Then:
 
@@ -161,26 +173,36 @@ run — none of them assume they ran on the previous tick.
 
 ## 5. Backup
 
-Nothing is stored outside PostgreSQL — there is no local file-upload feature (task/output
+Nothing is stored outside MySQL — there is no local file-upload feature (task/output
 links are external URLs the user pastes in, not uploaded files), so a database backup is a
 complete backup.
 
 ```bash
-pg_dump -Fc -U agencyos agencyos > agencyos_$(date +%Y%m%d_%H%M).dump
+mysqldump -u agencyos -p --single-transaction --routines --triggers agencyos > agencyos_$(date +%Y%m%d_%H%M).sql
 ```
+
+`--routines --triggers` matters here specifically — a dump without them silently drops the
+`audit_logs_no_update`/`audit_logs_no_delete` and `tso_no_self_supersede_ins`/`_upd`
+triggers, so a restored database would look fine until one of those invariants is the thing
+that was supposed to catch a bug.
 
 Restore:
 ```bash
-pg_restore -U agencyos -d agencyos --clean agencyos_20260101_0000.dump
+mysql -u agencyos -p agencyos < agencyos_20260101_0000.sql
 ```
+
+On Hostinger shared hosting, use cPanel's phpMyAdmin export/import (Export tab → check
+"Structure" with triggers included) instead — the above assumes shell access, which shared
+hosting doesn't provide.
 
 Back up on a schedule appropriate to how much rework losing a day would cost (daily, at
 minimum), and verify the dump restores cleanly somewhere other than production at least
 once — an untested backup is not a backup.
 
-`audit_logs` is append-only at the database level (a trigger blocks `UPDATE`/`DELETE`), so
-it will grow forever; there is no built-in retention/archival job. Decide a retention
-policy before it becomes a real storage line item — this was not scoped in the BRD.
+`audit_logs` is append-only at the database level (a pair of triggers blocks `UPDATE` and
+`DELETE`), so it will grow forever; there is no built-in retention/archival job. Decide a
+retention policy before it becomes a real storage line item — this was not scoped in the
+BRD.
 
 ## 6. Health check & monitoring
 

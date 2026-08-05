@@ -86,7 +86,7 @@ class OrganizationStructureTest extends TestCase
     /**
      * Two independent layers reject an invalid scope, so both are asserted:
      * the enum cast stops it in the application, and the CHECK constraint stops it in
-     * PostgreSQL for any code path that bypasses Eloquent (raw SQL, imports, psql).
+     * MySQL for any code path that bypasses Eloquent (raw SQL, imports, mysql CLI).
      */
     public function test_an_invalid_output_scope_is_rejected_by_the_application_layer(): void
     {

@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** Append-only — also enforced by a Postgres trigger. Write ONLY through AuditService. */
+/** Append-only — also enforced by a pair of MySQL triggers. Write ONLY through AuditService. */
 class AuditLog extends Model
 {
     public $timestamps = false;

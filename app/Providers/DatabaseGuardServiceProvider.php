@@ -14,8 +14,8 @@ use RuntimeException;
  * `audit_logs` append-only. One invariant has NO database-level equivalent on MySQL at
  * all — the "no two overlapping temporary Team Leader periods per department" rule — and
  * is enforced purely in application code instead, by
- * `TemporaryLeadershipService::assertEligible()` under a `lockForUpdate()` transaction.
- * That one is a real, accepted trade-off of the MySQL move, not an oversight.
+ * `TemporaryLeadershipService::assertNoTemporaryOverlap()` under a `lockForUpdate()`
+ * transaction. That one is a real, accepted trade-off of the MySQL move, not an oversight.
  *
  * Failing loudly here is deliberate: a wrong-driver run must never look successful.
  */

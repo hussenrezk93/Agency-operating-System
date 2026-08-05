@@ -6,7 +6,7 @@ use App\Models\AuditLog;
 use Illuminate\Http\Request;
 
 /**
- * The ONLY writer for audit_logs (append-only; a Postgres trigger blocks edits).
+ * The ONLY writer for audit_logs (append-only; a pair of MySQL triggers blocks edits).
  * Captures actor, action, entity, before/after, IP, and user agent.
  * user_agent is stored inside metadata to stay faithful to the ERD column set.
  * HARD RULE: never pass passwords, hashes, tokens, or chat message content here.
