@@ -180,6 +180,9 @@
                      data-last-id="{{ $messages->last()->id ?? 0 }}"
                      data-last-date-key="{{ $messages->last()?->created_at->format('Y-m-d') ?? '' }}"
                      data-poll-url="{{ route('chat.poll', $conversation) }}"
+                     data-channel="chat.conversation.{{ $conversation->id }}"
+                     data-pusher-key="{{ config('broadcasting.connections.pusher.key') }}"
+                     data-pusher-cluster="{{ config('broadcasting.connections.pusher.options.cluster') }}"
                      data-deleted-placeholder="{{ __('agencyos.chat.index.deleted_placeholder') }}"
                      data-delete-label="{{ __('agencyos.chat.index.delete') }}">
                     @forelse($messages as $msg)
@@ -189,7 +192,7 @@
                         @endif
                         @php($lastDate = $msgDate)
 
-                        <div class="msg @if($msg->sender_id === $actorId) me @endif">
+                        <div class="msg @if($msg->sender_id === $actorId) me @endif" data-message-id="{{ $msg->id }}">
                             <span class="avatar sm">{{ $initialsOf($msg->sender->full_name) }}</span>
                             <div>
                                 @if($msg->isDeleted())
@@ -251,23 +254,31 @@
 
     msgs.scrollTop = msgs.scrollHeight;
 
-    // ---- near-real-time chat: poll for new messages, send without a full reload ----
-    // No websocket layer here (that needs a paid always-on relay) — this is a plain,
-    // cheap "give me everything after id X" poll, on a short interval, only while the
-    // tab is visible. It is a strict upgrade over the old behavior (a full page
-    // navigation on every send and no updates at all until you manually reloaded),
-    // not a claim of instant push delivery.
+    // ---- real-time chat over Pusher: push new messages/deletions, no reload ----
+    var actorId = parseInt(msgs.dataset.actorId, 10);
     var lastId = parseInt(msgs.dataset.lastId, 10) || 0;
     var lastDateKey = msgs.dataset.lastDateKey || '';
     var pollUrl = msgs.dataset.pollUrl;
     var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    // Seeded from the server-rendered messages already on the page, so a duplicate
+    // arriving from more than one source (e.g. the backfill poll re-covering a message
+    // a broadcast already delivered) is silently ignored instead of shown twice.
+    var renderedIds = {};
+    msgs.querySelectorAll('[data-message-id]').forEach(function (el) {
+        renderedIds[el.dataset.messageId] = true;
+    });
 
     function isNearBottom() {
         return msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
     }
 
     function appendMessage(payload) {
-        var stickToBottom = payload.is_mine || isNearBottom();
+        if (renderedIds[payload.id]) return;
+        renderedIds[payload.id] = true;
+
+        var isMine = payload.sender_id === actorId;
+        var stickToBottom = isMine || isNearBottom();
 
         if (payload.date_key && payload.date_key !== lastDateKey) {
             var day = document.createElement('div');
@@ -278,7 +289,8 @@
         }
 
         var row = document.createElement('div');
-        row.className = 'msg' + (payload.is_mine ? ' me' : '');
+        row.className = 'msg' + (isMine ? ' me' : '');
+        row.dataset.messageId = payload.id;
 
         var avatar = document.createElement('span');
         avatar.className = 'avatar sm';
@@ -309,7 +321,7 @@
         var meta = document.createElement('div');
         meta.className = 'mmeta';
         meta.textContent = payload.sender_name + ' · ' + payload.time;
-        if (payload.deletable && payload.delete_url) {
+        if (isMine && ! payload.is_deleted && payload.delete_url) {
             meta.appendChild(document.createTextNode(' · '));
             var delForm = document.createElement('form');
             delForm.method = 'POST';
@@ -337,20 +349,63 @@
         if (payload.id > lastId) lastId = payload.id;
     }
 
-    function poll() {
-        if (document.visibilityState !== 'visible') return;
+    function markDeleted(id) {
+        var row = msgs.querySelector('[data-message-id="' + id + '"]');
+        if (! row) return;
 
+        var bubble = row.querySelector('.bubble');
+        if (bubble) {
+            bubble.className = 'bubble deleted';
+            bubble.textContent = msgs.dataset.deletedPlaceholder;
+        }
+
+        var delForm = row.querySelector('.mmeta form');
+        if (delForm) delForm.remove();
+    }
+
+    // Backfill: a plain "everything after id X" fetch, used only (a) right after the
+    // live channel subscription is confirmed — covering both the very first connect and
+    // any later reconnect — and (b) as the fallback if Pusher never loads/connects at
+    // all (offline, blocked script, bad key). Never runs on a timer.
+    function poll() {
         fetch(pollUrl + '?after=' + lastId, { headers: { 'Accept': 'application/json' } })
             .then(function (res) { return res.ok ? res.json() : null; })
             .then(function (json) {
                 if (! json) return;
-                json.data.forEach(appendMessage);
+                json.data.forEach(function (payload) {
+                    if (payload.is_deleted && renderedIds[payload.id]) {
+                        markDeleted(payload.id);
+
+                        return;
+                    }
+
+                    appendMessage(payload);
+                });
             })
-            .catch(function () { /* transient network hiccup — next tick tries again */ });
+            .catch(function () { /* offline — nothing more to do here */ });
     }
 
-    if (pollUrl) {
-        window.setInterval(poll, 4000);
+    if (msgs.dataset.pusherKey) {
+        var pusherScript = document.createElement('script');
+        pusherScript.src = 'https://js.pusher.com/8.4/pusher.min.js';
+        pusherScript.onload = function () {
+            var pusher = new Pusher(msgs.dataset.pusherKey, {
+                cluster: msgs.dataset.pusherCluster,
+                authEndpoint: '{{ url('/broadcasting/auth') }}',
+                auth: { headers: { 'X-CSRF-TOKEN': csrfToken } },
+            });
+
+            var channel = pusher.subscribe('private-' + msgs.dataset.channel);
+            channel.bind('message.new', appendMessage);
+            channel.bind('message.deleted', function (payload) { markDeleted(payload.id); });
+            channel.bind('pusher:subscription_succeeded', poll);
+        };
+        pusherScript.onerror = poll;
+        document.head.appendChild(pusherScript);
+    } else {
+        // No Pusher key configured yet — still sync once so the page isn't stuck at
+        // whatever it looked like at the moment it was loaded.
+        poll();
     }
 
     var composeForm = document.getElementById('chatComposeForm');

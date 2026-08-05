@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Events\ChatMessageBroadcast;
+use App\Events\ChatMessageDeletedBroadcast;
 use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\ChatService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use Tests\Concerns\BuildsWorkflowScenarios;
 use Tests\TestCase;
@@ -119,6 +122,34 @@ class ChatMessagingTest extends TestCase
         $this->expectException(AuthorizationException::class);
 
         $this->chat->deleteMessage($message->fresh(), $this->employee);
+    }
+
+    /** Both broadcast events are already faked app-wide by Tests\TestCase — see its setUp(). */
+    public function test_sending_a_message_broadcasts_it_on_the_conversations_private_channel(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+
+        $message = $this->chat->sendMessage($conversation, $this->employee, 'Hello there');
+
+        Event::assertDispatched(ChatMessageBroadcast::class, function (ChatMessageBroadcast $event) use ($conversation, $message) {
+            $channels = $event->broadcastOn();
+
+            return $event->message->is($message)
+                && $event->broadcastAs() === 'message.new'
+                && count($channels) === 1
+                && $channels[0]->name === 'private-chat.conversation.'.$conversation->id;
+        });
+    }
+
+    public function test_deleting_a_message_broadcasts_the_deletion(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+        $message = $this->chat->sendMessage($conversation, $this->employee, 'Oops, wrong channel');
+
+        $this->chat->deleteMessage($message, $this->employee);
+
+        Event::assertDispatched(ChatMessageDeletedBroadcast::class, fn (ChatMessageDeletedBroadcast $event) => $event->message->is($message)
+            && $event->broadcastAs() === 'message.deleted');
     }
 
     public function test_the_audit_log_never_stores_the_message_text(): void

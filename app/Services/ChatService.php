@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Enums\ConversationType;
 use App\Enums\RoleCode;
 use App\Enums\UserStatus;
+use App\Events\ChatMessageBroadcast;
+use App\Events\ChatMessageDeletedBroadcast;
 use App\Events\ChatMessageSent;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
@@ -332,7 +334,9 @@ class ChatService
                 actorId: $actor->id,
             );
 
-            ChatMessageSent::dispatch($chatMessage->refresh());
+            $chatMessage->refresh();
+            ChatMessageSent::dispatch($chatMessage);
+            ChatMessageBroadcast::dispatch($chatMessage);
 
             return $chatMessage;
         });
@@ -346,6 +350,7 @@ class ChatService
         $conversationId = $message->conversation_id;
 
         $message->deleteForEveryone($actor);
+        ChatMessageDeletedBroadcast::dispatch($message);
 
         $this->audit->log(
             action: 'chat.message_deleted',

@@ -29,6 +29,19 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="CACHE_STORE" value="array"/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- BROADCAST_CONNECTION stays 'pusher' (not 'log'/'null') so that hitting
+             /broadcasting/auth in a test still exercises the REAL channel-authorization
+             rule in routes/channels.php — that check is a local HMAC signing operation,
+             no network call. What WOULD hit the network is actually publishing an event
+             (ChatMessageBroadcast/ChatMessageDeletedBroadcast, both queued and run inline
+             since QUEUE_CONNECTION=sync above) — Tests\TestCase globally Event::fake()s
+             just those two, so no test ever makes a real Pusher API call. The key/secret
+             below are dummy values: valid enough to sign with, never sent anywhere. -->
+        <env name="BROADCAST_CONNECTION" value="pusher"/>
+        <env name="PUSHER_APP_ID" value="test-app-id"/>
+        <env name="PUSHER_APP_KEY" value="test-app-key"/>
+        <env name="PUSHER_APP_SECRET" value="test-app-secret"/>
+        <env name="PUSHER_APP_CLUSTER" value="mt1"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
     </php>
 </phpunit>

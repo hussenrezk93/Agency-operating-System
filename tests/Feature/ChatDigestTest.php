@@ -88,9 +88,12 @@ class ChatDigestTest extends TestCase
 
     public function test_the_sweep_only_closes_batches_whose_window_has_passed(): void
     {
-        Queue::fake();
         $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
         $this->chat->sendMessage($conversation, $this->employee, 'Hello');
+
+        // Faked only from here on — sending the message legitimately queues its own
+        // job (the live-chat broadcast), which isn't what this assertion is about.
+        Queue::fake();
 
         $this->artisan('agencyos:chat-digests')->assertExitCode(0);
 

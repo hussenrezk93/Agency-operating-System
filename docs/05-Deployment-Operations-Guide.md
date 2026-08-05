@@ -78,6 +78,28 @@ php artisan tinker
 | `SESSION_SECURE_COOKIE` | `true` once served over HTTPS |
 | `MAIL_*` | real SMTP credentials (approved decision Q27 — provider-agnostic; every notification email, the 2-hour chat digest, WhatsApp invite emails, and forced-password-reset hand-offs depend on this) |
 | `QUEUE_CONNECTION` | `database` is fine at this scale; move to Redis only if queue depth becomes a real bottleneck |
+| `BROADCAST_CONNECTION`, `PUSHER_*` | real Pusher Channels app credentials — chat (BRD §14) pushes new messages/deletions live over this. See below. |
+
+### Chat real-time (Pusher)
+
+Chat's live updates (`app/Events/ChatMessageBroadcast.php`, `ChatMessageDeletedBroadcast.php`)
+go over [Pusher Channels](https://pusher.com) instead of the browser polling on a timer.
+Free tier is enough for this app's scale (200k messages/day, 100 concurrent connections).
+
+1. Create an app at pusher.com (Channels product, not Beams/Chatkit) and copy its
+   `app_id` / `key` / `secret` / `cluster` into `.env`.
+2. **The queue worker (§4) must actually be running** — `ChatMessageBroadcast`/
+   `ChatMessageDeletedBroadcast` both implement `ShouldBroadcast`, which queues a job
+   rather than calling Pusher's API inline (so a chat send/delete request is never slowed
+   down by an external HTTP call). If the worker is down, messages still save correctly
+   but nobody sees them live until it's back up and drains the backlog.
+3. Nothing else to configure — `routes/channels.php` authorizes each private channel
+   subscription through the exact same `ChatPolicy::view()` check the HTTP routes use, and
+   `bootstrap/app.php`'s `withBroadcasting()` call registers `/broadcasting/auth`
+   automatically.
+4. If `PUSHER_APP_KEY` is left blank (e.g. mid-setup), the chat page still works — it just
+   falls back to a single one-time sync on page load instead of live updates, per the
+   guard in `resources/views/chat/index.blade.php`'s script block.
 
 ### Mail domain authentication (SPF / DKIM / DMARC)
 

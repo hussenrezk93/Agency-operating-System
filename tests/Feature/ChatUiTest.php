@@ -140,6 +140,35 @@ class ChatUiTest extends TestCase
             ->assertForbidden();
     }
 
+    /**
+     * The Pusher JS client's authEndpoint call — same membership rule as chat.show,
+     * proven here by hitting /broadcasting/auth exactly like Pusher's own client does.
+     */
+    public function test_a_member_is_authorized_to_subscribe_to_the_conversations_live_channel(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+
+        $this->actingAs($this->employee)
+            ->post('/broadcasting/auth', [
+                'channel_name' => 'private-chat.conversation.'.$conversation->id,
+                'socket_id' => '1234.1234',
+            ])
+            ->assertOk();
+    }
+
+    public function test_a_non_member_is_refused_the_conversations_live_channel(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+        $outsider = $this->makeEmployee($this->makeDepartment('Design'));
+
+        $this->actingAs($outsider)
+            ->post('/broadcasting/auth', [
+                'channel_name' => 'private-chat.conversation.'.$conversation->id,
+                'socket_id' => '1234.1234',
+            ])
+            ->assertForbidden();
+    }
+
     public function test_a_classic_delete_redirects_with_a_flash_message(): void
     {
         $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
