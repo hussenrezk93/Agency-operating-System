@@ -30,7 +30,7 @@
                     <tr style="{{ $notification->is_read ? '' : 'font-weight:700' }}">
                         <td>
                             @unless($notification->is_read)
-                                <span class="badge b-changes" style="margin-right:6px"><span class="bdot"></span>{{ __('agencyos.notifications.index.unread') }}</span>
+                                <span class="badge b-changes" style="margin-inline-end:6px"><span class="bdot"></span>{{ __('agencyos.notifications.index.unread') }}</span>
                             @endunless
                             {{ $notification->title }}
                         </td>

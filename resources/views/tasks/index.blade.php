@@ -93,7 +93,7 @@
                             {{ $step?->current_due_at?->format('Y-m-d') ?? '—' }}
                             @if($step && ! $task->isOnHold() && in_array($step->deadline_status->value, ['due_soon', 'overdue'], true))
                                 @php($deadlineBadge = \App\Support\TaskPresenter::deadlineBadge($step->deadline_status))
-                                <span class="badge {{ $deadlineBadge['class'] }}" style="margin-left:6px">{{ $deadlineBadge['label'] }}</span>
+                                <span class="badge {{ $deadlineBadge['class'] }}" style="margin-inline-start:6px">{{ $deadlineBadge['label'] }}</span>
                             @endif
                         </td>
                         <td style="text-align:end"><a class="btn btn-sm btn-outline" href="{{ route('tasks.show', $task) }}">{{ __('agencyos.tasks.index.open') }}</a></td>
