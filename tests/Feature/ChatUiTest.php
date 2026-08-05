@@ -88,6 +88,58 @@ class ChatUiTest extends TestCase
         ]);
     }
 
+    /** The JS compose flow posts with Accept: application/json instead of a classic form submit. */
+    public function test_sending_with_accept_json_returns_the_message_payload_instead_of_a_redirect(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+
+        $response = $this->actingAs($this->employee)
+            ->postJson(route('chat.messages.store', $conversation), ['message' => 'Hello via fetch']);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.body', 'Hello via fetch');
+        $response->assertJsonPath('data.sender_name', $this->employee->full_name);
+        $response->assertJsonPath('data.is_mine', true);
+        $response->assertJsonPath('data.is_deleted', false);
+    }
+
+    public function test_polling_returns_only_messages_after_the_given_id(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+        $first = $this->chat->sendMessage($conversation, $this->employee, 'First message');
+        $second = $this->chat->sendMessage($conversation, $this->leader, 'Second message');
+
+        $response = $this->actingAs($this->employee)
+            ->getJson(route('chat.poll', $conversation).'?after='.$first->id);
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $second->id);
+        $response->assertJsonPath('data.0.body', 'Second message');
+    }
+
+    public function test_polling_with_no_new_messages_returns_an_empty_list(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+        $message = $this->chat->sendMessage($conversation, $this->employee, 'Only message');
+
+        $response = $this->actingAs($this->employee)
+            ->getJson(route('chat.poll', $conversation).'?after='.$message->id);
+
+        $response->assertOk();
+        $response->assertJsonCount(0, 'data');
+    }
+
+    public function test_a_non_member_cannot_poll_a_conversation(): void
+    {
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+        $outsider = $this->makeEmployee($this->makeDepartment('Design'));
+
+        $this->actingAs($outsider)
+            ->getJson(route('chat.poll', $conversation).'?after=0')
+            ->assertForbidden();
+    }
+
     public function test_a_classic_delete_redirects_with_a_flash_message(): void
     {
         $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);

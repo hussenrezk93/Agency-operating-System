@@ -9,7 +9,9 @@ use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\User;
 use App\Services\ChatService;
+use App\Support\ChatPresenter;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -57,11 +59,42 @@ class ChatController extends Controller
         ];
     }
 
-    public function store(StoreChatMessageRequest $request, ChatConversation $conversation): RedirectResponse
+    public function store(StoreChatMessageRequest $request, ChatConversation $conversation): JsonResponse|RedirectResponse
     {
-        $this->chat->sendMessage($conversation, $request->user(), $request->string('message')->toString());
+        $message = $this->chat->sendMessage($conversation, $request->user(), $request->string('message')->toString())
+            ->load('sender:id,full_name');
+
+        if ($request->expectsJson()) {
+            return response()->json(['data' => ChatPresenter::messagePayload($message, $request->user()->id)], 201);
+        }
 
         return redirect()->route('chat.show', $conversation);
+    }
+
+    /**
+     * Near-real-time polling (BRD §14 has no live-transport requirement, so this is a
+     * plain, cheap `id > ?` fetch, not a websocket/SSE layer): the browser calls this
+     * every few seconds while a conversation is open and appends whatever is new.
+     * Deletions of messages the caller already has are NOT reflected here — this only
+     * ever returns rows with `id` greater than what the caller has already seen; a full
+     * page load is still what reconciles a deletion into an already-rendered older
+     * message.
+     */
+    public function poll(Request $request, ChatConversation $conversation): JsonResponse
+    {
+        $this->authorize('view', $conversation);
+
+        $actor = $request->user();
+
+        $messages = $conversation->messages()
+            ->with('sender:id,full_name')
+            ->where('id', '>', $request->integer('after'))
+            ->orderBy('created_at')
+            ->get();
+
+        return response()->json([
+            'data' => $messages->map(fn (ChatMessage $m) => ChatPresenter::messagePayload($m, $actor->id))->values(),
+        ]);
     }
 
     public function destroy(Request $request, ChatMessage $message): RedirectResponse

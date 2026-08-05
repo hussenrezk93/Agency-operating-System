@@ -175,7 +175,13 @@
                     </div>
                 </div>
 
-                <div class="chat-msgs" id="chatMsgs">
+                <div class="chat-msgs" id="chatMsgs"
+                     data-actor-id="{{ $actorId }}"
+                     data-last-id="{{ $messages->last()->id ?? 0 }}"
+                     data-last-date-key="{{ $messages->last()?->created_at->format('Y-m-d') ?? '' }}"
+                     data-poll-url="{{ route('chat.poll', $conversation) }}"
+                     data-deleted-placeholder="{{ __('agencyos.chat.index.deleted_placeholder') }}"
+                     data-delete-label="{{ __('agencyos.chat.index.delete') }}">
                     @forelse($messages as $msg)
                         @php($msgDate = $msg->created_at->format('Y-m-d'))
                         @if($msgDate !== ($lastDate ?? null))
@@ -213,7 +219,7 @@
                     @endforelse
                 </div>
 
-                <form method="POST" action="{{ route('chat.messages.store', $conversation) }}" class="chat-input">
+                <form method="POST" action="{{ route('chat.messages.store', $conversation) }}" class="chat-input" id="chatComposeForm">
                     @csrf
                     <div class="field @error('message') bad @enderror" style="flex:1;margin:0">
                         <input type="text" name="message" aria-label="{{ __('agencyos.chat.index.compose_label') }}" placeholder="{{ __('agencyos.chat.index.compose_hint') }}" value="{{ old('message') }}" required autocomplete="off">
@@ -231,16 +237,155 @@
 (function () {
     var q = document.getElementById('chatSearch');
     var list = document.getElementById('chatList');
-    if (! q || ! list) return;
-    q.addEventListener('input', function () {
-        var term = q.value.trim().toLowerCase();
-        list.querySelectorAll('[data-q]').forEach(function (row) {
-            row.style.display = ! term || row.dataset.q.indexOf(term) > -1 ? '' : 'none';
+    if (q && list) {
+        q.addEventListener('input', function () {
+            var term = q.value.trim().toLowerCase();
+            list.querySelectorAll('[data-q]').forEach(function (row) {
+                row.style.display = ! term || row.dataset.q.indexOf(term) > -1 ? '' : 'none';
+            });
         });
-    });
+    }
 
     var msgs = document.getElementById('chatMsgs');
-    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+    if (! msgs) return;
+
+    msgs.scrollTop = msgs.scrollHeight;
+
+    // ---- near-real-time chat: poll for new messages, send without a full reload ----
+    // No websocket layer here (that needs a paid always-on relay) — this is a plain,
+    // cheap "give me everything after id X" poll, on a short interval, only while the
+    // tab is visible. It is a strict upgrade over the old behavior (a full page
+    // navigation on every send and no updates at all until you manually reloaded),
+    // not a claim of instant push delivery.
+    var lastId = parseInt(msgs.dataset.lastId, 10) || 0;
+    var lastDateKey = msgs.dataset.lastDateKey || '';
+    var pollUrl = msgs.dataset.pollUrl;
+    var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    function isNearBottom() {
+        return msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
+    }
+
+    function appendMessage(payload) {
+        var stickToBottom = payload.is_mine || isNearBottom();
+
+        if (payload.date_key && payload.date_key !== lastDateKey) {
+            var day = document.createElement('div');
+            day.className = 'chat-day';
+            day.textContent = payload.date_label;
+            msgs.appendChild(day);
+            lastDateKey = payload.date_key;
+        }
+
+        var row = document.createElement('div');
+        row.className = 'msg' + (payload.is_mine ? ' me' : '');
+
+        var avatar = document.createElement('span');
+        avatar.className = 'avatar sm';
+        avatar.textContent = payload.sender_initials;
+        row.appendChild(avatar);
+
+        var col = document.createElement('div');
+
+        var bubble = document.createElement('div');
+        if (payload.is_deleted) {
+            bubble.className = 'bubble deleted';
+            bubble.textContent = msgs.dataset.deletedPlaceholder;
+        } else {
+            bubble.className = 'bubble';
+            if (payload.link_url) {
+                var a = document.createElement('a');
+                a.href = payload.link_url;
+                a.target = '_blank';
+                a.rel = 'noopener';
+                a.textContent = '🔗 ' + payload.link_url;
+                bubble.appendChild(a);
+            } else {
+                bubble.textContent = payload.body;
+            }
+        }
+        col.appendChild(bubble);
+
+        var meta = document.createElement('div');
+        meta.className = 'mmeta';
+        meta.textContent = payload.sender_name + ' · ' + payload.time;
+        if (payload.deletable && payload.delete_url) {
+            meta.appendChild(document.createTextNode(' · '));
+            var delForm = document.createElement('form');
+            delForm.method = 'POST';
+            delForm.action = payload.delete_url;
+            delForm.style.display = 'inline';
+            var tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden';
+            tokenInput.name = '_token';
+            tokenInput.value = csrfToken;
+            delForm.appendChild(tokenInput);
+            var delBtn = document.createElement('button');
+            delBtn.type = 'submit';
+            delBtn.className = 'chat-msg del';
+            delBtn.style.cssText = 'opacity:1;border:0;background:transparent;padding:0';
+            delBtn.textContent = '✕ ' + msgs.dataset.deleteLabel;
+            delForm.appendChild(delBtn);
+            meta.appendChild(delForm);
+        }
+        col.appendChild(meta);
+
+        row.appendChild(col);
+        msgs.appendChild(row);
+
+        if (stickToBottom) msgs.scrollTop = msgs.scrollHeight;
+        if (payload.id > lastId) lastId = payload.id;
+    }
+
+    function poll() {
+        if (document.visibilityState !== 'visible') return;
+
+        fetch(pollUrl + '?after=' + lastId, { headers: { 'Accept': 'application/json' } })
+            .then(function (res) { return res.ok ? res.json() : null; })
+            .then(function (json) {
+                if (! json) return;
+                json.data.forEach(appendMessage);
+            })
+            .catch(function () { /* transient network hiccup — next tick tries again */ });
+    }
+
+    if (pollUrl) {
+        window.setInterval(poll, 4000);
+    }
+
+    var composeForm = document.getElementById('chatComposeForm');
+    if (composeForm) {
+        composeForm.addEventListener('submit', function (event) {
+            var input = composeForm.querySelector('input[name="message"]');
+            if (! input || ! input.value.trim()) return;
+
+            event.preventDefault();
+            var formData = new FormData(composeForm);
+
+            fetch(composeForm.action, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json' },
+                body: formData,
+            })
+                .then(function (res) {
+                    if (! res.ok) throw new Error('send failed');
+
+                    return res.json();
+                })
+                .then(function (json) {
+                    appendMessage(json.data);
+                    input.value = '';
+                    input.focus();
+                })
+                .catch(function () {
+                    // JS/fetch failed for some reason — fall back to a normal form
+                    // submit (classic POST + redirect) rather than silently dropping
+                    // the message. HTMLFormElement.prototype.submit() bypasses this
+                    // same 'submit' listener, so it cannot loop.
+                    HTMLFormElement.prototype.submit.call(composeForm);
+                });
+        });
+    }
 })();
 </script>
 @endsection

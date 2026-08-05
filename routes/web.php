@@ -314,6 +314,10 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
         Route::prefix('chat')->middleware('role:employee,tl,manager,admin')->group(function (): void {
             Route::get('/', [ChatController::class, 'index'])->name('chat.index');
             Route::get('/{conversation}', [ChatController::class, 'show'])->name('chat.show');
+            // Near-real-time: the open conversation polls this every few seconds instead
+            // of a full page refresh. Throttled like the app's other lightweight endpoints.
+            Route::get('/{conversation}/poll', [ChatController::class, 'poll'])
+                ->middleware('throttle:30,1')->name('chat.poll');
             Route::post('/{conversation}/messages', [ChatController::class, 'store'])->name('chat.messages.store');
             Route::post('/messages/{message}/delete', [ChatController::class, 'destroy'])->name('chat.messages.destroy');
             Route::post('/direct', [ChatController::class, 'startDirect'])->name('chat.direct');
