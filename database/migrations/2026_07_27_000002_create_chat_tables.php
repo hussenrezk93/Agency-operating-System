@@ -71,8 +71,12 @@ return new class extends Migration
             $t->id();
             $t->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $t->foreignId('notification_id')->nullable()->constrained('notifications');
-            $t->timestampTz('window_start');
-            $t->timestampTz('window_end');
+            // MySQL: only the FIRST not-null/no-default TIMESTAMP column in a table may
+            // omit an explicit default under strict mode — a second one (window_end)
+            // errors outright. Always set by the app at creation time regardless, so
+            // ->nullable() here is a safe schema relaxation, not a behavior change.
+            $t->timestampTz('window_start')->nullable();
+            $t->timestampTz('window_end')->nullable();
             $t->integer('message_count');
             $t->string('status', 16)->default('queued'); // queued|sent|failed
             $t->timestampTz('sent_at')->nullable();

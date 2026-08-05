@@ -20,10 +20,11 @@
         <env name="APP_ENV" value="testing"/>
         <env name="APP_TIMEZONE" value="Africa/Cairo"/>
         <env name="APP_LOCALE" value="en"/>
-        <!-- PostgreSQL is required: the schema uses jsonb, partial unique indexes,
-             an EXCLUDE constraint and an append-only trigger. Create the database
-             once:  createdb agencyos_test -->
-        <env name="DB_CONNECTION" value="pgsql"/>
+        <!-- MySQL is required: the schema uses generated-column + unique-index pairs
+             (the MySQL equivalent of the old Postgres partial unique indexes) and a pair
+             of native triggers on audit_logs. Create the database once:
+             CREATE DATABASE agencyos_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; -->
+        <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_DATABASE" value="agencyos_test"/>
         <env name="SESSION_DRIVER" value="database"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

@@ -7,11 +7,15 @@ use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 
 /**
- * Agency OS requires PostgreSQL. The schema depends on jsonb, partial unique indexes, an
- * EXCLUDE USING gist constraint for temporary-TL periods, and an append-only trigger on
- * audit_logs. On any other driver those protections are silently skipped, which would
- * produce a database that looks migrated but enforces none of the approved invariants —
- * and a test suite that passes for the wrong reason.
+ * Agency OS requires MySQL (8.0.16+ — that's the version CHECK constraints started being
+ * genuinely enforced, not just parsed). The schema's invariants are: plain `json`
+ * columns, MySQL generated-column + regular-unique-index pairs standing in for what used
+ * to be PostgreSQL partial unique indexes, and a pair of native triggers making
+ * `audit_logs` append-only. One invariant has NO database-level equivalent on MySQL at
+ * all — the "no two overlapping temporary Team Leader periods per department" rule — and
+ * is enforced purely in application code instead, by
+ * `TemporaryLeadershipService::assertEligible()` under a `lockForUpdate()` transaction.
+ * That one is a real, accepted trade-off of the MySQL move, not an oversight.
  *
  * Failing loudly here is deliberate: a wrong-driver run must never look successful.
  */
@@ -19,11 +23,11 @@ class DatabaseGuardServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        if ($this->app->runningInConsole() && DB::getDriverName() !== 'pgsql') {
+        if ($this->app->runningInConsole() && DB::getDriverName() !== 'mysql') {
             throw new RuntimeException(
-                'Agency OS requires PostgreSQL. Current driver: '.DB::getDriverName().'. '
-                .'Set DB_CONNECTION=pgsql in .env (see README-BACKEND.md §3–§4). '
-                .'SQLite and MySQL cannot enforce the approved database invariants.'
+                'Agency OS requires MySQL. Current driver: '.DB::getDriverName().'. '
+                .'Set DB_CONNECTION=mysql in .env. '
+                .'SQLite and PostgreSQL cannot enforce the approved database invariants.'
             );
         }
     }

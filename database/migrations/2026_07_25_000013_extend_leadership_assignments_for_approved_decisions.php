@@ -29,8 +29,8 @@ return new class extends Migration
             $t->text('reason')->nullable()->after('activation_state');
             $t->foreignId('ended_by')->nullable()->after('assigned_by')->constrained('users');
             $t->foreignId('replaced_by_assignment_id')->nullable()->after('ended_by')
-                ->constrained('department_leadership_assignments');
-            $t->index(['activation_state', 'start_date', 'end_date']);
+                ->constrained('department_leadership_assignments', 'id', 'dla_replaced_by_assignment_fk');
+            $t->index(['activation_state', 'start_date', 'end_date'], 'dla_activation_dates_index');
         });
 
         if (DB::getDriverName() === 'pgsql') {

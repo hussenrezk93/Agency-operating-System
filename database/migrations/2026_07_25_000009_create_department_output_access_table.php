@@ -24,7 +24,7 @@ return new class extends Migration
             $t->boolean('is_allowed')->default(true);
             $t->foreignId('updated_by')->constrained('users');
             $t->timestampTz('updated_at')->useCurrent();
-            $t->unique(['viewer_department_id', 'source_department_id']);
+            $t->unique(['viewer_department_id', 'source_department_id'], 'doa_viewer_source_unique');
         });
 
         if (DB::getDriverName() === 'pgsql') {

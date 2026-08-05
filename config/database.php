@@ -1,27 +1,32 @@
 <?php
 
 return [
-    'default' => env('DB_CONNECTION', 'pgsql'),
+    'default' => env('DB_CONNECTION', 'mysql'),
 
     'connections' => [
         /*
-         | PostgreSQL is required, not optional: the schema relies on jsonb,
-         | partial unique indexes, an EXCLUDE (btree_gist) constraint for
-         | temporary-TL periods, and an append-only trigger on audit_logs.
+         | MySQL is required, not optional — this app targets shared hosting where MySQL
+         | is the only engine on offer. The schema's invariants that used to be PostgreSQL
+         | DDL (jsonb, partial unique indexes, an EXCLUDE/gist constraint, a PL/pgSQL
+         | trigger) are now: plain `json` columns, MySQL 8 generated-column + regular
+         | unique-index pairs, an application-layer locked overlap check
+         | (TemporaryLeadershipService), and a pair of native MySQL triggers, respectively.
          */
-        'pgsql' => [
-            'driver' => 'pgsql',
+        'mysql' => [
+            'driver' => 'mysql',
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
+            'port' => env('DB_PORT', '3306'),
             'database' => env('DB_DATABASE', 'agencyos'),
             'username' => env('DB_USERNAME', 'agencyos'),
             'password' => env('DB_PASSWORD', ''),
-            'charset' => env('DB_CHARSET', 'utf8'),
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => 'prefer',
+            'strict' => true,
+            'engine' => 'InnoDB',
         ],
     ],
 
