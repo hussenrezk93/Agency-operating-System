@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\RoleCode;
+use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
@@ -35,12 +36,25 @@ class SeederAndHealthTest extends TestCase
     {
         $this->seed(DemoSeeder::class);
 
-        foreach (['admin', 'manager', 'tl', 'employee', 'newuser', 'disabled.user'] as $username) {
-            $this->assertDatabaseHas('users', ['username' => $username]);
-        }
+        $admin = User::where('username', 'manager')->firstOrFail();
+        $tl = User::where('username', 'leila.mansour')->firstOrFail();
 
-        $this->assertTrue(User::where('username', 'newuser')->firstOrFail()->must_change_password);
-        $this->assertSame('inactive', User::where('username', 'disabled.user')->firstOrFail()->status->value);
+        $this->assertTrue($admin->hasRole(RoleCode::Admin));
+        $this->assertSame('manager@example.com', $admin->personal_email);
+
+        $this->assertTrue($tl->hasRole(RoleCode::TeamLeader));
+        $this->assertSame('leila.mansour@example.com', $tl->personal_email);
+        $this->assertSame('Marketing', $tl->department?->name);
+    }
+
+    /** Rerunning must never duplicate the two accounts or the department. */
+    public function test_dev_seeder_is_idempotent(): void
+    {
+        $this->seed(DemoSeeder::class);
+        $this->seed(DemoSeeder::class);
+
+        $this->assertSame(2, User::count());
+        $this->assertSame(1, Department::where('name', 'Marketing')->count());
     }
 
     public function test_dev_seeder_refuses_to_run_in_production(): void
@@ -56,11 +70,11 @@ class SeederAndHealthTest extends TestCase
         }
     }
 
-    public function test_seeded_manager_tl_and_employee_accounts_use_the_shared_demo_password(): void
+    public function test_seeded_admin_and_team_leader_accounts_use_the_shared_demo_password(): void
     {
         $this->seed(DemoSeeder::class);
 
-        foreach (['manager', 'tl', 'employee'] as $username) {
+        foreach (['manager', 'leila.mansour'] as $username) {
             $user = User::where('username', $username)->firstOrFail();
 
             $this->post('/login', ['username' => $username, 'password' => 'Demo123!'])

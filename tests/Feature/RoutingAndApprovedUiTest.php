@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Enums\RoleCode;
+use App\Models\Department;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
@@ -21,11 +23,36 @@ class RoutingAndApprovedUiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function demo(string $username): User
-    {
-        $this->seed(DemoSeeder::class);
+    /** @var array<string, User> */
+    private array $demoUsers = [];
 
-        return User::where('username', $username)->firstOrFail();
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(RoleSeeder::class);
+    }
+
+    /**
+     * A role-representative account, built fresh per test (not DemoSeeder — that seeder
+     * now holds only the two real, named accounts this deployment actually uses). Cached
+     * per key within a test so repeat calls return the SAME user, matching how every test
+     * below expects to keep acting as "the" manager/tl/employee/admin it already fetched.
+     */
+    private function demo(string $role): User
+    {
+        if (isset($this->demoUsers[$role])) {
+            return $this->demoUsers[$role];
+        }
+
+        $marketing = Department::firstOrCreate(['name' => 'Marketing'], ['is_active' => true]);
+
+        return $this->demoUsers[$role] = match ($role) {
+            'admin' => User::factory()->role(RoleCode::Admin)->create(),
+            'manager' => User::factory()->role(RoleCode::Manager)->create(),
+            'tl' => User::factory()->role(RoleCode::TeamLeader)->inDepartment($marketing)->create(),
+            'employee' => User::factory()->role(RoleCode::Employee)->inDepartment($marketing)->create(),
+            default => throw new \InvalidArgumentException("Unknown demo role [{$role}]"),
+        };
     }
 
     // ------------------------------------------------------------ root and auth
@@ -43,11 +70,13 @@ class RoutingAndApprovedUiTest extends TestCase
     /** An authenticated visitor is forwarded on by `guest`, never signed out. */
     public function test_an_authenticated_user_at_the_root_lands_on_the_dashboard(): void
     {
-        $this->actingAs($this->demo('manager'))
+        $manager = $this->demo('manager');
+
+        $this->actingAs($manager)
             ->get('/')
             ->assertRedirect(route('login'));
 
-        $this->actingAs(User::where('username', 'manager')->firstOrFail())
+        $this->actingAs($manager)
             ->get(route('login'))
             ->assertRedirect(route('dashboard'));
     }
@@ -296,11 +325,13 @@ class RoutingAndApprovedUiTest extends TestCase
     /** No loop back to a prototype login: an authenticated caller goes home instead. */
     public function test_the_prototype_login_screen_redirects_home_when_authenticated(): void
     {
-        $this->actingAs($this->demo('tl'))
+        $tl = $this->demo('tl');
+
+        $this->actingAs($tl)
             ->get(route('approved-ui', ['screen' => 'login.html']))
             ->assertRedirect(route('approved-ui', ['screen' => 'tl-dashboard.html']));
 
-        $this->actingAs(User::where('username', 'tl')->firstOrFail())
+        $this->actingAs($tl)
             ->get(route('approved-ui', ['screen' => 'index.html']))
             ->assertRedirect(route('approved-ui', ['screen' => 'tl-dashboard.html']));
     }
@@ -335,13 +366,13 @@ class RoutingAndApprovedUiTest extends TestCase
             ->assertRedirect(route('dashboard'));
     }
 
-    // ------------------------------------------------------------------- demo accounts
+    // ------------------------------------------------------------------- seeded accounts
 
-    public function test_the_demo_accounts_can_sign_in_without_a_forced_password_change(): void
+    public function test_the_seeded_accounts_can_sign_in_without_a_forced_password_change(): void
     {
         $this->seed(DemoSeeder::class);
 
-        foreach (['admin', 'manager', 'tl', 'employee'] as $username) {
+        foreach (['manager', 'leila.mansour'] as $username) {
             $this->post(route('login.store'), [
                 'username' => $username,
                 'password' => 'Demo123!',
@@ -357,9 +388,10 @@ class RoutingAndApprovedUiTest extends TestCase
         }
     }
 
-    public function test_the_demo_team_leader_actually_leads_marketing(): void
+    public function test_the_seeded_team_leader_actually_leads_marketing(): void
     {
-        $tl = $this->demo('tl');
+        $this->seed(DemoSeeder::class);
+        $tl = User::where('username', 'leila.mansour')->firstOrFail();
 
         $this->assertTrue($tl->hasRole(RoleCode::TeamLeader));
         $this->assertNotNull($tl->department_id);
