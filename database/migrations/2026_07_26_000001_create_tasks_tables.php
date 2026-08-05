@@ -48,19 +48,17 @@ return new class extends Migration
             $t->index('task_id');
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement("ALTER TABLE tasks ADD CONSTRAINT tasks_priority_check
-                CHECK (priority IN ('low','medium','high','urgent'))");
-            DB::statement("ALTER TABLE tasks ADD CONSTRAINT tasks_lifecycle_check
-                CHECK (lifecycle_status IN ('draft','active','on_hold','completed','cancelled'))");
-            // A cancelled task must record why (BRD §10, mandatory reason).
-            DB::statement("ALTER TABLE tasks ADD CONSTRAINT tasks_cancel_reason_check
-                CHECK (lifecycle_status <> 'cancelled' OR cancelled_reason IS NOT NULL)");
-            // A completed task must record when and by whom (audit integrity, BRD §22.6).
-            DB::statement("ALTER TABLE tasks ADD CONSTRAINT tasks_completed_meta_check
-                CHECK (lifecycle_status <> 'completed'
-                       OR (completed_at IS NOT NULL AND completed_by IS NOT NULL))");
-        }
+        DB::statement("ALTER TABLE tasks ADD CONSTRAINT tasks_priority_check
+            CHECK (priority IN ('low','medium','high','urgent'))");
+        DB::statement("ALTER TABLE tasks ADD CONSTRAINT tasks_lifecycle_check
+            CHECK (lifecycle_status IN ('draft','active','on_hold','completed','cancelled'))");
+        // A cancelled task must record why (BRD §10, mandatory reason).
+        DB::statement("ALTER TABLE tasks ADD CONSTRAINT tasks_cancel_reason_check
+            CHECK (lifecycle_status <> 'cancelled' OR cancelled_reason IS NOT NULL)");
+        // A completed task must record when and by whom (audit integrity, BRD §22.6).
+        DB::statement("ALTER TABLE tasks ADD CONSTRAINT tasks_completed_meta_check
+            CHECK (lifecycle_status <> 'completed'
+                   OR (completed_at IS NOT NULL AND completed_by IS NOT NULL))");
     }
 
     public function down(): void

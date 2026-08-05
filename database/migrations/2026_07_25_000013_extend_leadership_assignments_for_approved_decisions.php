@@ -33,25 +33,21 @@ return new class extends Migration
             $t->index(['activation_state', 'start_date', 'end_date'], 'dla_activation_dates_index');
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement("ALTER TABLE department_leadership_assignments
-                ADD CONSTRAINT dla_activation_state
-                CHECK (activation_state IN ('pending','active','ended'))");
-            DB::statement("ALTER TABLE department_leadership_assignments
-                ADD CONSTRAINT dla_type CHECK (assignment_type IN ('primary','temporary'))");
-            // A temporary appointment is always time-boxed (BRD §12).
-            DB::statement("ALTER TABLE department_leadership_assignments
-                ADD CONSTRAINT dla_temp_has_end
-                CHECK (assignment_type <> 'temporary' OR end_date IS NOT NULL)");
-        }
+        DB::statement("ALTER TABLE department_leadership_assignments
+            ADD CONSTRAINT dla_activation_state
+            CHECK (activation_state IN ('pending','active','ended'))");
+        DB::statement("ALTER TABLE department_leadership_assignments
+            ADD CONSTRAINT dla_type CHECK (assignment_type IN ('primary','temporary'))");
+        // A temporary appointment is always time-boxed (BRD §12).
+        DB::statement("ALTER TABLE department_leadership_assignments
+            ADD CONSTRAINT dla_temp_has_end
+            CHECK (assignment_type <> 'temporary' OR end_date IS NOT NULL)");
     }
 
     public function down(): void
     {
-        if (DB::getDriverName() === 'pgsql') {
-            foreach (['dla_activation_state', 'dla_type', 'dla_temp_has_end'] as $c) {
-                DB::statement("ALTER TABLE department_leadership_assignments DROP CONSTRAINT IF EXISTS {$c}");
-            }
+        foreach (['dla_activation_state', 'dla_type', 'dla_temp_has_end'] as $c) {
+            DB::statement("ALTER TABLE department_leadership_assignments DROP CONSTRAINT {$c}");
         }
         Schema::table('department_leadership_assignments', function (Blueprint $t) {
             $t->dropConstrainedForeignId('replaced_by_assignment_id');

@@ -23,13 +23,6 @@ class ErdCompletionSchemaTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function pgsqlOnly(): void
-    {
-        if (DB::getDriverName() !== 'pgsql') {
-            $this->markTestSkipped('These constraints exist only on PostgreSQL.');
-        }
-    }
-
     public function test_every_erd_table_exists(): void
     {
         foreach ([
@@ -46,8 +39,6 @@ class ErdCompletionSchemaTest extends TestCase
     /** BRD §11.1 — one logical event, one delivery row per channel. */
     public function test_a_channel_cannot_be_delivered_twice_for_one_notification(): void
     {
-        $this->pgsqlOnly();
-
         $notificationId = $this->notification();
 
         DB::table('notification_deliveries')->insert([
@@ -63,8 +54,6 @@ class ErdCompletionSchemaTest extends TestCase
 
     public function test_a_delivery_marked_sent_must_record_when(): void
     {
-        $this->pgsqlOnly();
-
         $this->expectException(QueryException::class);
 
         DB::table('notification_deliveries')->insert([
@@ -81,8 +70,6 @@ class ErdCompletionSchemaTest extends TestCase
      */
     public function test_a_deleted_chat_message_cannot_keep_its_text(): void
     {
-        $this->pgsqlOnly();
-
         $sender = User::factory()->create();
         $conversationId = DB::table('chat_conversations')->insertGetId([
             'type' => 'all_tls', 'department_id' => null, 'created_at' => now(),
@@ -101,8 +88,6 @@ class ErdCompletionSchemaTest extends TestCase
 
     public function test_a_live_chat_message_needs_text_or_a_link(): void
     {
-        $this->pgsqlOnly();
-
         $sender = User::factory()->create();
         $conversationId = DB::table('chat_conversations')->insertGetId([
             'type' => 'all_tls', 'department_id' => null, 'created_at' => now(),
@@ -122,8 +107,6 @@ class ErdCompletionSchemaTest extends TestCase
     /** A department group names its department; the cross-department types must not. */
     public function test_only_a_department_group_may_name_a_department(): void
     {
-        $this->pgsqlOnly();
-
         $department = Department::factory()->create();
 
         $this->expectException(QueryException::class);
@@ -136,8 +119,6 @@ class ErdCompletionSchemaTest extends TestCase
     /** BRD §22.18 — an empty two-hour window is never sent. */
     public function test_a_digest_batch_cannot_be_empty(): void
     {
-        $this->pgsqlOnly();
-
         $this->expectException(QueryException::class);
 
         DB::table('chat_digest_batches')->insert([
@@ -152,8 +133,6 @@ class ErdCompletionSchemaTest extends TestCase
     /** BRD §22.13 — one invite per member per link version per channel. */
     public function test_a_member_cannot_be_invited_twice_for_the_same_link_version(): void
     {
-        $this->pgsqlOnly();
-
         [$projectId, $versionId] = $this->projectWithLinkVersion();
         $user = User::factory()->create();
 
@@ -174,8 +153,6 @@ class ErdCompletionSchemaTest extends TestCase
 
     public function test_a_project_may_have_only_one_current_link_version(): void
     {
-        $this->pgsqlOnly();
-
         [$projectId] = $this->projectWithLinkVersion();
 
         $this->expectException(QueryException::class);
@@ -194,8 +171,6 @@ class ErdCompletionSchemaTest extends TestCase
     /** BRD §17 — no steps due means N/A (NULL), never a zero that drags an average down. */
     public function test_a_month_with_no_due_steps_must_store_null_not_zero(): void
     {
-        $this->pgsqlOnly();
-
         $this->expectException(QueryException::class);
 
         DB::table('monthly_performance_snapshots')->insert([
@@ -212,8 +187,6 @@ class ErdCompletionSchemaTest extends TestCase
 
     public function test_a_department_snapshot_must_name_a_department_not_a_user(): void
     {
-        $this->pgsqlOnly();
-
         $this->expectException(QueryException::class);
 
         DB::table('monthly_performance_snapshots')->insert([
@@ -231,8 +204,6 @@ class ErdCompletionSchemaTest extends TestCase
 
     public function test_completed_steps_cannot_exceed_the_steps_that_were_due(): void
     {
-        $this->pgsqlOnly();
-
         $this->expectException(QueryException::class);
 
         DB::table('monthly_performance_snapshots')->insert([

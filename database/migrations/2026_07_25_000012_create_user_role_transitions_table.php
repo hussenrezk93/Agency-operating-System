@@ -32,10 +32,8 @@ return new class extends Migration
             $t->index(['user_id', 'effective_at']);
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement("ALTER TABLE user_role_transitions ADD CONSTRAINT urt_type
-                CHECK (transition_type IN ('elevation','restoration'))");
-        }
+        DB::statement("ALTER TABLE user_role_transitions ADD CONSTRAINT urt_type
+            CHECK (transition_type IN ('elevation','restoration'))");
     }
 
     public function down(): void

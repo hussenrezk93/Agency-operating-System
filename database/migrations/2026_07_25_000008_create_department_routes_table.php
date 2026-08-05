@@ -24,10 +24,8 @@ return new class extends Migration
             $t->unique(['from_department_id', 'to_department_id']);
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement('ALTER TABLE department_routes ADD CONSTRAINT dr_no_self_route
-                CHECK (from_department_id <> to_department_id)');
-        }
+        DB::statement('ALTER TABLE department_routes ADD CONSTRAINT dr_no_self_route
+            CHECK (from_department_id <> to_department_id)');
     }
 
     public function down(): void

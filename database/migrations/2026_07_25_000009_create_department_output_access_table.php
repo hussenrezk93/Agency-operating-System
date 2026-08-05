@@ -27,12 +27,10 @@ return new class extends Migration
             $t->unique(['viewer_department_id', 'source_department_id'], 'doa_viewer_source_unique');
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement('ALTER TABLE department_output_access ADD CONSTRAINT doa_no_self
-                CHECK (viewer_department_id <> source_department_id)');
-            DB::statement("ALTER TABLE department_output_access ADD CONSTRAINT doa_scope
-                CHECK (scope IN ('all_outputs','final_only'))");
-        }
+        DB::statement('ALTER TABLE department_output_access ADD CONSTRAINT doa_no_self
+            CHECK (viewer_department_id <> source_department_id)');
+        DB::statement("ALTER TABLE department_output_access ADD CONSTRAINT doa_scope
+            CHECK (scope IN ('all_outputs','final_only'))");
     }
 
     public function down(): void

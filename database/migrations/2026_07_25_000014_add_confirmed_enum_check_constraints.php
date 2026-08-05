@@ -14,10 +14,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (DB::getDriverName() !== 'pgsql') {
-            return;
-        }
-
         DB::statement("ALTER TABLE users ADD CONSTRAINT users_status_check
             CHECK (status IN ('active','inactive','on_leave'))");
         DB::statement("ALTER TABLE clients ADD CONSTRAINT clients_status_check
@@ -31,17 +27,13 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (DB::getDriverName() !== 'pgsql') {
-            return;
-        }
-
         foreach ([
             'users' => ['users_status_check'],
             'clients' => ['clients_status_check'],
             'projects' => ['projects_status_check', 'projects_cancel_reason_check'],
         ] as $table => $constraints) {
             foreach ($constraints as $c) {
-                DB::statement("ALTER TABLE {$table} DROP CONSTRAINT IF EXISTS {$c}");
+                DB::statement("ALTER TABLE {$table} DROP CONSTRAINT {$c}");
             }
         }
     }

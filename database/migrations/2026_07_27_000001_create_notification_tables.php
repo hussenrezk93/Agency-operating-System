@@ -72,7 +72,12 @@ return new class extends Migration
             $t->id();
             $t->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $t->string('token_hash');                 // hash only — never the raw token
-            $t->timestampTz('expires_at');
+            // ->nullable(): MySQL/MariaDB's legacy "first not-null/no-default TIMESTAMP
+            // column with no explicit attribute" rule was implicitly giving this column
+            // DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP — silently overwriting
+            // expires_at back to "now" on every UPDATE (e.g. consuming the token), which
+            // then failed evt_expiry_check. Always set explicitly by the app regardless.
+            $t->timestampTz('expires_at')->nullable();
             $t->timestampTz('consumed_at')->nullable();
             $t->timestampTz('created_at')->useCurrent();
 
@@ -80,26 +85,24 @@ return new class extends Migration
             $t->unique('token_hash', 'evt_token_hash_unique');
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement("ALTER TABLE notification_deliveries ADD CONSTRAINT nd_channel_check
-                CHECK (channel IN ('in_app', 'email'))");
-            DB::statement("ALTER TABLE notification_deliveries ADD CONSTRAINT nd_status_check
-                CHECK (status IN ('queued', 'sent', 'failed', 'bounced'))");
+        DB::statement("ALTER TABLE notification_deliveries ADD CONSTRAINT nd_channel_check
+            CHECK (channel IN ('in_app', 'email'))");
+        DB::statement("ALTER TABLE notification_deliveries ADD CONSTRAINT nd_status_check
+            CHECK (status IN ('queued', 'sent', 'failed', 'bounced'))");
 
-            // A row that claims to be sent must say when. Prevents a 'sent' with no timestamp
-            // being counted as delivered by the Phase 9 reports.
-            DB::statement("ALTER TABLE notification_deliveries ADD CONSTRAINT nd_sent_at_check
-                CHECK (status <> 'sent' OR sent_at IS NOT NULL)");
-            DB::statement("ALTER TABLE notification_deliveries ADD CONSTRAINT nd_bounced_at_check
-                CHECK (status <> 'bounced' OR bounced_at IS NOT NULL)");
+        // A row that claims to be sent must say when. Prevents a 'sent' with no timestamp
+        // being counted as delivered by the Phase 9 reports.
+        DB::statement("ALTER TABLE notification_deliveries ADD CONSTRAINT nd_sent_at_check
+            CHECK (status <> 'sent' OR sent_at IS NOT NULL)");
+        DB::statement("ALTER TABLE notification_deliveries ADD CONSTRAINT nd_bounced_at_check
+            CHECK (status <> 'bounced' OR bounced_at IS NOT NULL)");
 
-            // A read notification must carry the moment it was read (and the reverse).
-            DB::statement('ALTER TABLE notifications ADD CONSTRAINT notifications_read_check
-                CHECK (is_read = (read_at IS NOT NULL))');
+        // A read notification must carry the moment it was read (and the reverse).
+        DB::statement('ALTER TABLE notifications ADD CONSTRAINT notifications_read_check
+            CHECK (is_read = (read_at IS NOT NULL))');
 
-            DB::statement('ALTER TABLE email_verification_tokens ADD CONSTRAINT evt_expiry_check
-                CHECK (expires_at > created_at)');
-        }
+        DB::statement('ALTER TABLE email_verification_tokens ADD CONSTRAINT evt_expiry_check
+            CHECK (expires_at > created_at)');
     }
 
     public function down(): void

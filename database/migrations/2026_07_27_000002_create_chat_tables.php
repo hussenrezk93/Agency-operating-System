@@ -97,39 +97,37 @@ return new class extends Migration
             $t->index('message_id');
         });
 
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement("ALTER TABLE chat_conversations ADD CONSTRAINT chat_conv_type_check
-                CHECK (type IN ('employee_tl', 'department_group', 'direct_tl', 'all_tls', 'manager_tls'))");
+        DB::statement("ALTER TABLE chat_conversations ADD CONSTRAINT chat_conv_type_check
+            CHECK (type IN ('employee_tl', 'department_group', 'direct_tl', 'all_tls', 'manager_tls'))");
 
-            // A department group belongs to a department; the others must not claim one.
-            DB::statement("ALTER TABLE chat_conversations ADD CONSTRAINT chat_conv_department_check
-                CHECK ((type = 'department_group') = (department_id IS NOT NULL))");
+        // A department group belongs to a department; the others must not claim one.
+        DB::statement("ALTER TABLE chat_conversations ADD CONSTRAINT chat_conv_department_check
+            CHECK ((type = 'department_group') = (department_id IS NOT NULL))");
 
-            // BRD §14 — the two representable states, and nothing between them.
-            DB::statement('ALTER TABLE chat_messages ADD CONSTRAINT chat_msg_content_check
-                CHECK (
-                    (deleted_at IS NULL  AND (body IS NOT NULL OR link_url IS NOT NULL))
-                    OR
-                    (deleted_at IS NOT NULL AND body IS NULL AND link_url IS NULL)
-                )');
+        // BRD §14 — the two representable states, and nothing between them.
+        DB::statement('ALTER TABLE chat_messages ADD CONSTRAINT chat_msg_content_check
+            CHECK (
+                (deleted_at IS NULL  AND (body IS NOT NULL OR link_url IS NOT NULL))
+                OR
+                (deleted_at IS NOT NULL AND body IS NULL AND link_url IS NULL)
+            )');
 
-            // A deleted message records who deleted it.
-            DB::statement('ALTER TABLE chat_messages ADD CONSTRAINT chat_msg_deleted_by_check
-                CHECK ((deleted_at IS NULL) = (deleted_by IS NULL))');
+        // A deleted message records who deleted it.
+        DB::statement('ALTER TABLE chat_messages ADD CONSTRAINT chat_msg_deleted_by_check
+            CHECK ((deleted_at IS NULL) = (deleted_by IS NULL))');
 
-            DB::statement("ALTER TABLE chat_digest_batches ADD CONSTRAINT chat_digest_status_check
-                CHECK (status IN ('queued', 'sent', 'failed'))");
+        DB::statement("ALTER TABLE chat_digest_batches ADD CONSTRAINT chat_digest_status_check
+            CHECK (status IN ('queued', 'sent', 'failed'))");
 
-            // BRD §22.18 — an empty window is never sent, so a batch always covers messages.
-            DB::statement('ALTER TABLE chat_digest_batches ADD CONSTRAINT chat_digest_count_check
-                CHECK (message_count > 0)');
+        // BRD §22.18 — an empty window is never sent, so a batch always covers messages.
+        DB::statement('ALTER TABLE chat_digest_batches ADD CONSTRAINT chat_digest_count_check
+            CHECK (message_count > 0)');
 
-            DB::statement('ALTER TABLE chat_digest_batches ADD CONSTRAINT chat_digest_window_check
-                CHECK (window_end > window_start)');
+        DB::statement('ALTER TABLE chat_digest_batches ADD CONSTRAINT chat_digest_window_check
+            CHECK (window_end > window_start)');
 
-            DB::statement('ALTER TABLE chat_members ADD CONSTRAINT chat_members_left_check
-                CHECK (left_at IS NULL OR left_at >= joined_at)');
-        }
+        DB::statement('ALTER TABLE chat_members ADD CONSTRAINT chat_members_left_check
+            CHECK (left_at IS NULL OR left_at >= joined_at)');
     }
 
     public function down(): void
