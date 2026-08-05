@@ -10,8 +10,12 @@ use App\Models\DepartmentLeadershipAssignment;
 use App\Models\MonthlyPerformanceSnapshot;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\TemporaryLeadershipService;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 /**
@@ -127,24 +131,30 @@ class DatabaseConstraintTest extends TestCase
         $this->assertNotNull($second_assignment->id);
     }
 
+    /**
+     * Was a PostgreSQL EXCLUDE constraint; on MySQL this is enforced by
+     * TemporaryLeadershipService::assertNoTemporaryOverlap() under a row lock, so this
+     * must go through the service (not a raw Eloquent create()) to exercise the check.
+     */
     public function test_temporary_leadership_periods_may_not_overlap_in_one_department(): void
     {
+        $this->seed(RoleSeeder::class);
         $department = Department::factory()->create();
         $manager = User::factory()->role(RoleCode::Manager)->create();
+        $service = app(TemporaryLeadershipService::class);
 
-        $make = fn (User $u, string $from, string $to) => DepartmentLeadershipAssignment::create([
-            'department_id' => $department->id,
-            'user_id' => $u->id,
-            'assignment_type' => LeadershipType::Temporary->value,
-            'start_date' => $from,
-            'end_date' => $to,
-            'assigned_by' => $manager->id,
-        ]);
+        $service->appoint(
+            $department, User::factory()->role(RoleCode::Employee)->inDepartment($department)->create(),
+            Carbon::parse('2026-08-01'), Carbon::parse('2026-08-10'),
+            'First cover', $manager,
+        );
 
-        $make(User::factory()->role(RoleCode::TeamLeader)->create(), '2026-08-01', '2026-08-10');
-
-        $this->expectException(QueryException::class);
-        $make(User::factory()->role(RoleCode::TeamLeader)->create(), '2026-08-05', '2026-08-15');
+        $this->expectException(ValidationException::class);
+        $service->appoint(
+            $department, User::factory()->role(RoleCode::Employee)->inDepartment($department)->create(),
+            Carbon::parse('2026-08-05'), Carbon::parse('2026-08-15'),
+            'Overlapping cover attempt', $manager,
+        );
     }
 
     public function test_project_department_pairs_are_unique(): void

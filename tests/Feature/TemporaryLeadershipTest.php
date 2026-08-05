@@ -14,6 +14,7 @@ use Database\Seeders\RoleSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -179,17 +180,76 @@ class TemporaryLeadershipTest extends TestCase
         $this->appointNow();
         $other = User::factory()->role(RoleCode::Employee)->inDepartment($this->department)->create();
 
-        $this->expectException(QueryException::class); // EXCLUDE constraint
-        DepartmentLeadershipAssignment::create([
-            'department_id' => $this->department->id,
-            'user_id' => $other->id,
-            'assignment_type' => LeadershipType::Temporary->value,
-            'start_date' => '2026-08-05',
-            'end_date' => '2026-08-15',
-            'is_active' => true,
-            'activation_state' => ActivationState::Active->value,
-            'assigned_by' => $this->manager->id,
-        ]);
+        // Was a PostgreSQL EXCLUDE constraint; on MySQL this is enforced by
+        // TemporaryLeadershipService::assertNoTemporaryOverlap() under a row lock, so the
+        // check only fires when going through the service, not a raw Eloquent create().
+        $this->expectException(ValidationException::class);
+        $this->service->appoint(
+            $this->department, $other, Carbon::parse('2026-08-05'), Carbon::parse('2026-08-15'),
+            'Overlapping cover attempt', $this->manager,
+        );
+    }
+
+    /** Matches the original PostgreSQL daterange's inclusive-both-ends semantics. */
+    public function test_a_new_period_starting_the_same_day_an_existing_one_ends_is_rejected(): void
+    {
+        $this->appointNow(end: '2026-08-10');
+        $other = User::factory()->role(RoleCode::Employee)->inDepartment($this->department)->create();
+
+        $this->expectException(ValidationException::class);
+        $this->service->appoint(
+            $this->department, $other, Carbon::parse('2026-08-10'), Carbon::parse('2026-08-20'),
+            'Same-day boundary attempt', $this->manager,
+        );
+    }
+
+    public function test_a_new_period_starting_the_day_after_an_existing_one_ends_is_allowed(): void
+    {
+        $this->appointNow(end: '2026-08-10');
+        $other = User::factory()->role(RoleCode::Employee)->inDepartment($this->department)->create();
+
+        $assignment = $this->service->appoint(
+            $this->department, $other, Carbon::parse('2026-08-11'), Carbon::parse('2026-08-20'),
+            'Next-day cover', $this->manager,
+        );
+
+        $this->assertNotNull($assignment->id);
+    }
+
+    /**
+     * assertNoTemporaryOverlap()'s guarantee rests entirely on the department row lock
+     * actually blocking a second session — not just reading correctly in a single
+     * straight-line test. PHPUnit runs one process, so this can't be truly simultaneous,
+     * but it doesn't need to be: holding transaction A's lock open while probing from a
+     * second, independent connection B is enough, because the block happens inside the
+     * MySQL server itself, not in PHP. Connection B is given a 1s lock-wait timeout so the
+     * test fails fast instead of hanging if the lock is ever accidentally dropped.
+     */
+    public function test_the_department_row_lock_blocks_a_concurrent_overlap_check(): void
+    {
+        config(['database.connections.mysql_probe' => config('database.connections.mysql')]);
+        $probe = DB::connection('mysql_probe');
+        $probe->statement('SET SESSION innodb_lock_wait_timeout = 1');
+
+        DB::beginTransaction();
+        DB::table('departments')->where('id', $this->department->id)->lockForUpdate()->first();
+
+        $blocked = false;
+
+        try {
+            try {
+                $probe->transaction(function () use ($probe): void {
+                    $probe->table('departments')->where('id', $this->department->id)->lockForUpdate()->first();
+                });
+            } catch (QueryException) {
+                $blocked = true;
+            }
+
+            $this->assertTrue($blocked, 'A second session must block on the department row lock.');
+        } finally {
+            DB::rollBack();
+            $probe->disconnect();
+        }
     }
 
     /** 12 */

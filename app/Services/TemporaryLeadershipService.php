@@ -18,6 +18,9 @@ use Illuminate\Validation\ValidationException;
  *
  * Implemented here (foundation, no task workflow involved):
  *   · eligibility rules — same department only, Employee only, one at a time
+ *   · no two active temporary periods overlap on the same department (Q3/Q6) — MySQL has
+ *     no range-exclusion constraint, so this is enforced here under a row lock, not by
+ *     the schema; see assertNoTemporaryOverlap()'s own doc comment for the locking story
  *   · scheduling states — pending → active → ended, idempotent (Q13)
  *   · transactional appointment, early termination and replacement (Q8, Q16)
  *   · effective-role elevation / restoration through RoleTransitionService (Q2)
@@ -72,6 +75,45 @@ class TemporaryLeadershipService
     }
 
     /**
+     * Q3/Q6 — no two ACTIVE TEMPORARY periods may overlap on the same department. This
+     * used to be a PostgreSQL `EXCLUDE USING gist` constraint; MySQL has no equivalent
+     * construct at all (no range types, no exclusion indexes), so on the MySQL cutover
+     * this rule moved fully to the application layer.
+     *
+     * MUST be called from inside the caller's DB::transaction(), after this method has
+     * already locked the department row — that lock (not a lock on the assignments being
+     * compared, since a genuinely non-overlapping insert has no existing row to lock) is
+     * what closes the race window two near-simultaneous appoint() calls for the same
+     * department would otherwise have: only one transaction can hold the department's row
+     * lock at a time, so the second caller's overlap check always sees the first caller's
+     * not-yet-committed insert... except it can't, since the first transaction hasn't
+     * committed yet — so the second caller BLOCKS on the row lock until the first
+     * transaction commits or rolls back, and only then runs its own overlap check against
+     * the now-committed (or absent, if rolled back) row. Two overlapping appointments can
+     * never both succeed.
+     */
+    private function assertNoTemporaryOverlap(Department $department, Carbon $start, Carbon $end): void
+    {
+        Department::whereKey($department->id)->lockForUpdate()->first();
+
+        $overlaps = DepartmentLeadershipAssignment::query()
+            ->where('department_id', $department->id)
+            ->where('assignment_type', LeadershipType::Temporary->value)
+            ->where('is_active', true)
+            ->where('start_date', '<=', $end->toDateString())
+            ->where(function ($q) use ($start): void {
+                $q->whereNull('end_date')->orWhere('end_date', '>=', $start->toDateString());
+            })
+            ->exists();
+
+        if ($overlaps) {
+            throw ValidationException::withMessages([
+                'start_date' => __('This period overlaps with an existing temporary leadership period for this department.'),
+            ]);
+        }
+    }
+
+    /**
      * Q9 + Q13: appoint a temporary TL. A period starting today activates immediately
      * (and elevates the role); a future period is stored as `pending` and activated by
      * the scheduler without any manual step.
@@ -93,6 +135,8 @@ class TemporaryLeadershipService
         }
 
         return DB::transaction(function () use ($department, $candidate, $start, $end, $reason, $actor) {
+            $this->assertNoTemporaryOverlap($department, $start, $end);
+
             $startsNow = $start->isToday() || $start->isPast();
 
             $assignment = DepartmentLeadershipAssignment::create([
