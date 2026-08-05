@@ -72,7 +72,7 @@ return new class extends Migration
             $t->foreignId('changed_by')->nullable()->constrained('users'); // null = system
             $t->foreignId('department_id')->nullable()->constrained('departments');
             $t->text('reason')->nullable();
-            $t->jsonb('context')->nullable();                     // actor role, dates, counts
+            $t->json('context')->nullable();                     // actor role, dates, counts
             $t->timestampTz('created_at')->useCurrent();
             $t->index(['task_id', 'created_at']);
         });

@@ -22,7 +22,7 @@ return new class extends Migration
             $t->string('action');
             $t->string('entity_type');
             $t->unsignedBigInteger('entity_id')->nullable();
-            $t->jsonb('metadata');
+            $t->json('metadata');
             $t->ipAddress('ip_address')->nullable();
             $t->timestampTz('created_at')->useCurrent();
             $t->index(['entity_type', 'entity_id']);
