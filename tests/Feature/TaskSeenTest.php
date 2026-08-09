@@ -136,6 +136,45 @@ class TaskSeenTest extends TestCase
         $this->assertSame(0, $this->workflow()->markMyTasksSeen($this->employee));
     }
 
+    /**
+     * MyTasksController (/tasks/mine) is a JSON endpoint nothing in the real UI calls —
+     * the page an employee actually lands on via the "My tasks" sidebar link is the
+     * classic Blade /tasks list. CR-006's "opening My Tasks marks it seen" has to fire
+     * from there, or it never fires for a real user at all.
+     */
+    public function test_opening_the_real_tasks_list_marks_the_employees_steps_seen(): void
+    {
+        [, $step, $assignment] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $this->assertNull($assignment->first_seen_at);
+
+        $this->actingAs($this->employee)->get('/tasks')->assertOk();
+
+        $this->assertNotNull($assignment->refresh()->first_seen_at);
+        $this->assertNotNull($step->refresh()->activeAssignment->first_seen_at);
+    }
+
+    /** Same trigger, for a Team Leader's own self-assigned steps via "My tasks" (?view=my). */
+    public function test_opening_the_team_leaders_my_tasks_view_marks_their_own_steps_seen(): void
+    {
+        [, $step, $assignment] = $this->taskInProgress($this->marketing, $this->leader, $this->leader);
+        $this->assertNull($assignment->first_seen_at);
+
+        $this->actingAs($this->leader)->get('/tasks?view=my')->assertOk();
+
+        $this->assertNotNull($assignment->refresh()->first_seen_at);
+        $this->assertNotNull($step->refresh()->activeAssignment->first_seen_at);
+    }
+
+    /** The department-wide "Tasks" view (no ?view=my) must NOT mark the TL's own work seen. */
+    public function test_the_team_leaders_plain_tasks_view_does_not_mark_anything_seen(): void
+    {
+        [, , $assignment] = $this->taskInProgress($this->marketing, $this->leader, $this->leader);
+
+        $this->actingAs($this->leader)->get('/tasks')->assertOk();
+
+        $this->assertNull($assignment->refresh()->first_seen_at);
+    }
+
     /** Q19 — another user's assignment is never touched. */
     public function test_the_sweep_never_touches_another_users_assignment(): void
     {

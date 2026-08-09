@@ -1,8 +1,7 @@
 @extends('layouts.app')
 @section('title', __('agencyos.tasks.draft.title'))
 @section('page', 'tasks')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <div class="small muted mono">{{ $task->task_code }}</div>
@@ -16,7 +15,10 @@
             <a class="small" href="{{ route('tasks.index') }}">{{ __('agencyos.tasks.show.back_to_tasks') }}</a>
         </div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
@@ -48,12 +50,9 @@
                     @csrf
                     <div class="field @error('first_department_id') bad @enderror">
                         <label class="req">{{ __('agencyos.tasks.fields.first_department') }}</label>
-                        <select name="first_department_id" required>
-                            <option value="">—</option>
-                            @foreach($departments as $department)
-                                <option value="{{ $department->id }}">{{ $department->name }}</option>
-                            @endforeach
-                        </select>
+                        <x-form-select name="first_department_id" required
+                            placeholder="—" :options="$departments->pluck('name', 'id')"
+                            :selected="old('first_department_id')"/>
                         @error('first_department_id')<div class="err">{{ $message }}</div>@enderror
                     </div>
                     <button type="submit" class="btn btn-primary btn-sm">{{ __('agencyos.tasks.draft.publish_button') }}</button>

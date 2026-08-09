@@ -1,18 +1,20 @@
 @extends('layouts.app')
 @section('title', __('agencyos.routing.index.title'))
 @section('page', 'routing')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head"><div>
         <h1>{{ __('agencyos.routing.index.title') }}</h1>
         <div class="page-sub">{{ __('agencyos.routing.index.subtitle') }}</div>
     </div></div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card">
+    <div class="card glass-dark">
         <div class="table-wrap">
             <table class="matrix">
                 <thead>

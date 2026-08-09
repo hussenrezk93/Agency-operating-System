@@ -1,15 +1,17 @@
 @extends('layouts.app')
 @section('title', __('agencyos.profile.title'))
 @section('page', 'profile')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.profile.title') }}</h1>
             <div class="page-sub">{{ __('agencyos.profile.subtitle') }}</div>
         </div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif

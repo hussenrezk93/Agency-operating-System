@@ -5,59 +5,98 @@
    ============================================================ */
 
 :root{
-  /* Brand (approved) */
-  /* Dual-primary identity: Orange + White */
-  --color-primary-orange:#F97316;
+  /* Brand — premium enterprise SaaS palette (2026 redesign). Named tokens map 1:1 onto
+     the spec: Primary Accent/Hover/Light/Dark, Secondary Dark/Surface, Background,
+     Cards, Borders. Existing variable NAMES (--color-background = card white,
+     --color-surface = page background) are kept as-is even though the spec's own
+     "Background"/"Cards" wording is the reverse — renaming them would touch every one
+     of the ~200 var() references below for no visual difference. Status colors
+     (success/warning/danger/info) now use the exact hexes the brief specifies; their
+     -soft/-border tints are unchanged because they already were Tailwind's shared
+     50/200 shades for these exact hues (F0FDF4/BBF7D0, FFFBEB/FDE68A, FEF2F2/FECACA,
+     EFF6FF/BFDBFE) — only the 500-level base moved. */
+  --color-primary-orange:#FC6E20;
   --color-primary-white:#FFFFFF;
   --color-primary:var(--color-primary-orange);
-  --color-primary-hover:#EA580C;
-  --color-primary-text:#C2410C;      /* accessible orange for small text on white */
-  --color-primary-soft:#FFF7ED;
-  --color-primary-100:#FFEDD5;
+  --color-primary-hover:#E85F18;
+  --color-primary-light:rgba(252,110,32,.12);  /* subtle hover/focus wash — translucent, safe on any surface */
+  --color-primary-text:#B34A0F;      /* accessible orange for small text on white */
+  --color-primary-soft:var(--color-primary-light);
+  --color-primary-100:#FFD6B0;       /* opaque light tint — icon bubbles, avatars (needs contrast, not just a wash) */
+  --color-primary-dark:#1B1B1B;      /* titles */
+  --color-secondary-dark:#323232;    /* body text, default icon color */
+  --color-secondary-surface:#FFE7D0; /* sparing use only: active-nav pill, small accent blocks */
   --color-background:var(--color-primary-white);
-  --color-surface:#F8FAFC;
-  --color-border:#E5E7EB;
-  --color-text:#111827;
-  --color-text-muted:#6B7280;
-  --color-success:#16A34A;  --color-success-soft:#F0FDF4; --color-success-border:#BBF7D0;
+  --color-surface:#FBF6EF;
+  --color-border:#E8EDF2;
+  --color-text:var(--color-primary-dark);
+  --color-text-muted:#84796E;
+  --color-success:#22C55E;  --color-success-soft:#F0FDF4; --color-success-border:#BBF7D0;
   --color-warning:#F59E0B;  --color-warning-soft:#FFFBEB; --color-warning-border:#FDE68A;
-  --color-danger:#DC2626;   --color-danger-soft:#FEF2F2;  --color-danger-border:#FECACA;
-  --color-info:#2563EB;     --color-info-soft:#EFF6FF;    --color-info-border:#BFDBFE;
+  --color-danger:#EF4444;   --color-danger-soft:#FEF2F2;  --color-danger-border:#FECACA;
+  --color-info:#3B82F6;     --color-info-soft:#EFF6FF;    --color-info-border:#BFDBFE;
+  --color-purple:#8B5CF6;   --color-purple-soft:#F5F3FF;  --color-purple-border:#DDD6FE;
 
   /* Type */
-  --font-ui:"Figtree","IBM Plex Sans Arabic",ui-sans-serif,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans Arabic",sans-serif;
+  --font-ui:"Plus Jakarta Sans","IBM Plex Sans Arabic",ui-sans-serif,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans Arabic",sans-serif;
   --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 
   /* Shape & elevation */
-  --radius-sm:9px; --radius:14px; --radius-lg:18px; --radius-xl:22px; --radius-full:999px;
-  --shadow-xs:0 1px 1px rgba(17,24,39,.04);
-  --shadow-sm:0 1px 2px rgba(17,24,39,.05);
-  --shadow:0 4px 14px rgba(17,24,39,.07);
-  --shadow-md:0 10px 28px rgba(17,24,39,.09);
-  --shadow-lg:0 24px 56px rgba(17,24,39,.15);
-  --shadow-glow:0 10px 24px rgba(249,115,22,.24);
+  --radius-sm:10px; --radius-btn:12px; --radius:20px; --radius-lg:24px; --radius-xl:24px; --radius-full:999px;
+  --shadow-xs:0 1px 2px rgba(27,27,27,.03);
+  --shadow-sm:0 2px 6px rgba(27,27,27,.04);
+  --shadow:0 6px 18px rgba(27,27,27,.06);
+  --shadow-md:0 12px 32px rgba(27,27,27,.08);
+  --shadow-lg:0 26px 60px rgba(27,27,27,.13);
+  --shadow-glow:0 10px 24px rgba(252,110,32,.22);
 
   /* Motion */
   --ease:cubic-bezier(.2,.8,.3,1);
-  --dur-fast:120ms; --dur:190ms; --dur-slow:300ms;
+  --dur-fast:150ms; --dur:220ms; --dur-slow:300ms;
 
   /* Glass surfaces */
   --glass-bg:rgba(255,255,255,.7);
   --glass-border:rgba(255,255,255,.6);
+  --glass-dark-bg:rgba(35,61,77,.92);
+  --glass-dark-border:rgba(255,255,255,.15);
+  --glass-orange-bg:rgba(252,110,32,.08);
+  --glass-orange-border:rgba(252,110,32,.18);
+  --glass-blur:20px;
+  /* Dark-card token family, derived from the SAME navy already sampled as --sidebar-bg
+     (the literal color under --glass-dark-bg's opacity) — a lightened step for hover
+     rows/inner wells, and a hairline for dividers/gridlines that reads on dark. */
+  --surface-dark:#233D4D;
+  --surface-dark-raised:#2C4658;
+  --surface-dark-line:rgba(255,255,255,.10);
 
   /* Layout */
-  --sidebar-w:264px; --topbar-h:68px; --page-pad:28px;
+  --sidebar-w:264px; --topbar-h:68px; --page-pad:38px;
+
+  /* Sidebar — the one part of the shell that stays dark regardless of the rest of the
+     app's light theme. Scoped entirely under .sidebar below; nothing else reads these. */
+  --sidebar-bg:#233D4D;
 }
 
 /* ---------- Base ---------- */
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
+/* Thin, quiet scrollbars everywhere (page, sidebar nav, table overflow) — replaces the
+   browser's chunky default (with its up/down arrow buttons) with something that fits a
+   premium SaaS surface instead of looking like an OS chrome element. */
+*{scrollbar-width:thin;scrollbar-color:var(--color-border) transparent}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--color-border);border-radius:999px}
+::-webkit-scrollbar-thumb:hover{background:var(--color-text-muted)}
+.sidebar ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18)}
+.sidebar ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.32)}
+.sidebar{scrollbar-color:rgba(255,255,255,.18) transparent}
 body{margin:0;font-family:var(--font-ui);font-size:14.5px;line-height:1.55;color:var(--color-text);background:var(--color-surface)}
 h1,h2,h3,h4{margin:0 0 .35em;line-height:1.25;font-weight:800;letter-spacing:-.01em}
 h1{font-size:23px;letter-spacing:-.02em} h2{font-size:17px} h3{font-size:15px}
 p{margin:.25em 0}
-a{color:var(--color-primary-text);text-decoration:none}
-a:hover{text-decoration:underline}
+a{color:var(--color-secondary-dark);text-decoration:none;transition:color var(--dur-fast) var(--ease)}
+a:hover{color:var(--color-primary);text-decoration:underline}
 img{max-width:100%}
 :focus-visible{outline:2px solid var(--color-primary);outline-offset:2px;border-radius:4px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -76,70 +115,247 @@ img{max-width:100%}
 
 /* ---------- App shell ---------- */
 .shell{display:flex;min-height:100vh;background:var(--color-surface)}
-.sidebar{width:var(--sidebar-w);flex:0 0 auto;background:var(--color-background);border:1px solid var(--color-border);
+/* Dark navy sidebar — the one part of the shell that doesn't follow the light theme.
+   Every text-bearing child below is overridden to a white/translucent-white variant
+   scoped under .sidebar; nothing outside this block reads --sidebar-bg or is affected. */
+.sidebar{width:var(--sidebar-w);flex:0 0 auto;background:var(--sidebar-bg);border:0;
   display:flex;flex-direction:column;position:sticky;top:14px;height:calc(100vh - 28px);z-index:40;
   margin:14px 0 14px 14px;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);overflow:hidden}
 [dir=rtl] .sidebar{margin:14px 14px 14px 0}
-.brand{display:flex;align-items:center;gap:10px;padding:20px 20px 16px}
+.brand{display:flex;align-items:center;gap:10px;padding:22px 20px 14px}
 .brand-mark{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--color-primary),var(--color-primary-hover));
   color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;letter-spacing:.5px;box-shadow:var(--shadow-glow)}
-.brand-name{font-weight:800;font-size:17px;letter-spacing:.2px}
-.brand-name b{color:var(--color-primary-text)}
-.role-chip{margin:0 20px 14px;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;
-  padding:4px 10px;border-radius:999px;width:fit-content;text-transform:uppercase;letter-spacing:.4px}
-.role-admin{background:#111827;color:#fff}
-.role-manager{background:var(--color-primary);color:#fff}
-.role-tl{background:var(--color-primary-100);color:var(--color-primary-text)}
-.role-employee{background:var(--color-info-soft);color:var(--color-info)}
+.brand-name{font-weight:800;font-size:17px;letter-spacing:.2px;color:#fff}
+.brand-name b{color:var(--color-primary)}
+.brand .small.muted{color:rgba(255,255,255,.5)}
+
+/* User identity block, near the sidebar top (Reference 1) — a quiet card, not a
+   button; the avatar/name/role are informational here, not another nav trigger
+   (Profile already covers that, in the nav list below). */
+.sidebar-user{display:flex;align-items:center;gap:11px;margin:4px 16px 18px;padding:12px;
+  background:rgba(255,255,255,.06);border-radius:var(--radius);}
+.sidebar-user .avatar{width:40px;height:40px;font-size:14px}
+.su-info{min-width:0}
+.su-name{font-weight:700;font-size:13.5px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
+.role-chip{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;margin-top:4px;
+  padding:2px 9px;border-radius:999px;width:fit-content;text-transform:uppercase;letter-spacing:.4px}
+.role-admin{background:var(--color-primary);color:#fff}
+.role-manager{background:rgba(255,255,255,.16);color:#fff}
+.role-tl{background:rgba(255,255,255,.16);color:#fff}
+.role-employee{background:rgba(255,255,255,.16);color:#fff}
 
 .nav{padding:4px 14px;overflow-y:auto;flex:1}
-.nav-label{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--color-text-muted);padding:16px 10px 6px}
-.nav a{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;color:var(--color-text);font-weight:500;margin-bottom:2px;
-  border-inline-start:3px solid transparent;transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease)}
-.nav a:hover{background:var(--color-surface);text-decoration:none;transform:translateX(2px)}
+.nav-label{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(255,255,255,.4);padding:16px 10px 6px}
+/* Rounded "pill" nav — Reference 1's floating-sidebar language: the active item is a
+   solid, fully-rounded fill (not a soft tint + side bar), everything else is plain
+   text until hovered. Icons stay white throughout (brief: "Icons: White"); only the
+   background communicates hover/active state. */
+.nav a{display:flex;align-items:center;gap:11px;padding:10px 14px;border-radius:var(--radius-full);color:rgba(255,255,255,.82);font-weight:500;margin-bottom:3px;
+  transition:background var(--dur) var(--ease),color var(--dur) var(--ease),transform var(--dur-fast) var(--ease)}
+.nav a:hover{background:rgba(252,110,32,.18);text-decoration:none;transform:translateX(2px)}
 [dir=rtl] .nav a:hover{transform:translateX(-2px)}
-.nav a.active{background:var(--color-primary-soft);color:var(--color-primary-text);font-weight:700;border-inline-start-color:var(--color-primary)}
-.nav a.active .ic{color:var(--color-primary)}
-.nav .ic{width:19px;height:19px;color:var(--color-text-muted);flex:0 0 auto}
+.nav a.active{background:var(--color-primary);color:#fff;font-weight:700;box-shadow:var(--shadow-glow)}
+.nav a.active .ic{color:#fff}
+.nav .ic{width:19px;height:19px;color:rgba(255,255,255,.75);flex:0 0 auto;transition:color var(--dur) var(--ease)}
+.nav a:hover .ic{color:#fff}
 .nav .count{margin-inline-start:auto;background:var(--color-primary);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px}
-.sidebar-foot{padding:14px 20px;border-top:1px solid var(--color-border);font-size:12px;color:var(--color-text-muted)}
+.nav a.active .count{background:rgba(255,255,255,.28)}
+
+.sidebar-foot{padding:14px 16px;border-top:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;gap:10px}
+.sidebar-logout{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;border:0;background:transparent;
+  border-radius:var(--radius-full);color:#FCA5A5;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;
+  transition:background var(--dur-fast) var(--ease)}
+.sidebar-logout svg{width:18px;height:18px}
+.sidebar-logout:hover{background:rgba(239,68,68,.18)}
+.sidebar-version{font-size:11px;color:rgba(255,255,255,.35);padding:0 14px}
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{height:var(--topbar-h);background:var(--glass-bg);backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);
   border-bottom:1px solid var(--color-border);
   display:flex;align-items:center;gap:14px;padding:0 var(--page-pad);position:sticky;top:0;z-index:30}
-.burger{display:none;border:1px solid var(--color-border);background:#fff;border-radius:10px;width:38px;height:38px;cursor:pointer;align-items:center;justify-content:center}
+.burger{display:none;border:1px solid var(--color-border);background:#fff;border-radius:var(--radius-btn);width:38px;height:38px;cursor:pointer;align-items:center;justify-content:center}
 .burger svg{width:18px;height:18px}
-.searchbox{flex:1;max-width:460px;position:relative}
-.searchbox input{width:100%;padding:9px 14px 9px 38px;border:1px solid var(--color-border);border-radius:var(--radius-full);background:var(--color-surface);font:inherit;
+.searchbox{flex:1;max-width:300px;position:relative}
+.searchbox input{width:100%;padding:9px 40px 9px 38px;border:1px solid var(--color-border);border-radius:var(--radius-full);background:#fff;font:inherit;font-size:13.5px;
   transition:box-shadow var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease)}
-.searchbox input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px var(--color-primary-soft);background:#fff}
-[dir=rtl] .searchbox input{padding:9px 38px 9px 14px}
+.searchbox input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 4px var(--color-primary-soft);background:#fff}
+[dir=rtl] .searchbox input{padding:9px 38px 9px 40px}
 .searchbox .ic{position:absolute;inset-inline-start:12px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:var(--color-text-muted)}
+.searchbox kbd{position:absolute;inset-inline-end:10px;top:50%;transform:translateY(-50%);border:1px solid var(--color-border);
+  border-radius:6px;padding:1px 7px;font:inherit;font-size:11px;font-weight:600;color:var(--color-text-muted);background:var(--color-surface)}
+.topbar-controls{display:flex;align-items:center;gap:14px;flex:1;min-width:0}
 .topbar-actions{margin-inline-start:auto;display:flex;align-items:center;gap:10px}
-.icon-btn{position:relative;width:38px;height:38px;border:1px solid var(--color-border);background:#fff;border-radius:10px;display:grid;place-items:center;cursor:pointer;
+.icon-btn{position:relative;width:38px;height:38px;border:1px solid var(--color-border);background:#fff;border-radius:var(--radius-btn);display:grid;place-items:center;cursor:pointer;
   transition:background var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
-.icon-btn:hover{background:var(--color-surface);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.icon-btn:hover{background:var(--color-border);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
 .icon-btn .ic{width:18px;height:18px;color:var(--color-text)}
+.icon-btn sup{position:absolute;top:-4px;inset-inline-end:-4px;min-width:18px;height:18px;padding:0 4px;
+  border-radius:999px;background:var(--color-primary);color:#fff;font-size:10.5px;font-weight:700;
+  line-height:18px;text-align:center;border:2px solid #fff}
 .dot{position:absolute;top:7px;inset-inline-end:7px;width:8px;height:8px;border-radius:50%;background:var(--color-danger);border:2px solid #fff}
-.lang-btn{border:1px solid var(--color-border);background:#fff;border-radius:10px;padding:8px 12px;font:inherit;font-weight:700;cursor:pointer;
-  transition:background var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease)}
-.lang-btn:hover{background:var(--color-surface);transform:translateY(-1px)}
 .avatar{width:36px;height:36px;border-radius:50%;background:var(--color-primary-100);color:var(--color-primary-text);display:grid;place-items:center;font-weight:700;font-size:13px;flex:0 0 auto}
 .avatar.sm{width:28px;height:28px;font-size:11px}
 .avatar.grey{background:var(--color-surface);color:var(--color-text-muted)}
-.userbox{display:flex;align-items:center;gap:9px;cursor:pointer;padding:5px 8px;border-radius:10px}
-.userbox:hover{background:var(--color-surface)}
-.userbox .uname{font-weight:600;font-size:13px;line-height:1.15}
-.userbox .urole{font-size:11px;color:var(--color-text-muted)}
+.topbar-avatar{position:relative;width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--color-primary),var(--color-primary-hover));
+  color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex:0 0 auto;box-shadow:var(--shadow-glow);
+  transition:transform var(--dur-fast) var(--ease)}
+.topbar-avatar:hover{transform:translateY(-1px)}
+/* Decorative only — marks "you, right now, actively viewing this page"; not a tracked
+   online/presence system, so it's always on rather than reflecting real state for
+   anyone but the current viewer. */
+.presence-dot{position:absolute;bottom:-1px;inset-inline-end:-1px;width:11px;height:11px;border-radius:50%;
+  background:var(--color-success);border:2px solid #fff}
 
+/* ---------- Quick Action — a real per-role create-links menu, never a dead button ---------- */
+.qa-wrap{position:relative}
+.btn-quick-action{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 18px;border-radius:999px;
+  background:var(--color-primary-dark);color:#fff;border:0;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;
+  box-shadow:var(--shadow-md);white-space:nowrap;transition:transform var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)}
+.btn-quick-action .ic{width:16px;height:16px}
+.btn-quick-action .ic:last-child{width:13px;height:13px;opacity:.7}
+.btn-quick-action:hover{transform:translateY(-1px);background:#000}
+.btn-quick-action:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
+/* Fully self-contained — does NOT share the .drop class any more. .drop carries several
+   scattered rules elsewhere in this file (a base position/size, a mobile override, a
+   print rule, an animation) left over from an old, unused notifications-dropdown
+   design; mixing classes meant this menu inherited whichever of those happened to win
+   the cascade, which is exactly what put it in the wrong place. */
+.qa-menu{position:absolute;top:calc(100% + 8px);inset-inline-end:0;z-index:60;width:220px;
+  background:#fff;border:1px solid var(--color-border);border-radius:var(--radius);box-shadow:var(--shadow);
+  overflow:hidden;transform-origin:top right}
+[dir=rtl] .qa-menu{transform-origin:top left}
+.qa-menu:not(.hide){animation:dropIn .2s cubic-bezier(.2,.9,.3,1.15)}
+.qa-menu .drop-item{display:flex;gap:11px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--color-border);font-size:13px}
+.qa-menu .drop-item:last-child{border-bottom:0}
+.qa-menu .drop-item:hover{background:var(--color-primary-light)}
+.qa-menu .drop-item svg{width:16px;height:16px;color:var(--color-text-muted);flex:0 0 auto}
+@media (max-width:900px){.qa-menu{inset-inline-end:0;width:min(240px,calc(100vw - 24px))}}
 
-/* ---------- Language switch: English left / Arabic right ---------- */
+/* ---------- Custom filter dropdown (<x-filter-select>) — replaces a native <select>
+   with the same look/behaviour as Quick Action's menu, since the native option list is
+   entirely browser/OS-styled and can't be reached with CSS. ---------- */
+.filter-select .qa-menu{inset-inline-start:0;inset-inline-end:auto;width:max-content;min-width:180px;max-width:280px}
+.btn-filter-select{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:var(--radius-btn);
+  border:1.5px solid var(--color-border);background:#fff;color:var(--color-text);font:inherit;font-size:13.5px;font-weight:500;
+  cursor:pointer;white-space:nowrap}
+.btn-filter-select:hover{border-color:var(--color-primary)}
+.btn-filter-select .ic{width:14px;height:14px;opacity:.6;flex:0 0 auto}
+.btn-filter-select:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
+.filter-select .drop-item{justify-content:space-between}
+.filter-select .drop-item.is-selected{color:var(--color-primary-text);font-weight:700;background:var(--color-primary-light)}
+
+/* ---------- Gemini assistant widget ----------
+   Bottom-right in LTR, bottom-left in RTL (Arabic) — it follows the reading
+   direction rather than staying visually pinned, per product decision. */
+.gm-wrap{position:fixed;bottom:22px;right:22px;z-index:80}
+[dir=rtl] .gm-wrap{right:auto;left:22px}
+.gm-bubble{width:56px;height:56px;border-radius:var(--radius-full);cursor:pointer;position:relative;border:0;padding:0;
+  background:transparent;display:grid;place-items:center;
+  filter:drop-shadow(0 8px 18px rgba(27,27,27,.22));
+  transition:transform var(--dur-fast) var(--ease)}
+.gm-bubble:hover{transform:scale(1.07)}
+/* Frosted/matte glass sphere — a soft, even diffusion rather than a glossy specular
+   highlight or an outer glow, with the smoke layers clipped inside by overflow:hidden. */
+.gm-glass{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;display:grid;place-items:center;
+  background:radial-gradient(circle at 32% 28%,rgba(255,214,170,.4) 0%,rgba(252,110,32,.22) 45%,rgba(110,36,0,.22) 100%);
+  border:1.5px solid rgba(255,255,255,.45);
+  box-shadow:inset 0 -10px 16px rgba(110,36,0,.35),inset 0 6px 10px rgba(255,255,255,.2)}
+.gm-smoke{position:absolute;inset:-35%;border-radius:50%;filter:blur(6px);pointer-events:none}
+.gm-smoke-a{background:radial-gradient(circle at 32% 68%,rgba(252,110,32,.9),transparent 58%);animation:gmSmokeA 7s ease-in-out infinite}
+.gm-smoke-b{background:radial-gradient(circle at 68% 32%,rgba(255,178,94,.8),transparent 55%);animation:gmSmokeB 9s ease-in-out infinite}
+@keyframes gmSmokeA{
+  0%,100%{transform:translate(-8%,6%) rotate(0deg) scale(1)}
+  50%{transform:translate(8%,-8%) rotate(170deg) scale(1.25)}
+}
+@keyframes gmSmokeB{
+  0%,100%{transform:translate(6%,-6%) rotate(0deg) scale(1.15)}
+  50%{transform:translate(-8%,8%) rotate(-160deg) scale(.9)}
+}
+.gm-star{position:relative;z-index:2;width:27px;height:27px;
+  filter:drop-shadow(0 0 6px rgba(255,255,255,.9)) drop-shadow(0 1px 2px rgba(110,36,0,.4))}
+/* .gm-panel is positioning/animation ONLY (no background/overflow) so .gm-mascot,
+   a child of it, can stand above .gm-panel-body's top edge without being clipped —
+   .gm-panel-body carries the glass/blur/rounded-corners look and its own overflow. */
+.gm-panel{position:absolute;bottom:calc(100% + 14px);right:0;width:340px;max-width:calc(100vw - 44px);
+  height:460px;max-height:calc(100vh - 120px);transform-origin:bottom right}
+[dir=rtl] .gm-panel{right:auto;left:0;transform-origin:bottom left}
+.gm-panel.hide{display:none}
+.gm-panel-body{width:100%;height:100%;background:rgba(255,255,255,.82);
+  border:1px solid rgba(255,255,255,.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-radius:var(--radius);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden}
+/* Appears only once the panel has finished opening (gmIn is .32s) — not part of the
+   panel's own scale/fade, which would otherwise distort it since it's a child of the
+   transformed box. Holds hidden via fill-mode:both during the delay.
+   Height (not width) is the constrained dimension: idle is a wide landscape crop,
+   thinking is a narrow portrait bust crop, so matching only width let thinking's
+   auto-height tower over idle's. Fixing height keeps neither state reaching further
+   up than the other — width follows each image's own aspect ratio, which is
+   expected (the poses are intentionally framed differently). Bottom-anchored so the
+   character's hands, always at the very bottom edge of both source files, line up
+   at the same spot on the panel regardless of the differing widths. */
+.gm-mascot{position:absolute;z-index:2;bottom:100%;left:50%;transform:translateX(-50%);
+  width:auto;height:80px;margin-bottom:-9px;transition:height var(--dur) var(--ease);
+  filter:drop-shadow(0 6px 10px rgba(27,27,27,.25));
+  opacity:0;animation:gmMascotIn .28s ease-out .32s both}
+@keyframes gmMascotIn{
+  from{opacity:0;transform:translateX(-50%) translateY(10px)}
+  to{opacity:1;transform:translateX(-50%) translateY(0)}
+}
+@media (prefers-reduced-motion: reduce){.gm-mascot{animation-duration:.01s;animation-delay:0s}}
+.gm-panel:not(.hide):not(.closing){animation:gmIn .32s cubic-bezier(.2,.9,.32,1.18)}
+@keyframes gmIn{
+  from{opacity:0;transform:translateY(16px) scale(.9)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+/* Close: the panel shrinks straight down into the bubble's corner (transform-origin
+   is already bottom right) — a plain mirror of the open animation, no spin/blur. */
+.gm-panel.closing{animation:gmOut .22s cubic-bezier(.4,0,1,1) forwards;pointer-events:none}
+@keyframes gmOut{
+  from{opacity:1;transform:translateY(0) scale(1)}
+  to{opacity:0;transform:translateY(10px) scale(.85)}
+}
+@media (prefers-reduced-motion: reduce){
+  .gm-smoke-a,.gm-smoke-b{animation:none}
+  .gm-panel:not(.hide):not(.closing){animation:none}
+  .gm-panel.closing{animation-duration:.01s}
+}
+.gm-head{display:flex;align-items:center;gap:8px;padding:13px 16px;
+  background:linear-gradient(135deg,#FFC46B,#FC6E20 55%,#D8460B);color:#fff;font-weight:700;font-size:13.5px}
+.gm-close{margin-inline-start:auto;background:none;border:0;color:#fff;opacity:.85;cursor:pointer;display:grid;place-items:center}
+.gm-close svg{width:16px;height:16px}
+.gm-msgs{flex:1;padding:14px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;background:rgba(246,249,253,.55)}
+.gm-msg{display:flex;max-width:82%}
+.gm-msg .gm-bub{background:rgba(255,255,255,.9);border:1px solid var(--color-border);border-radius:14px;padding:8px 12px;font-size:13px;white-space:pre-wrap;word-break:break-word}
+.gm-msg.gm-user{align-self:flex-end}
+.gm-msg.gm-user .gm-bub{background:linear-gradient(135deg,#FFC46B,#FC6E20 60%,#D8460B);color:#fff;border-color:transparent}
+.gm-msg.gm-thinking .gm-bub{opacity:.6}
+.gm-input{display:flex;gap:8px;padding:11px;border-top:1px solid rgba(232,237,242,.7);background:rgba(255,255,255,.6)}
+.gm-input input{flex:1;border:1.5px solid var(--color-border);border-radius:var(--radius-btn);padding:8px 12px;font:inherit;font-size:13px;background:rgba(255,255,255,.9)}
+.gm-input input:focus{outline:none;border-color:var(--color-primary)}
+@media (max-width:480px){
+  .gm-panel{width:calc(100vw - 32px);right:-6px}
+  [dir=rtl] .gm-panel{right:auto;left:-6px}
+}
+
+/* ---------- Locale pill: current locale + globe icon, click toggles the other ----------
+   Used in the app topbar only. The login/auth pages keep the segmented EN|AR switch
+   below (layouts/auth.blade.php) — out of scope for the dashboard redesign this was
+   built for. */
+.locale-pill{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;
+  border:1px solid var(--color-border);border-radius:999px;background:#fff;font:inherit;
+  font-weight:700;font-size:13px;color:var(--color-text);cursor:pointer;white-space:nowrap;
+  transition:background var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
+.locale-pill .ic{width:17px;height:17px;color:var(--color-text-muted)}
+.locale-pill .ic:last-child{width:14px;height:14px;opacity:.6}
+.locale-pill:hover{background:var(--color-border);transform:translateY(-1px)}
+.locale-pill:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
+
+/* ---------- Language switch (login/auth pages only): English left / Arabic right ---------- */
 .language-switch{
   position:relative;direction:ltr;isolation:isolate;display:grid;grid-template-columns:1fr 1fr;
   align-items:center;width:126px;height:38px;padding:3px;border:1px solid var(--color-primary);
   border-radius:999px;background:var(--color-primary-white);font:inherit;font-weight:800;cursor:pointer;
-  box-shadow:0 1px 2px rgba(249,115,22,.12);overflow:hidden
+  box-shadow:0 1px 2px rgba(252,110,32,.12);overflow:hidden
 }
 .language-switch::before{
   content:"";position:absolute;z-index:-1;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);
@@ -160,52 +376,79 @@ img{max-width:100%}
   border-radius:var(--radius);box-shadow:var(--shadow);z-index:60;overflow:hidden}
 .drop-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--color-border);font-weight:700}
 .drop-item{display:flex;gap:11px;padding:11px 16px;border-bottom:1px solid var(--color-border);font-size:13px}
-.drop-item:hover{background:var(--color-surface)}
+.drop-item:hover{background:var(--color-primary-light)}
 .drop-foot{padding:10px 16px;text-align:center}
 
 .page{padding:var(--page-pad);max-width:1360px;width:100%;margin:0 auto}
-.page-head{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:20px}
+.page-head{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:30px}
+/* Nested inside the transparent merged header row, .page-header-row already supplies
+   the gap before the content grid — .page-head's own margin would double it up. */
+.page-header-row .page-head{margin-bottom:0}
 .page-head h1{margin:0}
 .page-sub{width:100%;color:var(--color-text-muted);font-size:13px;margin-top:2px}
+/* Merged header row (pages that @section('page_header')) — transparent, no bar, no
+   sticky/shadow/border; the greeting and the topbar controls share one row instead of
+   stacking as two separate blocks. */
+.page-header-row{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;
+  gap:16px;padding:26px var(--page-pad) 0;margin-bottom:24px}
+.page-greet h1{margin:0;font-size:22px}
+.page-header-row .topbar-actions{margin-inline-start:0}
 .page-actions{margin-inline-start:auto;display:flex;gap:9px;flex-wrap:wrap}
 .crumbs{font-size:12.5px;color:var(--color-text-muted);margin-bottom:8px}
 .crumbs a{color:var(--color-text-muted)}
 .crumbs b{color:var(--color-text);font-weight:600}
 
 /* ---------- Buttons ---------- */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;font:inherit;font-weight:600;
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--radius-btn);font:inherit;font-weight:600;
   padding:9px 16px;border:1px solid transparent;cursor:pointer;white-space:nowrap;
   transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease)}
-.btn .ic{width:16px;height:16px}
+.btn .ic,.btn>svg{width:16px;height:16px;flex:0 0 auto}
 .btn:not([disabled]):hover{transform:translateY(-1px)}
 .btn:not([disabled]):active{transform:translateY(0) scale(.98)}
-.btn-primary{background:var(--color-primary);color:#fff;box-shadow:0 1px 2px rgba(249,115,22,.18)}
+.btn-primary{background:var(--color-primary);color:#fff;box-shadow:0 1px 2px rgba(252,110,32,.18)}
 .btn-primary:hover{background:var(--color-primary-hover);text-decoration:none;color:#fff;box-shadow:var(--shadow-glow)}
 .btn-outline{background:#fff;border-color:var(--color-border);color:var(--color-text)}
-.btn-outline:hover{background:var(--color-surface);text-decoration:none;box-shadow:var(--shadow-sm)}
+.btn-outline:hover{background:var(--color-border);text-decoration:none;box-shadow:var(--shadow-sm)}
 .btn-ghost{background:transparent;color:var(--color-primary-text)}
 .btn-ghost:hover{background:var(--color-primary-soft);text-decoration:none}
-.btn-success{background:var(--color-success);color:#fff}
-.btn-success:hover{filter:brightness(.95)}
 .btn-danger-outline{background:#fff;border-color:var(--color-danger-border);color:var(--color-danger)}
 .btn-danger-outline:hover{background:var(--color-danger-soft)}
-.btn-warning-outline{background:#fff;border-color:var(--color-warning-border);color:#B45309}
-.btn-warning-outline:hover{background:var(--color-warning-soft)}
-.btn-sm{padding:6px 12px;font-size:13px;border-radius:9px}
-.btn-lg{padding:12px 22px;font-size:15px}
+.btn-sm{padding:6px 12px;font-size:13px;border-radius:10px}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
-.btn-block{width:100%}
 
 /* ---------- Cards & KPIs ---------- */
 .card{background:var(--color-background);border:1px solid var(--color-border);border-radius:var(--radius);box-shadow:var(--shadow-sm);
   transition:box-shadow var(--dur) var(--ease),transform var(--dur) var(--ease)}
-.card-pad{padding:18px 20px}
-.card-head{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--color-border)}
+/* .glass-dark's backdrop-filter creates a stacking context, which traps any open
+   .qa-menu dropdown inside that card — a later sibling card (e.g. the table below a
+   filter/add-rule bar) then paints over it even though the menu's own z-index is high.
+   Lifting the whole card while it holds an open menu keeps it above later siblings. */
+.card:has(.qa-menu:not(.hide)){position:relative;z-index:5}
+.card-pad{padding:24px 28px}
+.card-head{display:flex;align-items:center;gap:10px;padding:20px 24px;border-bottom:1px solid var(--color-border)}
 .card-head h2{margin:0;font-size:15px}
 .card-head .page-actions{margin-inline-start:auto}
-.card-foot{padding:12px 20px;border-top:1px solid var(--color-border);font-size:13px}
-.grid{display:grid;gap:16px}
+.card-foot{padding:14px 24px;border-top:1px solid var(--color-border);font-size:13px}
+/* <x-...>::links() output — resources/views/vendor/pagination/agencyos.blade.php */
+.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pager-links{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pager .btn.is-disabled{opacity:.4;pointer-events:none}
+.pager-dots{padding:0 4px;color:var(--color-text-muted)}
+.pager-num{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 6px;
+ border-radius:999px;font-size:13px;font-weight:600;color:var(--color-text-muted)}
+a.pager-num:hover{background:var(--color-primary-light);color:var(--color-primary-text)}
+.pager-num.is-current{background:var(--color-primary);color:#fff}
+.glass-dark .pager-num{color:rgba(255,255,255,.65)}
+.glass-dark a.pager-num:hover{background:rgba(255,255,255,.1);color:#fff}
+.glass-dark .pager-dots{color:rgba(255,255,255,.5)}
+.grid{display:grid;gap:26px}
+/* Grid items default to min-width:auto — their CONTENT's intrinsic width (e.g. a wide
+   table with min-width:640px) becomes a floor on the column itself, which grows the
+   whole grid (and the page under it) wider instead of letting the item's own
+   overflow-x:auto wrapper handle the overflow locally. This is the actual cause of
+   whole-page horizontal scrolling on pages with a table sitting in a grid column. */
+.grid>*{min-width:0}
 .grid-2{grid-template-columns:1fr 1fr}
 .grid-3{grid-template-columns:repeat(3,1fr)}
 .grid-4{grid-template-columns:repeat(4,1fr)}
@@ -217,19 +460,239 @@ img{max-width:100%}
 .kpi .k-value{font-size:28px;font-weight:800;letter-spacing:-.5px}
 .kpi .k-delta{font-size:12px;font-weight:600}
 .k-up{color:var(--color-success)} .k-down{color:var(--color-danger)}
+/* Trend pill — icon + signed percentage, colored by direction. Only ever rendered
+   when a real period-over-period comparison exists (see DashboardController); never
+   fabricated to fill space. */
+.k-trend{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;
+  border-radius:var(--radius-full);padding:2px 8px 2px 6px;width:fit-content}
+.k-trend svg{width:11px;height:11px}
+.k-trend.k-up{background:var(--color-success-soft);color:var(--color-success)}
+.k-trend.k-down{background:var(--color-danger-soft);color:var(--color-danger)}
+.k-trend.k-flat{background:var(--color-surface);color:var(--color-text-muted)}
+.k-trend.k-neutral{background:var(--color-info-soft);color:var(--color-info)}
 .kpi.k-accent{border-inline-start:4px solid var(--color-primary)}
 .kpi.k-danger{border-inline-start:4px solid var(--color-danger)}
 .kpi.k-info{border-inline-start:4px solid var(--color-info)}
 .kpi.k-success{border-inline-start:4px solid var(--color-success)}
 
+/* ---------- Glass card variants ----------
+   .glass-dark: the dark-navy analytics surface for chart/health/calendar/table cards —
+   same color as the sidebar, so the two "always dark" surfaces read as one system.
+   .glass-orange: a light, warm-tinted surface for the Upcoming/Recent utility cards.
+   Every child selector here just re-points the SAME classes already used inside cards
+   (.card-head, .list-item, thead th, tbody tr, .k-label, .mini-cal-*, .ring-*, .donut-*)
+   so no template markup changes — only the wrapping card gets one of these classes. */
+.glass-dark{background:var(--glass-dark-bg);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+  border:1px solid var(--glass-dark-border);color:#fff}
+.glass-dark .card-head{border-bottom-color:var(--glass-dark-border)}
+.glass-dark .card-head h2{color:#fff}
+.glass-dark .card-foot{border-top-color:var(--glass-dark-border);color:rgba(255,255,255,.65)}
+.glass-dark .k-label,.glass-dark .cell-sub,.glass-dark .li-sub,
+.glass-dark .donut-caption,.glass-dark .ring-caption,.glass-dark .rlabel,.glass-dark .muted{color:rgba(255,255,255,.6)}
+.glass-dark .k-value,.glass-dark .cell-main,.glass-dark .li-title,.glass-dark .donut-value,.glass-dark td{color:#fff}
+.glass-dark .avatar.grey{background:rgba(255,255,255,.12);color:#fff;border-color:var(--glass-dark-border)}
+.glass-dark .list-item{border-bottom-color:var(--glass-dark-border)}
+.glass-dark .list-item:hover{background:rgba(255,255,255,.08)}
+.glass-dark .table-wrap{background:transparent;border-color:var(--glass-dark-border);box-shadow:none}
+.glass-dark thead th{background:var(--glass-dark-bg);color:rgba(255,255,255,.55);border-bottom-color:var(--glass-dark-border)}
+.glass-dark tbody td{border-top-color:var(--glass-dark-border)}
+.glass-dark tbody tr:hover{background:rgba(255,255,255,.08)}
+.glass-dark .donut-hole{background:var(--sidebar-bg)}
+.glass-dark a:not(.btn){color:#fff}
+.glass-dark .field label{color:#fff}
+.glass-dark .badge{background:transparent;border-color:transparent;color:#fff}
+/* Outcome badges (on time/late/excluded) carry meaning through color alone here —
+   no .bdot indicator — so the semantic tint survives on dark cards instead of
+   collapsing to the same white as every other badge. */
+.glass-dark .b-approved{color:var(--color-success)}
+.glass-dark .b-overdue,.glass-dark .b-danger{color:var(--color-danger)}
+.glass-dark .b-neutral{color:rgba(255,255,255,.6)}
+.glass-dark .kv-row{border-bottom-color:var(--glass-dark-border)}
+.glass-dark .kv-row>span:first-child{color:rgba(255,255,255,.6)}
+.glass-dark .btn-outline{background:transparent;border-color:rgba(255,255,255,.35);color:#fff}
+.glass-dark .btn-outline:hover{background:rgba(255,255,255,.12)}
+.glass-dark .btn-danger-outline{background:transparent;border-color:var(--color-danger)}
+.glass-dark .btn-danger-outline:hover{background:rgba(239,68,68,.15)}
+
+.glass-orange{background:var(--glass-orange-bg);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+  border:1px solid var(--glass-orange-border)}
+.glass-orange .card-head{border-bottom-color:var(--glass-orange-border)}
+.glass-orange .card-foot{border-top-color:var(--glass-orange-border)}
+.glass-orange .list-item{border-bottom-color:var(--glass-orange-border)}
+.glass-orange .list-item:hover{background:rgba(252,110,32,.12)}
+
+/* ---------- Icon stat tiles + meter (status-coded counts, never content) ----------
+   Structure per reference: a head row (icon + label side by side), then the big value
+   full-width below it, then an optional real trend line below that — never three
+   columns side by side. */
+/* Explicit breakpoints (not auto-fit) so the 6th tile deliberately sits alone on its
+   own row at lg — matching the reference's asymmetric 5-column stat grid exactly. */
+.icon-tile-row{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+.icon-tile-row>*{min-width:0}
+@media (min-width:640px){.icon-tile-row{grid-template-columns:repeat(3,1fr)}}
+
+/* ---------- 12-column dashboard grid ----------
+   A real span-based grid (not just a 2-column fr split like .grid-main) so dashboard
+   rows can mix 9/3, 5/3/4, and 8/4 splits. `md`/`lg` match Tailwind's 768px/1024px —
+   1024, not 1280, so Windows display-scaled viewports (~1280-1536px effective at
+   125-150%) don't fall into a dead zone between breakpoints. */
+.grid-12{display:grid;grid-template-columns:repeat(12,1fr);gap:26px}
+.col-12{grid-column:span 12}
+.col-md-6,.col-lg-3,.col-lg-4,.col-lg-5,.col-lg-8,.col-lg-9{grid-column:span 12}
+@media (min-width:768px){.col-md-6{grid-column:span 6}}
+@media (min-width:1024px){
+  .col-lg-3{grid-column:span 3}
+  .col-lg-4{grid-column:span 4}
+  .col-lg-5{grid-column:span 5}
+  .col-lg-8{grid-column:span 8}
+  .col-lg-9{grid-column:span 9}
+}
+.icon-tile{padding:20px;display:flex;flex-direction:column;border:1px solid transparent;
+  transition:background var(--dur) var(--ease),box-shadow var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.icon-tile:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.tile-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.tile-head .k-label{padding-top:3px;font-size:13px;font-weight:600;color:var(--color-text)}
+.icon-badge{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:#fff;flex:0 0 auto}
+.icon-badge svg{width:20px;height:20px}
+.icon-badge.badge-danger{background:linear-gradient(135deg,#FB7185,#E11D48);box-shadow:0 8px 16px -6px rgba(225,29,72,.4)}
+.icon-badge.badge-warning{background:linear-gradient(135deg,#FBBF24,#F59E0B);box-shadow:0 8px 16px -6px rgba(245,158,11,.4)}
+.icon-badge.badge-info{background:linear-gradient(135deg,#5BA3F5,#2563EB);box-shadow:0 8px 16px -6px rgba(37,99,235,.4)}
+.icon-badge.badge-success{background:linear-gradient(135deg,#4ADE80,#16A34A);box-shadow:0 8px 16px -6px rgba(22,163,74,.4)}
+.icon-badge.badge-accent{background:linear-gradient(135deg,#FBA95C,#F0821E);box-shadow:0 8px 16px -6px rgba(240,130,30,.4)}
+.icon-badge.badge-purple{background:linear-gradient(135deg,#A78BFA,#7C3AED);box-shadow:0 8px 16px -6px rgba(124,58,237,.4)}
+.icon-tile .k-value{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1}
+.k-trend-row{margin-top:12px;font-size:12px;font-weight:500;color:var(--color-text-muted);display:flex;align-items:center;gap:5px}
+.k-trend-delta{display:inline-flex;align-items:center;gap:3px;font-weight:800}
+.k-trend-delta svg{width:12px;height:12px}
+.k-trend-delta.k-up{color:var(--color-success)}
+.k-trend-delta.k-down{color:var(--color-danger)}
+.k-trend-delta.k-neutral{color:var(--color-text-muted)}
+/* Six-color tiles — a soft diagonal gradient + a tinted border per hue, hex-matched to
+   the reference exactly (not derived from the -soft/-border status tokens, which read
+   flatter/darker than this card treatment calls for). */
+.icon-tile.tile-orange{background:linear-gradient(135deg,#FFF3E8,#FFF9F4);border-color:#F4D9C4}
+.icon-tile.tile-blue{background:linear-gradient(135deg,#EAF3FF,#F6FAFF);border-color:#CFE0F7}
+.icon-tile.tile-purple{background:linear-gradient(135deg,#F2EEFF,#FAF8FF);border-color:#DCD4F7}
+.icon-tile.tile-red{background:linear-gradient(135deg,#FFEDEF,#FFF7F8);border-color:#F7CFD4}
+.icon-tile.tile-green{background:linear-gradient(135deg,#E9F9EF,#F6FDF9);border-color:#C9EBD6}
+.icon-tile.tile-yellow{background:linear-gradient(135deg,#FFF8E7,#FFFCF4);border-color:#F5E0B5}
+
+.meter-card{padding:20px;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%}
+.meter-card .k-label{align-self:flex-start;font-size:15px;font-weight:700;color:var(--color-text);margin-bottom:16px}
+
+/* Two-ring donut: outer ring = health score (banded success/warning/danger), inner
+   ring = overdue rate (always danger-toned — overdue is never a "good" number). Track
+   for each ring is a lighter step of that ring's OWN fill color, same rule as any
+   other meter, so a ring reads as a state even before you register the fill length. */
+.ring-chart{position:relative;width:150px;height:150px;margin:6px auto 10px}
+.ring-chart svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring-chart circle{fill:none}
+.ring-track{stroke:#EEF1F5}
+.ring-fill.fill-success{stroke:#16A34A}
+.ring-fill.fill-warning{stroke:#F59E0B}
+.ring-fill.fill-danger{stroke:#E11D48}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+/* The number and its "/100" suffix are NOT one inline group — the suffix is pulled out
+   of flow so the paragraph's width equals the number alone, which is what actually
+   centers under the ring. Centering "100/100" as one unit visibly skews the big number
+   left by the suffix's width. */
+.ring-center .ring-score{position:relative;display:inline-block;font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1;color:var(--color-text)}
+.ring-center .ring-score-sup{position:absolute;inset-inline-start:100%;top:0;margin-inline-start:2px;font-size:13px;font-weight:600;color:var(--color-text-muted);letter-spacing:0;white-space:nowrap}
+.ring-center .ring-caption{font-size:12px;color:var(--color-text-muted);font-weight:600;margin-top:2px}
+
+.ring-legend{width:100%;display:flex;flex-direction:column;gap:14px}
+.ring-legend-row{display:flex;align-items:center;gap:8px;font-size:13px}
+.ring-legend-row .rdot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+.rdot-success{background:#10B981}
+.rdot-warning{background:#FBBF24}
+.rdot-danger{background:#F43F5E}
+.ring-legend-row .rlabel{color:var(--color-text-muted);font-weight:500}
+.ring-legend-row .rvalue{margin-inline-start:auto;font-weight:700;color:var(--color-text)}
+
+/* Activity line chart — orange primary series, smooth Catmull-Rom curve, real Y/X
+   axes. Always rendered on the dark glass card in this app, so its colors are the dark
+   set directly rather than a light default + .glass-dark override. */
+.chart-card{display:flex;flex-direction:column}
+.chart-card .card-body{flex:1;display:flex;flex-direction:column;min-height:0}
+.activity-chart-wrap{position:relative;flex:1;display:flex;align-items:center}
+.activity-chart{width:100%;height:auto;aspect-ratio:660/250;display:block}
+.activity-grid{stroke:var(--color-border);stroke-width:1;vector-effect:non-scaling-stroke}
+.activity-axis-label{font-size:11px;fill:var(--color-text-muted);font-weight:600}
+.activity-empty-label{font-size:13px;fill:var(--color-text-muted)}
+.activity-line{fill:none;stroke:#F26B21;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.activity-dot{fill:#F26B21;vector-effect:non-scaling-stroke}
+.activity-marker{fill:#fff;stroke:#F26B21;stroke-width:4;vector-effect:non-scaling-stroke;pointer-events:none}
+.activity-hit{cursor:crosshair}
+/* Floating hover tooltip — plain HTML positioned from the SVG point's on-screen
+   fraction, not the raw viewBox units (the chart scales to its container width). */
+.activity-tooltip{position:absolute;z-index:5;transform:translate(-50%,-100%) translateY(-10px);
+  background:#fff;border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-md);
+  padding:8px 12px;pointer-events:none;white-space:nowrap;color:var(--color-text)}
+.activity-tooltip-date{font-size:11px;color:var(--color-text-muted);font-weight:600}
+.activity-tooltip-val{font-size:13px;font-weight:800;color:var(--color-text)}
+.btn-range{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;
+  border:1px solid rgba(35,61,77,.18);background:#fff;color:var(--sidebar-bg);
+  font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn-range .ic{width:14px;height:14px;opacity:.7;color:var(--sidebar-bg)}
+.btn-range:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
+
+/* Dark variant — only the Task activity chart card opts into this (class="card
+   glass-dark"); every other widget (health ring, calendar, etc.) stays on the light
+   defaults above. */
+.glass-dark .activity-grid{stroke:var(--glass-dark-border)}
+.glass-dark .activity-axis-label{fill:rgba(255,255,255,.55)}
+.glass-dark .activity-empty-label{fill:rgba(255,255,255,.55)}
+.glass-dark .activity-marker{fill:var(--sidebar-bg)}
+.glass-dark .activity-tooltip{background:var(--sidebar-bg);border-color:var(--glass-dark-border);color:#fff}
+.glass-dark .activity-tooltip-date{color:rgba(255,255,255,.6)}
+.glass-dark .activity-tooltip-val{color:#fff}
+/* The range menu's own popup (.qa-menu) always has a white background regardless of
+   the card it opens from — but ".glass-dark a:not(.btn)" (used for the chart card's
+   white body text/links) would otherwise bleed in and paint its labels white-on-white. */
+.glass-dark .qa-menu .drop-item{color:var(--color-text)}
+.qa-menu .drop-item.is-selected{color:var(--color-primary-text);font-weight:700;background:var(--color-primary-light)}
+.qa-menu .drop-item.is-selected svg{color:var(--color-primary)}
+
+/* Multi-segment donut (<x-donut-chart>) — distinct from the legacy single-value
+   .donut/.ring classes above (unused, left alone), so neither collides with the other. */
+.donut-chart{display:flex;flex-direction:column;align-items:center;gap:16px}
+.donut-ring{width:148px;height:148px;border-radius:50%;display:grid;place-items:center}
+.donut-hole{width:104px;height:104px;border-radius:50%;background:var(--color-background);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-value{font-size:26px;font-weight:800;letter-spacing:-.5px}
+.donut-caption{font-size:11px;color:var(--color-text-muted);font-weight:600;margin-top:2px}
+
+/* Mini calendar (<x-mini-calendar>) — always rendered on the dark glass card in this
+   app, so colors are the dark set directly. Presentational only, no data. */
+.mini-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.mini-cal-title{font-size:15px;font-weight:700;color:var(--color-text)}
+.mini-cal-nav{display:inline-flex;align-items:center;gap:12px}
+.mini-cal-month{font-size:13.5px;font-weight:700;color:var(--color-text);white-space:nowrap}
+.mini-cal-arrow{display:inline-flex;width:26px;height:26px;align-items:center;justify-content:center;border-radius:8px;
+  color:var(--color-text-muted);transition:background var(--dur-fast) var(--ease)}
+.mini-cal-arrow:hover{background:var(--color-border)}
+.mini-cal-arrow svg{width:16px;height:16px}
+.mini-cal-prev{transform:scaleX(-1)}
+[dir=rtl] .mini-cal-prev{transform:none}
+[dir=rtl] .mini-cal-next{transform:scaleX(-1)}
+.mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);row-gap:4px;column-gap:0;text-align:center}
+.mini-cal-dow{font-size:11.5px;font-weight:600;color:var(--color-text-muted);padding-bottom:8px}
+.mini-cal-day{width:36px;height:36px;line-height:36px;margin:0 auto;border-radius:50%;font-size:13px;font-weight:500;
+  color:var(--color-text);transition:background var(--dur-fast) var(--ease)}
+.mini-cal-day:not(.out):not(.today):hover{background:var(--color-border)}
+.mini-cal-day.out{color:var(--color-text-muted);opacity:.4;font-weight:500}
+.mini-cal-day.today{background:var(--color-primary);color:#fff;font-weight:800}
+
 /* ---------- Tables ---------- */
 .table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--color-border);background:#fff;box-shadow:var(--shadow-xs)}
 table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
-thead th{background:var(--color-primary);color:#fff;text-align:start;font-size:11.5px;font-weight:700;
-  letter-spacing:.6px;text-transform:uppercase;padding:12px 16px;white-space:nowrap;position:sticky;top:0;z-index:1}
-tbody td{padding:13px 16px;border-top:1px solid var(--color-border);vertical-align:middle}
+/* Premium tables use a quiet neutral header, not a solid brand-color bar — orange is
+   an accent, not a surface (color-distribution rule: don't overuse it). */
+thead th{background:var(--color-background);color:var(--color-text-muted);text-align:start;font-size:11px;font-weight:700;
+  letter-spacing:.6px;text-transform:uppercase;padding:13px 16px;white-space:nowrap;position:sticky;top:0;z-index:1;
+  border-bottom:1.5px solid var(--color-border)}
+tbody td{padding:14px 16px;border-top:1px solid var(--color-border);vertical-align:middle}
 tbody tr{transition:background var(--dur-fast) var(--ease)}
-tbody tr:hover{background:var(--color-surface)}
+tbody tr:hover{background:var(--color-primary-light)}
 .cell-main{font-weight:600}
 .cell-sub{font-size:12px;color:var(--color-text-muted)}
 .row-link{cursor:pointer}
@@ -245,13 +708,13 @@ tbody tr:hover{background:var(--color-surface)}
 .b-review .bdot{background:var(--color-primary)}
 .b-changes{background:var(--color-warning-soft);color:#B45309;border-color:var(--color-warning-border)}
 .b-changes .bdot{background:var(--color-warning)}
-.b-approved,.b-success{background:var(--color-success-soft);color:var(--color-success);border-color:var(--color-success-border)}
-.b-approved .bdot,.b-success .bdot{background:var(--color-success)}
+.b-approved{background:var(--color-success-soft);color:var(--color-success);border-color:var(--color-success-border)}
+.b-approved .bdot{background:var(--color-success)}
 .b-hold{background:#F5F3FF;color:#6D28D9;border-color:#DDD6FE}
 .b-hold .bdot{background:#7C3AED}
 .b-overdue,.b-danger{background:var(--color-danger-soft);color:var(--color-danger);border-color:var(--color-danger-border)}
 .b-overdue .bdot,.b-danger .bdot{background:var(--color-danger)}
-.b-done{background:#111827;color:#fff}
+.b-done{background:#1B1B1B;color:#fff}
 .b-done .bdot{background:#fff}
 .b-cancel{background:var(--color-surface);color:var(--color-text-muted);border-color:var(--color-border);text-decoration:line-through}
 .b-neutral{background:var(--color-surface);color:var(--color-text);border-color:var(--color-border)}
@@ -298,7 +761,7 @@ tbody tr:hover{background:var(--color-surface)}
 .field{margin-bottom:16px}
 .field label{display:block;font-weight:600;font-size:13px;margin-bottom:6px}
 .req::after{content:" *";color:var(--color-danger)}
-.input,select.input,textarea.input{width:100%;padding:9px 13px;border:1px solid var(--color-border);border-radius:10px;font:inherit;background:#fff;color:var(--color-text)}
+.input,select.input,textarea.input{width:100%;padding:9px 13px;border:1px solid var(--color-border);border-radius:var(--radius-btn);font:inherit;background:#fff;color:var(--color-text)}
 .input:focus{border-color:var(--color-primary);outline:none;box-shadow:0 0 0 3px var(--color-primary-soft)}
 textarea.input{resize:vertical;min-height:92px}
 .hint{font-size:12px;color:var(--color-text-muted);margin-top:5px}
@@ -325,9 +788,11 @@ textarea.input{resize:vertical;min-height:92px}
 
 /* ---------- Lists ---------- */
 .list{display:flex;flex-direction:column}
-.list-item{display:flex;gap:12px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--color-border)}
+.list-item{display:flex;gap:12px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--color-border);transition:background var(--dur-fast) var(--ease)}
 .list-item:last-child{border-bottom:0}
-.list-item:hover{background:var(--color-surface)}
+/* --color-surface is near-white now (#FAFBFC vs #FFFFFF cards) — invisible as a hover
+   cue, so widget rows use the same visible orange wash the sidebar/nav hover uses. */
+.list-item:hover{background:var(--color-primary-light)}
 .li-main{min-width:0;flex:1}
 .li-title{font-weight:600;font-size:13.5px}
 .li-sub{font-size:12px;color:var(--color-text-muted)}
@@ -339,12 +804,12 @@ textarea.input{resize:vertical;min-height:92px}
 .bar .g{background:var(--color-success)} .bar .r{background:var(--color-danger)} .bar .b{background:var(--color-info)}
 .chart{display:flex;align-items:flex-end;gap:14px;height:170px;padding:10px 6px 0}
 .chart .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end}
-.chart .colbar{width:100%;max-width:46px;background:var(--color-primary-100);border-radius:8px 8px 0 0;position:relative}
+.chart .colbar{width:100%;max-width:46px;background:var(--color-border);border-radius:8px 8px 0 0;position:relative}
 .chart .colbar i{position:absolute;bottom:0;left:0;right:0;background:var(--color-primary);border-radius:8px 8px 0 0}
 .chart .cl{font-size:11.5px;color:var(--color-text-muted);font-weight:600}
 .chart .cv{font-size:12px;font-weight:800}
 .donut{--p:75;width:118px;height:118px;border-radius:50%;
-  background:conic-gradient(var(--color-primary) calc(var(--p)*1%),var(--color-primary-100) 0);
+  background:conic-gradient(var(--color-primary) calc(var(--p)*1%),var(--color-border) 0);
   display:grid;place-items:center}
 .donut>div{width:86px;height:86px;border-radius:50%;background:#fff;display:grid;place-items:center;font-weight:800;font-size:19px}
 
@@ -352,7 +817,7 @@ textarea.input{resize:vertical;min-height:92px}
 .chat-layout{display:grid;grid-template-columns:300px 1fr;border:1px solid var(--color-border);border-radius:var(--radius);overflow:hidden;background:#fff;min-height:560px}
 .chat-list{border-inline-end:1px solid var(--color-border);overflow-y:auto;background:#fff}
 .conv{display:flex;gap:11px;padding:13px 16px;border-bottom:1px solid var(--color-border);cursor:pointer;align-items:center}
-.conv:hover{background:var(--color-surface)}
+.conv:hover{background:var(--color-primary-light)}
 .conv.on{background:var(--color-primary-soft);border-inline-start:3px solid var(--color-primary)}
 .conv .cname{font-weight:700;font-size:13.5px}
 .conv .clast{font-size:12px;color:var(--color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
@@ -389,7 +854,7 @@ textarea.input{resize:vertical;min-height:92px}
 .score-na{color:var(--color-text-muted);font-weight:700}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .toolbar .grow{flex:1}
-.stack{display:flex;flex-direction:column;gap:16px}
+.stack{display:flex;flex-direction:column;gap:26px}
 .inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .tick{color:var(--color-success);font-weight:800}
 .cross{color:var(--color-danger);font-weight:800}
@@ -427,7 +892,7 @@ textarea.input{resize:vertical;min-height:92px}
     transform:translateX(calc(-100% * var(--flip,1)));transition:transform .2s;box-shadow:var(--shadow)}
   [dir=rtl] .sidebar{--flip:-1}
   body.nav-open .sidebar{transform:translateX(0)}
-  body.nav-open .scrim{position:fixed;inset:0;background:rgba(17,24,39,.4);z-index:35}
+  body.nav-open .scrim{position:fixed;inset:0;background:rgba(27,27,27,.4);z-index:35}
   .burger{display:grid;place-items:center}
   .grid-3{grid-template-columns:1fr}
   .grid-2{grid-template-columns:1fr}
@@ -451,19 +916,19 @@ textarea.input{resize:vertical;min-height:92px}
 /* ===== demo additions: toasts, modals, misc ===== */
 .toasts{position:fixed;bottom:18px;inset-inline-end:18px;z-index:300;display:flex;flex-direction:column;gap:8px;max-width:min(360px,90vw)}
 .toast{background:#fff;border:1px solid var(--color-border);border-inline-start:4px solid var(--color-info);border-radius:10px;
- box-shadow:0 10px 26px rgba(15,23,42,.16);padding:11px 14px;font-size:13.5px;font-weight:600;color:var(--color-text);
+ box-shadow:0 10px 26px rgba(27,27,27,.16);padding:11px 14px;font-size:13.5px;font-weight:600;color:var(--color-text);
  animation:tin .22s ease}
 .toast-success{border-inline-start-color:var(--color-success)} .toast-danger{border-inline-start-color:var(--color-danger)}
 .toast-warning{border-inline-start-color:var(--color-warning)}
 .toast.out{opacity:0;transform:translateY(6px);transition:.25s}
 @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
-.mback{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:250;display:flex;align-items:center;justify-content:center;padding:16px}
+.mback{position:fixed;inset:0;background:rgba(27,27,27,.45);z-index:250;display:flex;align-items:center;justify-content:center;padding:16px}
 .mbox{background:#fff;border-radius:14px;width:min(560px,100%);max-height:92vh;display:flex;flex-direction:column;
- box-shadow:0 24px 60px rgba(15,23,42,.3);animation:tin .18s ease}
+ box-shadow:0 24px 60px rgba(27,27,27,.3);animation:tin .18s ease}
 .mhead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--color-border)}
 .mhead h2{font-size:16px;margin:0}
 .mclose{border:0;background:transparent;font-size:15px;cursor:pointer;color:var(--color-text-muted);padding:4px 8px;border-radius:8px}
-.mclose:hover{background:var(--color-surface);color:var(--color-text)}
+.mclose:hover{background:var(--color-border);color:var(--color-text)}
 .mbody{padding:16px 18px;overflow:auto;font-size:14px}
 .mbody .field{margin-bottom:12px}
 .mfoot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--color-border);flex-wrap:wrap}
@@ -485,7 +950,7 @@ textarea.input{resize:vertical;min-height:92px}
  .card{box-shadow:none;border:1px solid #ddd;break-inside:avoid}
 }
 
-.select{appearance:auto;border:1.5px solid var(--color-border);border-radius:10px;padding:8px 12px;font:inherit;background:#fff;color:var(--color-text)}
+.select{appearance:auto;border:1.5px solid var(--color-border);border-radius:var(--radius-btn);padding:8px 12px;font:inherit;background:#fff;color:var(--color-text)}
 .select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px var(--color-primary-soft)}
 .kv-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--color-border);font-size:13.5px}
 .kv-row:last-child{border-bottom:0}.kv-row>span:first-child{color:var(--color-text-muted);font-weight:600}
@@ -509,7 +974,7 @@ textarea.input{resize:vertical;min-height:92px}
 .field .req{color:var(--color-danger)}
 .field input,.field select,.field textarea,
 .mbody input:not([type=checkbox]):not([type=radio]),.mbody select,.mbody textarea{
- width:100%;padding:10px 13px;border:1.5px solid var(--color-border);border-radius:10px;
+ width:100%;padding:10px 13px;border:1.5px solid var(--color-border);border-radius:var(--radius-btn);
  font:inherit;background:#fff;color:var(--color-text);transition:border-color .12s,box-shadow .12s}
 .field input:focus,.field select:focus,.field textarea:focus,
 .mbody input:focus,.mbody select:focus,.mbody textarea:focus{
@@ -517,6 +982,39 @@ textarea.input{resize:vertical;min-height:92px}
 .field input:disabled,.field select:disabled,.mbody input:disabled,.mbody select:disabled{
  background:var(--color-surface);color:var(--color-text-muted);cursor:not-allowed}
 .field textarea,.mbody textarea{resize:vertical;min-height:88px}
+
+/* Native <select> — the closed control is fully ours (border/radius/focus ring above),
+   but the open option popup is OS/browser-drawn and can't be reskinned with CSS. This is
+   the best we can do without swapping it for a JS-built dropdown: a custom chevron (so it
+   doesn't clash with the app's icon set), and color-scheme:light so the popup still
+   renders with a light background/dark text even when the OS is in dark mode, instead of
+   whatever high-contrast combination the browser would otherwise pick. */
+.select,.field select,.mbody select{
+ appearance:none;-webkit-appearance:none;color-scheme:light;cursor:pointer;
+ padding-inline-end:34px;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2384796E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+ background-repeat:no-repeat;background-position:right 11px center;background-size:15px}
+[dir=rtl] .select,[dir=rtl] .field select,[dir=rtl] .mbody select{background-position:left 11px center}
+.select option,.field select option,.mbody select option{background:#fff;color:var(--color-text)}
+
+/* ---------- <x-form-select> — custom-styled replacement for the form <select>s above.
+   The real <select> is kept (visually hidden, not display:none) as the actual form
+   control; a .qa-menu-driven button sits on top so every dropdown in the app — filters,
+   the range picker, and now form selects — shares one look instead of the OS-drawn
+   native popup. ---------- */
+.form-select{position:relative}
+.form-select select{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.form-select-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;
+ padding:10px 13px;border:1.5px solid var(--color-border);border-radius:var(--radius-btn);
+ font:inherit;background:#fff;color:var(--color-text);cursor:pointer;text-align:start}
+.form-select-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.form-select-btn .ic{width:14px;height:14px;opacity:.6;flex:0 0 auto;color:var(--color-text-muted)}
+.form-select-btn:hover{border-color:var(--color-primary)}
+.form-select-btn:focus-visible{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px var(--color-primary-soft)}
+.field.bad .form-select-btn{border-color:var(--color-danger);box-shadow:0 0 0 3px var(--color-danger-soft)}
+.form-select .qa-menu{width:100%;inset-inline-start:0;inset-inline-end:auto;top:calc(100% + 6px);max-height:280px;overflow-y:auto}
+.qa-menu button.drop-item{width:100%;background:transparent;border:0;border-bottom:1px solid var(--color-border);margin:0;font:inherit;text-align:start;cursor:pointer}
+.qa-menu button.drop-item:last-child{border-bottom:0}
 .hint{font-size:12px;color:var(--color-text-muted);margin-top:5px;line-height:1.45}
 .field .err{color:var(--color-danger);font-size:12px;font-weight:700;display:none;margin-top:5px}
 .field.bad .err{display:block}
@@ -601,14 +1099,14 @@ a.card *{text-decoration:none!important}
 .pcard{position:relative;overflow:hidden;transition:transform .14s,box-shadow .14s;padding:0}
 .pcard::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;
  background:linear-gradient(90deg,var(--color-primary),var(--color-primary-hover))}
-.pcard:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(249,115,22,.16)}
+.pcard:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(252,110,32,.16)}
 .pcard.dim{opacity:.72}.pcard.dim::before{background:var(--color-border)}
 .pcard .pc-body{padding:18px 20px 14px}
 .pc-top{display:flex;gap:12px;align-items:flex-start}
 .client-bub{width:42px;height:42px;border-radius:12px;flex:none;display:grid;place-items:center;
  font-weight:800;font-size:15px;color:#fff;
  background:linear-gradient(135deg,var(--color-primary),var(--color-primary-hover));
- box-shadow:0 4px 10px rgba(249,115,22,.3)}
+ box-shadow:0 4px 10px rgba(252,110,32,.3)}
 .pc-title{font-size:15.5px;font-weight:800;line-height:1.3}
 .pc-sub{font-size:12px;color:var(--color-text-muted);margin-top:2px}
 .pbar{height:7px;background:var(--color-surface);border-radius:99px;overflow:hidden;margin:6px 0 4px}
@@ -653,7 +1151,7 @@ a.card *{text-decoration:none!important}
 .stat-card .sv{font-size:30px;font-weight:800;letter-spacing:-.6px}
 .stat-hero{background:linear-gradient(135deg,var(--color-primary),var(--color-primary-hover));
  border:0;color:#fff;flex-direction:row;align-items:center;gap:20px;
- box-shadow:0 12px 28px rgba(249,115,22,.32)}
+ box-shadow:0 12px 28px rgba(252,110,32,.32)}
 .stat-hero .sl{color:rgba(255,255,255,.85)}
 .stat-hero .sv{color:#fff;font-size:34px}
 .stat-hero .small{color:rgba(255,255,255,.85)}

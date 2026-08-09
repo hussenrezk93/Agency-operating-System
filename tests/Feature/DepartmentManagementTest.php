@@ -12,7 +12,8 @@ use Tests\Concerns\BuildsWorkflowScenarios;
 use Tests\TestCase;
 
 /**
- * BRD §6 — departments are Manager-managed; a department cannot exist without a
+ * BRD §6, widened by explicit product decision: departments are managed by both
+ * Manager and Admin (originally Manager-only). A department cannot exist without a
  * primary Team Leader (DepartmentService::createWithPrimaryLeader, already proven
  * at the service level by OrganizationStructureTest — this proves it over HTTP).
  */
@@ -150,7 +151,6 @@ class DepartmentManagementTest extends TestCase
     public static function rolesThatCannotManageDepartments(): array
     {
         return [
-            'admin' => [RoleCode::Admin],
             'team leader' => [RoleCode::TeamLeader],
             'employee' => [RoleCode::Employee],
         ];
@@ -176,11 +176,30 @@ class DepartmentManagementTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_admin_may_list_departments_but_not_create_them(): void
+    public function test_admin_creates_renames_and_deactivates_a_department(): void
     {
-        Department::factory()->count(2)->create();
+        $leader = User::factory()->role(RoleCode::TeamLeader)->create();
 
-        $this->actingAs($this->admin)->getJson('/departments')->assertOk();
+        $response = $this->actingAs($this->admin)->postJson('/departments', [
+            'name' => 'Admin-made Department',
+            'primary_leader_id' => $leader->id,
+        ])->assertCreated();
+        $department = Department::find($response->json('data.id'));
+
+        $this->actingAs($this->admin)
+            ->patchJson("/departments/{$department->id}", ['name' => 'Renamed by Admin'])
+            ->assertOk();
+        $this->assertSame('Renamed by Admin', $department->fresh()->name);
+
+        $this->actingAs($this->admin)
+            ->postJson("/departments/{$department->id}/deactivate")
+            ->assertOk();
+        $this->assertFalse((bool) $department->fresh()->is_active);
+
+        $this->actingAs($this->admin)
+            ->postJson("/departments/{$department->id}/reactivate")
+            ->assertOk();
+        $this->assertTrue((bool) $department->fresh()->is_active);
     }
 
     public function test_a_guest_cannot_reach_department_administration(): void

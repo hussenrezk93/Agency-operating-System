@@ -50,8 +50,7 @@ class StoreTaskRequest extends FormRequest
                 'integer',
                 Rule::exists('departments', 'id')->where('is_active', true),
             ],
-            // BRD §8 — a published task needs one or more reference links; a draft doesn't yet.
-            'reference_links' => [$isDraft ? 'nullable' : 'required', 'array', $isDraft ? 'min:0' : 'min:1', 'max:20'],
+            'reference_links' => ['nullable', 'array', 'min:0', 'max:20'],
             'reference_links.*.url' => ['required', 'url', 'max:2048'],
             'reference_links.*.label' => ['nullable', 'string', 'max:255'],
         ];

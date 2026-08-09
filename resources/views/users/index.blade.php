@@ -1,9 +1,8 @@
 @extends('layouts.app')
 @section('title', __('agencyos.users.index.title'))
 @section('page', 'users')
-@section('content')
 @php($isAdmin = auth()->user()->roleCode()->value === 'admin')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.users.index.title') }}</h1>
@@ -11,11 +10,14 @@
         </div>
         @if($canCreate)
             <div class="page-actions">
-                <a class="btn btn-primary" href="{{ route('users.create-form') }}">＋ {{ __('agencyos.users.index.new_user') }}</a>
+                <a class="btn btn-primary" href="{{ route('users.create-form') }}"><x-icon name="plus"/> {{ __('agencyos.users.index.new_user') }}</a>
             </div>
         @endif
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
@@ -29,7 +31,7 @@
         </div>
     @endif
 
-    <div class="card">
+    <div class="card glass-dark">
         <div class="table-wrap">
             <table>
                 <thead>
@@ -47,7 +49,6 @@
                     <tr>
                         <td>
                             <b>{{ $user->full_name }}</b>
-                            <div class="small muted mono">@{{ $user->username }}</div>
                         </td>
                         <td>{{ __('agencyos.roles.'.$user->role->code) }}</td>
                         <td>{{ $user->department->name ?? '—' }}</td>
@@ -66,7 +67,7 @@
                             </span>
                         </td>
                         <td style="text-align:end;white-space:nowrap">
-                            <a class="btn btn-sm btn-outline" href="{{ route('users.edit-form', $user) }}">{{ __('agencyos.users.index.edit') }}</a>
+                            <a class="btn btn-sm btn-outline" href="{{ route('users.edit-form', $user) }}"><x-icon name="edit"/> {{ __('agencyos.users.index.edit') }}</a>
                             <form method="POST" action="{{ route('users.reset-password', $user) }}" style="display:inline">
                                 @csrf
                                 <button type="submit" class="btn btn-sm btn-outline">🔑</button>

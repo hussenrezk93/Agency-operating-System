@@ -45,37 +45,7 @@ clients:[
  {id:4,name:"Delta Properties",phone:"+20 106 333 2211",email:"info@deltaprop.com",web:"",desc:"Real estate",status:"active"},
  {id:5,name:"Alexandria Medical Center",phone:"+20 3 480 1122",email:"admin@alexmedical.org",web:"",desc:"Healthcare · rebrand cancelled",status:"inactive"}
 ],
-projects:[
- {id:"PRJ-2026-0007",name:"Ramadan Campaign 2026",client:1,status:"active",createdBy:4,started:"2026-06-02",
-  desc:"Full-funnel Ramadan campaign: TV-cut hero video, social calendar, in-store photography and packaging adaptations.",
-  depts:[1,2,3,4,5],links:[{label:"Brand guidelines 2026",url:"https://drive.google.com/drive/folders/1aBcD-brand"},{label:"Client brief — signed scope",url:"https://drive.google.com/file/d/1XyZ-brief"}],
-  wa:{url:"https://chat.whatsapp.com/Kp92xRamadanCore",label:"Ramadan Campaign — Core Team",version:2,updatedAt:"2026-07-24 13:58",updatedBy:4},
-  waHistory:[
-   {v:2,action:"updated",url:"https://chat.whatsapp.com/Kp92xRamadanCore",by:4,at:"2026-07-24 13:58",note:"re-sent to all 28 current members"},
-   {v:1,action:"created",url:"https://chat.whatsapp.com/Jd11xRamadanOld",by:4,at:"2026-06-02 10:12",note:"sent to 24 members at creation"}],
-  deliveries:[
-   {user:9, dept:1,v:2,channel:"in_app",status:"sent",at:"2026-07-24 13:58"},
-   {user:9, dept:1,v:2,channel:"email", status:"sent",at:"2026-07-24 13:59"},
-   {user:12,dept:1,v:2,channel:"email", status:"sent",at:"2026-07-24 13:59"},
-   {user:10,dept:2,v:2,channel:"email", status:"queued",at:""},
-   {user:16,dept:3,v:2,channel:"email", status:"failed",at:"2026-07-24 14:02",err:"hard bounce"},
-   {user:8, dept:5,v:2,channel:"email", status:"sent",at:"2026-07-24 13:59"},
-   {user:15,dept:3,v:2,channel:"email", status:"sent",at:"2026-07-24 13:59"}]},
- {id:"PRJ-2026-0009",name:"Falcon X Launch",client:2,status:"active",createdBy:2,started:"2026-07-08",
-  desc:"Launch package for the Falcon X model: landing copy, media plan, showroom visuals.",
-  depts:[1,2,4],links:[{label:"Falcon X press kit",url:"https://drive.google.com/drive/folders/1Falcon-press"}],
-  wa:null,waHistory:[],deliveries:[]},
- {id:"PRJ-2026-0010",name:"Lotus Summer Collection",client:3,status:"active",createdBy:5,started:"2026-07-15",
-  desc:"SS26 social-first push: influencer program, lifestyle shots, packaging refresh.",
-  depts:[2,1,3,4],links:[{label:"SS26 brand guide",url:"https://drive.google.com/drive/folders/1Lotus-SS26"}],
-  wa:{url:"https://chat.whatsapp.com/Ss26LotusTeam",label:"Lotus SS26",version:1,updatedAt:"2026-07-15 09:40",updatedBy:5},
-  waHistory:[{v:1,action:"created",url:"https://chat.whatsapp.com/Ss26LotusTeam",by:5,at:"2026-07-15 09:40",note:"sent to 21 members at creation"}],
-  deliveries:[{user:9,dept:1,v:1,channel:"email",status:"sent",at:"2026-07-15 09:41"},{user:10,dept:2,v:1,channel:"email",status:"queued",at:""}]},
- {id:"PRJ-2026-0004",name:"Summer Menu Refresh",client:1,status:"done",createdBy:2,started:"2026-03-03",closed:"2026-06-28",
-  desc:"Menu photography and POS refresh for the summer menu.",depts:[3,4],links:[],wa:{url:"https://chat.whatsapp.com/OldMenu24",label:"Menu Refresh",version:1,updatedAt:"2026-03-03",updatedBy:2},waHistory:[{v:1,action:"created",url:"https://chat.whatsapp.com/OldMenu24",by:2,at:"2026-03-03 09:00",note:"frozen at completion"}],deliveries:[]},
- {id:"PRJ-2026-0002",name:"Clinic Rebrand",client:5,status:"cancel",createdBy:2,started:"2026-02-10",closed:"2026-07-19",
-  reason:"Client paused engagement",desc:"Identity refresh for the clinic network.",depts:[2,4],links:[],wa:null,waHistory:[],deliveries:[]}
-],
+projects:[],
 tasks:[
  {id:"TSK-2026-00341",title:"Ramadan hero video — 30s cut",prio:"urgent",project:"PRJ-2026-0007",life:"active",createdBy:4,createdAt:"2026-06-12 09:00",
   brief:"Cut the 30-second hero spot from the approved footage: 2 revisions max, subtitle-safe area, end-frame per brand guide.",
@@ -191,28 +161,7 @@ tasks:[
   steps:[{dept:4,seq:1,w:"cancel",assignee:14,assignedBy:6,start:"2026-06-21",due:"2026-07-05",firstSeen:"2026-06-21 09:00",outputs:[],comments:[],reviews:[]}],
   holds:[],timeline:[{t:"created",by:2,at:"2026-06-20 09:00",m:"First department: Design"},{t:"cancelled",by:2,at:"2026-07-02 12:00",m:"Client dropped the OOH placement."}]}
 ],
-notifications:{
- tl:[
-  {id:1,type:"tasks",title:"New submission — Ramadan social calendar (week 2)",sub:"TSK-2026-00331 · Mohamed Ali · 12:04",at:"2026-07-25 12:04",read:false,email:"sent",link:"tl-review.html?id=TSK-2026-00331"},
-  {id:2,type:"deadlines",title:"Due today 23:59 — Ramadan hero video (Editing step)",sub:"TSK-2026-00341 · deadline reminder",at:"2026-07-25 09:00",read:false,email:"sent",link:"task-details.html?id=TSK-2026-00341"},
-  {id:3,type:"tasks",title:"👁 Mohamed Ali opened his task for the first time",sub:"TSK-2026-00336 · first view recorded 09:41 (assigned 08:55)",at:"2026-07-25 09:41",read:false,email:"sent",link:"task-details.html?id=TSK-2026-00336"},
-  {id:4,type:"tasks",title:"Task received from Content — Competitor pricing snapshot Q3",sub:"TSK-2026-00343 · waiting your assignment",at:"2026-07-25 08:41",read:true,email:"sent",link:"task-assign.html?id=TSK-2026-00343"},
-  {id:5,type:"chat",title:"Chat digest — 6 unread messages in 2 conversations",sub:"12:00 digest · next at 14:00 · email only",at:"2026-07-25 12:00",read:true,email:"sent",link:"chat.html"},
-  {id:6,type:"projects",title:"WhatsApp invite updated — Ramadan Campaign 2026 (v2)",sub:"New link resent to all 28 project members",at:"2026-07-24 13:58",read:true,email:"sent",link:"project-details.html?id=PRJ-2026-0007"},
-  {id:7,type:"system",title:"Temporary TL activated — Karim Fathy leads Photography",sub:"Until 05 Aug · main TL view-only",at:"2026-07-24 11:20",read:true,email:"sent",link:"departments.html"}],
- employee:[
-  {id:1,type:"tasks",title:"Changes requested on TSK-2026-00322",sub:"Sara Mostafa · \"Shorten intro, fix CTA links\"",at:"2026-07-25 10:52",read:false,email:"sent",link:"task-execute.html?id=TSK-2026-00322"},
-  {id:2,type:"deadlines",title:"Deadline in 24h — TSK-2026-00331",sub:"Due today 23:59",at:"2026-07-24 23:59",read:false,email:"queued",link:"task-execute.html?id=TSK-2026-00331"},
-  {id:3,type:"projects",title:"WhatsApp invite v2 — Ramadan Campaign 2026",sub:"Join the project group",at:"2026-07-24 13:58",read:true,email:"sent",link:"project-details.html?id=PRJ-2026-0007"}],
- manager:[
-  {id:1,type:"tasks",title:"Self-assigned TL step awaits your review",sub:"TSK-2026-00334 · Sara Mostafa · Media plan",at:"2026-07-24 18:00",read:false,email:"sent",link:"tl-review.html?id=TSK-2026-00334"},
-  {id:2,type:"tasks",title:"Reassignment needed — Photography",sub:"TSK-2026-00327 returned to TL after account disable",at:"2026-07-22 16:10",read:false,email:"sent",link:"task-details.html?id=TSK-2026-00327"},
-  {id:3,type:"deadlines",title:"Overdue 2 days — Clinic rebrand logo refinements",sub:"TSK-2026-00298 · Design",at:"2026-07-25 00:05",read:false,email:"sent",link:"task-details.html?id=TSK-2026-00298"},
-  {id:4,type:"system",title:"Email delivery failed — Tarek Hussein",sub:"Hard bounce after 5 retries · workflow unaffected",at:"2026-07-24 09:02",read:true,email:"failed",link:"users.html"}],
- admin:[
-  {id:1,type:"system",title:"Email hard bounce flagged — user #16",sub:"5 retries exhausted",at:"2026-07-25 09:02",read:false,email:"failed",link:"audit-log.html"},
-  {id:2,type:"system",title:"Routing rule updated — Editing → Moderation allowed",sub:"By Khaled Samir",at:"2026-07-24 10:44",read:true,email:"sent",link:"routing-permissions.html"}]
-},
+notifications:{tl:[],employee:[],manager:[],admin:[]},
 conversations:[
  {id:1,type:"employee_tl",title:"Mohamed Ali",members:[4,9],msgs:[
    {id:1,by:4,at:"2026-07-25 10:53",text:"Check the review notes on the newsletter — mainly the CTA links."},

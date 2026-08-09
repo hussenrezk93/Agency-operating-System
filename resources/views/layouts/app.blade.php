@@ -10,16 +10,20 @@
     $currentScreen = request()->routeIs('approved-ui')
         ? (trim((string) request()->route('screen'), '/') ?: 'index.html')
         : null;
-    $workspaceNav = match($role) {
-        'admin' => [
-            ['real:users.index', 'users', app()->isLocale('ar') ? 'المديرون' : 'Managers'],
+    // MAIN = configuration/management screens for this role; WORKSPACE = everyday,
+    // non-administrative screens (chat, notifications, profile). Dashboard is always
+    // the first MAIN item, rendered separately below rather than in these arrays.
+    [$mainNav, $workspaceNav] = match($role) {
+        'admin' => [[
+            ['real:users.index', 'users', app()->isLocale('ar') ? 'المستخدمون' : 'Users'],
+            ['real:departments.index', 'building-2', app()->isLocale('ar') ? 'الأقسام' : 'Departments'],
             ['real:department-routes.index', 'shuffle', app()->isLocale('ar') ? 'صلاحيات التحويل' : 'Routing permissions'],
             ['real:department-output-access.index', 'layout-grid', app()->isLocale('ar') ? 'صلاحيات المخرجات' : 'Output access'],
-            ['system-settings.html', 'settings', app()->isLocale('ar') ? 'إعدادات النظام' : 'System settings'],
-            ['audit-log.html', 'shield-check', app()->isLocale('ar') ? 'سجل التدقيق' : 'Audit log'],
+            ['real:audit-log.index', 'shield-check', app()->isLocale('ar') ? 'سجل التدقيق' : 'Audit log'],
+        ], [
             ['real:chat.index', 'message-circle', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
-        ],
-        'manager' => [
+        ]],
+        'manager' => [[
             ['real:tasks.index', 'list-checks', app()->isLocale('ar') ? 'المهام' : 'Tasks'],
             ['real:projects.index', 'folder-kanban', app()->isLocale('ar') ? 'المشروعات' : 'Projects'],
             ['real:clients.index', 'star', app()->isLocale('ar') ? 'العملاء' : 'Clients'],
@@ -27,23 +31,26 @@
             ['real:users.index', 'users', app()->isLocale('ar') ? 'المستخدمون' : 'Users'],
             ['real:departments.index', 'building-2', app()->isLocale('ar') ? 'الأقسام' : 'Departments'],
             ['real:temporary-leadership.index', 'clock', app()->isLocale('ar') ? 'قائد الفريق المؤقت' : 'Temporary TL'],
+        ], [
             ['real:chat.index', 'message-circle', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
-        ],
-        'tl' => [
+        ]],
+        'tl' => [[
             ['real:tasks.index', 'list-checks', app()->isLocale('ar') ? 'المهام' : 'Tasks'],
-            ['tl-review.html', 'search', app()->isLocale('ar') ? 'قائمة المراجعة' : 'Review queue'],
+            ['real:tasks.index:review', 'search', app()->isLocale('ar') ? 'قائمة المراجعة' : 'Review queue'],
             ['real:tasks.index:my', 'check-circle', app()->isLocale('ar') ? 'مهامي' : 'My tasks'],
             ['real:projects.index', 'folder-kanban', app()->isLocale('ar') ? 'المشروعات' : 'Projects'],
             ['real:clients.index', 'star', app()->isLocale('ar') ? 'العملاء' : 'Clients'],
             ['real:reports.index', 'bar-chart-3', app()->isLocale('ar') ? 'التقارير' : 'Reports'],
+        ], [
             ['real:chat.index', 'message-circle', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
-        ],
-        default => [
+        ]],
+        default => [[
             ['real:tasks.index', 'list-checks', app()->isLocale('ar') ? 'مهامي' : 'My tasks'],
             ['real:projects.index', 'folder-kanban', app()->isLocale('ar') ? 'المشروعات' : 'Projects'],
             ['real:performance.show', 'bar-chart-3', app()->isLocale('ar') ? 'الأداء' : 'Performance'],
+        ], [
             ['real:chat.index', 'message-circle', app()->isLocale('ar') ? 'الدردشة' : 'Chat'],
-        ],
+        ]],
     };
 @endphp
 <!DOCTYPE html>
@@ -51,11 +58,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#F97316">
+    <meta name="theme-color" content="#FC6E20">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" type="image/png" href="{{ asset('images/agencyos-favicon-64.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
     {{-- filemtime cache-busting lets the .htaccess far-future cache header below be safe:
          a deploy that changes either file changes its URL, so nothing is ever served stale. --}}
     <link rel="stylesheet" href="{{ asset('assets/agencyos.css') }}?v={{ filemtime(public_path('assets/agencyos.css')) }}">
@@ -78,14 +85,19 @@
 
         /* Fallback for browsers without View Transitions: a 150ms opacity settle on the
            content only. No overlay, no loading bar, no delay before navigating. */
-        .main > *:not(.topbar) { animation: agencyos-fade 150ms ease-out both; }
+        /* :not(.page-header-row) matters, not just style — animating opacity forces a
+           new stacking context on that element for as long as animation-name is set
+           (fill-mode: both keeps it applied after the animation ends), which trapped
+           the Quick Action/range dropdowns' z-index inside .page-header-row instead of
+           letting them paint above the sibling <main> content below them. */
+        .main > *:not(.topbar):not(.page-header-row) { animation: agencyos-fade 150ms ease-out both; }
         @keyframes agencyos-fade { from { opacity: 0; } to { opacity: 1; } }
 
         .nav a { transition: background-color .12s ease, color .12s ease; }
 
         @media (prefers-reduced-motion: reduce) {
             @view-transition { navigation: none; }
-            .main > *:not(.topbar) { animation: none; }
+            .main > *:not(.topbar):not(.page-header-row) { animation: none; }
             .nav a { transition: none; }
         }
     </style>
@@ -98,29 +110,55 @@
             <div class="sidebar-logo"><img src="{{ asset('images/agencyos-company-logo-white.png') }}" alt="Agency OS"></div>
             <div><div class="brand-name">Agency<b>OS</b></div><div class="small muted">Workflow Management</div></div>
         </div>
-        <span class="role-chip role-{{ $role }}">{{ $roleLabel }}</span>
+        <div class="sidebar-user">
+            <div class="avatar">{{ $initials ?: 'U' }}</div>
+            <div class="su-info">
+                <div class="su-name">{{ $currentUser?->full_name ?? $currentUser?->username }}</div>
+                <span class="role-chip role-{{ $role }}">{{ $roleLabel }}</span>
+            </div>
+        </div>
+        @php
+            // Rendered inline for each nav item's href/active-state so both groups below
+            // share one code path — a trailing :my / :review picks a pre-set query
+            // string on top of the plain route ("My tasks"/"Review queue" are both just
+            // the real Tasks list with a filter baked in, not separate pages).
+            $navLink = function (array $item) use ($uiUrl, $currentScreen) {
+                [$screen, $icon, $label] = $item;
+                if (str_starts_with($screen, 'real:')) {
+                    $routeKey = substr($screen, 5);
+                    $query = [];
+                    if (str_ends_with($routeKey, ':my')) {
+                        $routeKey = substr($routeKey, 0, -3);
+                        $query = ['view' => 'my'];
+                    } elseif (str_ends_with($routeKey, ':review')) {
+                        $routeKey = substr($routeKey, 0, -7);
+                        $query = ['status' => 'under_review'];
+                    }
+                    $href = route($routeKey, $query);
+                    $routePrefix = explode('.', $routeKey)[0];
+                    $active = request()->routeIs($routePrefix.'.*')
+                        && request()->query('view') === ($query['view'] ?? null)
+                        && request()->query('status') === ($query['status'] ?? null);
+                } else {
+                    [$screenName, $query] = array_pad(explode('?', $screen, 2), 2, null);
+                    $href = $uiUrl($screenName).($query ? '?'.$query : '');
+                    $active = $currentScreen === $screenName;
+                }
+
+                return [$href, $icon, $label, $active];
+            };
+        @endphp
         <nav class="nav">
             <div class="nav-label">{{ app()->isLocale('ar') ? 'الرئيسية' : 'Main' }}</div>
             <a @class(['active' => request()->routeIs('dashboard')]) href="{{ route('dashboard') }}"><span class="ic"><x-icon name="home"/></span><span>{{ __('agencyos.dashboard.page_title') }}</span></a>
+            @foreach($mainNav as $item)
+                @php([$href, $icon, $label, $active] = $navLink($item))
+                <a @class(['active' => $active]) href="{{ $href }}"><span class="ic"><x-icon :name="$icon"/></span><span>{{ $label }}</span></a>
+            @endforeach
             <div class="nav-label">{{ app()->isLocale('ar') ? 'مساحة العمل' : 'Workspace' }}</div>
-            @foreach($workspaceNav as [$screen, $icon, $label])
-                @if(str_starts_with($screen, 'real:'))
-                    @php
-                        $routeKey = substr($screen, 5);
-                        $isMyTasks = str_ends_with($routeKey, ':my');
-                        $routeName = $isMyTasks ? substr($routeKey, 0, -3) : $routeKey;
-                        $href = route($routeName, $isMyTasks ? ['view' => 'my'] : []);
-                        $routePrefix = explode('.', $routeName)[0];
-                        $isActive = request()->routeIs($routePrefix.'.*') && ($isMyTasks === (request()->query('view') === 'my'));
-                    @endphp
-                    <a @class(['active' => $isActive]) href="{{ $href }}"><span class="ic"><x-icon :name="$icon"/></span><span>{{ $label }}</span></a>
-                @else
-                    @php
-                        [$screenName, $query] = array_pad(explode('?', $screen, 2), 2, null);
-                        $href = $uiUrl($screenName).($query ? '?'.$query : '');
-                    @endphp
-                    <a @class(['active' => $currentScreen === $screenName]) href="{{ $href }}"><span class="ic"><x-icon :name="$icon"/></span><span>{{ $label }}</span></a>
-                @endif
+            @foreach($workspaceNav as $item)
+                @php([$href, $icon, $label, $active] = $navLink($item))
+                <a @class(['active' => $active]) href="{{ $href }}"><span class="ic"><x-icon :name="$icon"/></span><span>{{ $label }}</span></a>
             @endforeach
             <a @class(['active' => request()->routeIs('notifications.*')]) href="{{ route('notifications.index') }}">
                 <span class="ic"><x-icon name="bell"/></span><span>{{ app()->isLocale('ar') ? 'الإشعارات' : 'Notifications' }}</span>
@@ -128,31 +166,29 @@
             </a>
             <a @class(['active' => request()->routeIs('profile.*')]) href="{{ route('profile.edit') }}"><span class="ic"><x-icon name="user"/></span><span>{{ app()->isLocale('ar') ? 'الملف الشخصي' : 'Profile' }}</span></a>
         </nav>
-        <div class="sidebar-foot">v1.1 · Africa/Cairo · Laravel</div>
+        <div class="sidebar-foot">
+            <form class="logout-form" method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button class="sidebar-logout" type="submit"><x-icon name="log-out"/><span>{{ __('agencyos.common.logout') }}</span></button>
+            </form>
+            <div class="sidebar-version">v1.1 · Africa/Cairo · Laravel</div>
+        </div>
     </aside>
     <div class="main">
-        <header class="topbar">
-            <button class="burger" id="burger" type="button" aria-label="Menu"><x-icon name="menu"/></button>
-            @if($role !== 'admin')
-                <form class="searchbox" method="GET" action="{{ route('search.index') }}">
-                    <span class="ic"><x-icon name="search"/></span>
-                    <input type="search" name="q" value="{{ request('q') }}" placeholder="{{ app()->isLocale('ar') ? 'البحث في النظام...' : 'Search Agency OS...' }}">
-                </form>
-            @else
-                <div class="searchbox"></div>
-            @endif
-            <div class="topbar-actions">
-                <form class="language-form" method="POST" action="{{ route('locale.update') }}">@csrf
-                    <div class="language-switch" data-active="{{ app()->getLocale() }}">
-                        <button type="submit" name="locale" value="en"><span class="lang-choice lang-en">EN</span></button>
-                        <button type="submit" name="locale" value="ar"><span class="lang-choice lang-ar">العربية</span></button>
-                    </div>
-                </form>
-                <a class="icon-btn" href="{{ route('notifications.index') }}" aria-label="Notifications"><x-icon name="bell" class="ic"/>@if($unreadNotificationCount > 0)<sup>{{ $unreadNotificationCount }}</sup>@endif</a>
-                <div class="userbox"><div class="avatar">{{ $initials ?: 'U' }}</div><div><div class="uname">{{ $currentUser?->full_name ?? $currentUser?->username }}</div><div class="urole">{{ $roleLabel }}</div></div></div>
-                <form class="logout-form" method="POST" action="{{ route('logout') }}">@csrf<button class="lang-btn" type="submit">{{ __('agencyos.common.logout') }}</button></form>
+        @hasSection('page_header')
+            {{-- A page that supplies its own greeting (currently: the dashboard) renders
+                 title + controls on ONE transparent row instead of the chrome bar below
+                 — no separate bar, no second block further down the page. --}}
+            <div class="page-header-row">
+                <button class="burger" id="burger" type="button" aria-label="Menu"><x-icon name="menu"/></button>
+                @yield('page_header')
             </div>
-        </header>
+        @else
+            <header class="topbar">
+                <button class="burger" id="burger" type="button" aria-label="Menu"><x-icon name="menu"/></button>
+                <x-topbar-controls/>
+            </header>
+        @endif
         @if($currentUser && $currentUser->email_verified_at === null)
             <div class="alert alert-danger" style="margin:16px 16px 0">
                 <div>
@@ -179,5 +215,6 @@ document.addEventListener('click',function(e){
 var burger=document.getElementById('burger');
 if(burger){burger.addEventListener('click',function(){document.body.classList.toggle('nav-open');if(document.body.classList.contains('nav-open')){var s=document.createElement('div');s.className='scrim';s.addEventListener('click',function(){document.body.classList.remove('nav-open');s.remove();});document.body.appendChild(s);}});}
 </script>
+<x-gemini-widget/>
 </body>
 </html>

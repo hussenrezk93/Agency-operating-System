@@ -33,15 +33,21 @@ class UserUiTest extends TestCase
     public function test_the_user_list_is_scoped_by_the_viewing_actor(): void
     {
         $employee = User::factory()->role(RoleCode::Employee)->inDepartment($this->marketing)->create();
+        // A second Admin, distinct from the acting one — the acting user's own name
+        // is always visible in the topbar, so it can't be used to prove the list itself
+        // excludes Admin accounts.
+        $otherAdmin = User::factory()->role(RoleCode::Admin)->create();
 
+        // Admin manages every non-Admin role — Manager, TL, and Employee alike.
         $asAdmin = $this->actingAs($this->admin)->get('/users');
         $asAdmin->assertOk()->assertViewIs('users.index');
         $asAdmin->assertSee($this->manager->full_name);
-        $asAdmin->assertDontSee($employee->full_name);
+        $asAdmin->assertSee($employee->full_name);
+        $asAdmin->assertDontSee($otherAdmin->full_name);
 
         $asManager = $this->actingAs($this->manager)->get('/users');
         $asManager->assertSee($employee->full_name);
-        $asManager->assertDontSee($this->admin->full_name);
+        $asManager->assertDontSee($otherAdmin->full_name);
     }
 
     public function test_the_create_form_adapts_to_the_actor_and_a_classic_submit_shows_the_temporary_password(): void
@@ -60,6 +66,30 @@ class UserUiTest extends TestCase
         $response->assertRedirect(route('users.index'));
         $response->assertSessionHas('temporary_password');
         $this->assertDatabaseHas('users', ['username' => 'classic.manager', 'must_change_password' => true]);
+    }
+
+    public function test_the_admin_create_form_offers_every_manageable_role(): void
+    {
+        $response = $this->actingAs($this->admin)->get('/users/create');
+
+        $response->assertOk();
+        $response->assertSee('value="manager"', false);
+        $response->assertSee('value="tl"', false);
+        $response->assertSee('value="employee"', false);
+    }
+
+    public function test_admin_creates_a_team_leader_via_the_classic_form(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/users', [
+            'full_name' => 'Admin Classic TL',
+            'username' => 'admin.classic.tl',
+            'personal_email' => 'admin.classic.tl@dev.local',
+            'role' => 'tl',
+            'department_id' => $this->marketing->id,
+        ]);
+
+        $response->assertRedirect(route('users.index'));
+        $this->assertDatabaseHas('users', ['username' => 'admin.classic.tl', 'department_id' => $this->marketing->id]);
     }
 
     public function test_a_manager_creates_a_team_leader_via_the_classic_form(): void

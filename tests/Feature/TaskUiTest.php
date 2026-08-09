@@ -74,6 +74,55 @@ class TaskUiTest extends TestCase
         $response->assertDontSee($otherTask->task_code);
     }
 
+    /**
+     * The sidebar's "My tasks" nav item for TL links to /tasks?view=my — by default a
+     * TL sees every task with a step in their department (like the plain "Tasks" item),
+     * so this proves the `view=my` query actually narrows that down to only tasks the
+     * TL has self-assigned. Merely having created a task (without self-assigning any
+     * step) does NOT count as "mine" — creating on behalf of the department and
+     * personally doing the work are different things.
+     */
+    public function test_a_team_leader_can_filter_the_task_list_to_only_their_own(): void
+    {
+        [$ownTask] = $this->taskInProgress($this->marketing, $this->leader, $this->leader);
+        [$createdNotAssigned] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $otherTask = $this->newTask($this->marketing, $this->manager);
+
+        $unfiltered = $this->actingAs($this->leader)->get('/tasks');
+        $unfiltered->assertSee(__('agencyos.tasks.index.title'));
+        $unfiltered->assertSee($ownTask->task_code);
+        $unfiltered->assertSee($createdNotAssigned->task_code);
+        $unfiltered->assertSee($otherTask->task_code);
+
+        $filtered = $this->actingAs($this->leader)->get('/tasks?view=my');
+        $filtered->assertSee(__('agencyos.tasks.index.title_my'));
+        $filtered->assertSee($ownTask->task_code);
+        $filtered->assertDontSee($createdNotAssigned->task_code);
+        $filtered->assertDontSee($otherTask->task_code);
+    }
+
+    /**
+     * The sidebar's "Review queue" item for TL used to open a disconnected prototype
+     * screen (tl-review.html, fake data, fake user) instead of anything real. It now
+     * links to the real Tasks list pre-filtered to Under Review — this proves both the
+     * link itself and that the filter actually narrows to only what's awaiting review.
+     */
+    public function test_the_sidebar_review_queue_link_opens_the_real_under_review_tasks(): void
+    {
+        [$underReviewTask, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $this->workflow()->addOutput($step, $this->employee, 'https://drive.example.com/out');
+        $this->workflow()->submit($step, $this->employee);
+        $inProgressTask = $this->newTask($this->marketing, $this->manager);
+
+        $dashboard = $this->actingAs($this->leader)->get(route('dashboard'));
+        $dashboard->assertSee(route('tasks.index', ['status' => 'under_review']), false);
+
+        $reviewQueue = $this->actingAs($this->leader)->get('/tasks?status=under_review');
+        $reviewQueue->assertOk();
+        $reviewQueue->assertSee($underReviewTask->task_code);
+        $reviewQueue->assertDontSee($inProgressTask->task_code);
+    }
+
     public function test_the_create_form_renders_for_manager_and_team_leader_but_not_employee(): void
     {
         $this->actingAs($this->manager)->get('/tasks/create')->assertOk()->assertViewIs('tasks.create');
@@ -101,10 +150,10 @@ class TaskUiTest extends TestCase
         $this->assertSame($this->marketing->id, $task->currentStep->department_id);
     }
 
-    /** BRD §8 — a task needs one or more reference links. */
-    public function test_creating_a_task_with_no_reference_links_is_rejected(): void
+    /** Reference links are optional — a task may be created and published with none at all. */
+    public function test_creating_a_task_with_no_reference_links_succeeds(): void
     {
-        $this->actingAs($this->manager)->post('/tasks', [
+        $response = $this->actingAs($this->manager)->post('/tasks', [
             'title' => 'Linkless task',
             'brief' => 'No reference links attached.',
             'first_department_id' => $this->marketing->id,
@@ -113,9 +162,11 @@ class TaskUiTest extends TestCase
                 ['url' => '', 'label' => ''],
                 ['url' => '', 'label' => ''],
             ],
-        ])->assertSessionHasErrors('reference_links');
+        ]);
 
-        $this->assertDatabaseMissing('tasks', ['title' => 'Linkless task']);
+        $task = Task::where('title', 'Linkless task')->firstOrFail();
+        $response->assertRedirect(route('tasks.show', $task));
+        $this->assertSame(0, $task->referenceLinks()->count());
     }
 
     /** BRD §11 — editing the deadline alone (same assignee) needs no reason. */
@@ -168,6 +219,102 @@ class TaskUiTest extends TestCase
         $asLeader->assertOk();
         $asLeader->assertViewHas('canReview', true);
         $asLeader->assertViewHas('canAddOutput', false);
+    }
+
+    /**
+     * TaskWorkflowService::sendToNextDepartment()/completeTask() both reject a step that
+     * isn't already Approved (422) — the "Send to next department" / "Finish task"
+     * controls must not render next to Approve/Request changes while a step still
+     * awaits review, only once it has actually been approved.
+     */
+    public function test_transfer_and_finish_only_appear_once_the_step_is_approved(): void
+    {
+        [$task, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $this->workflow()->addOutput($step, $this->employee, 'https://drive.example.com/out');
+        $this->workflow()->submit($step, $this->employee);
+
+        $beforeApproval = $this->actingAs($this->leader)->get(route('tasks.show', $task));
+        $beforeApproval->assertSee(__('agencyos.tasks.actions.approve'));
+        $beforeApproval->assertDontSee(__('agencyos.tasks.actions.transfer'));
+        $beforeApproval->assertDontSee(__('agencyos.tasks.actions.finish'));
+
+        $this->workflow()->approve($step, $this->leader);
+
+        $afterApproval = $this->actingAs($this->leader)->get(route('tasks.show', $task));
+        $afterApproval->assertSee(__('agencyos.tasks.actions.transfer'));
+        $afterApproval->assertSee(__('agencyos.tasks.actions.finish'));
+    }
+
+    /**
+     * TaskStepPolicy::review() is deliberately state-agnostic (state belongs to the
+     * service) — approve()/requestChanges() both require Under Review (422 otherwise),
+     * so Approve/Request changes must not render before the assignee has submitted,
+     * even though the TL is already authorized to review in principle.
+     */
+    public function test_approve_and_request_changes_do_not_appear_before_a_submission(): void
+    {
+        $task = $this->newTask($this->marketing, $this->manager);
+        $step = $task->currentStep;
+
+        $waitingAssignment = $this->actingAs($this->leader)->get(route('tasks.show', $task));
+        $waitingAssignment->assertDontSee(__('agencyos.tasks.actions.approve'));
+        $waitingAssignment->assertDontSee(__('agencyos.tasks.actions.request_changes'));
+
+        $this->workflow()->assign($step, $this->leader, $this->employee, now()->toDateString(), now()->addDays(3)->toDateString());
+
+        $inProgress = $this->actingAs($this->leader)->get(route('tasks.show', $task));
+        $inProgress->assertDontSee(__('agencyos.tasks.actions.approve'));
+        $inProgress->assertDontSee(__('agencyos.tasks.actions.request_changes'));
+
+        $this->workflow()->addOutput($step, $this->employee, 'https://drive.example.com/out');
+        $this->workflow()->submit($step, $this->employee);
+
+        $underReview = $this->actingAs($this->leader)->get(route('tasks.show', $task));
+        $underReview->assertSee(__('agencyos.tasks.actions.approve'));
+        $underReview->assertSee(__('agencyos.tasks.actions.request_changes'));
+    }
+
+    /**
+     * addOutput()/submit() both require In Progress or Changes Requested (422
+     * otherwise). submit() does NOT end the assignment — only approve() does — so the
+     * employee stays the step's "current assignee" straight through Under Review too.
+     * "Add output"/"Submit" must not still render once they've already submitted.
+     */
+    public function test_add_output_and_submit_do_not_appear_once_already_submitted(): void
+    {
+        [$task, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $this->workflow()->addOutput($step, $this->employee, 'https://drive.example.com/out');
+
+        $inProgress = $this->actingAs($this->employee)->get(route('tasks.show', $task));
+        $inProgress->assertSee(__('agencyos.tasks.actions.add_output_button'));
+        $inProgress->assertSee(__('agencyos.tasks.actions.submit_work'));
+
+        $this->workflow()->submit($step, $this->employee);
+
+        $underReview = $this->actingAs($this->employee)->get(route('tasks.show', $task));
+        $underReview->assertDontSee(__('agencyos.tasks.actions.add_output_button'));
+        $underReview->assertDontSee(__('agencyos.tasks.actions.submit_work'));
+    }
+
+    /**
+     * redirect() runs through the WorkflowStatus transition map, where Approved allows
+     * no further transitions — TaskHoldRedirectTest already proves the service rejects
+     * this (422/IllegalTransitionException); this proves the button itself stops
+     * rendering too, once the step reaches that state.
+     */
+    public function test_redirect_does_not_appear_once_the_step_is_approved(): void
+    {
+        [$task, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+
+        $beforeApproval = $this->actingAs($this->manager)->get(route('tasks.show', $task));
+        $beforeApproval->assertSee(__('agencyos.tasks.actions.redirect_task'));
+
+        $this->workflow()->addOutput($step, $this->employee, 'https://drive.example.com/out');
+        $this->workflow()->submit($step, $this->employee);
+        $this->workflow()->approve($step, $this->leader);
+
+        $afterApproval = $this->actingAs($this->manager)->get(route('tasks.show', $task));
+        $afterApproval->assertDontSee(__('agencyos.tasks.actions.redirect_task'));
     }
 
     public function test_a_classic_workflow_violation_redirects_back_with_an_error_not_json(): void

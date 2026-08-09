@@ -16,6 +16,13 @@ class EnsurePasswordChanged
         if ($user !== null
             && $user->must_change_password
             && ! $request->routeIs('password.forced', 'password.forced.store', 'logout')) {
+            // A fetch()/AJAX caller (e.g. the assistant widget) follows a redirect
+            // silently and ends up trying to JSON-parse the forced-password HTML page,
+            // which fails opaquely. Content-negotiate instead of always redirecting.
+            if ($request->expectsJson()) {
+                return response()->json(['error' => __('agencyos.password.must_change_first')], 409);
+            }
+
             return redirect()->route('password.forced');
         }
 

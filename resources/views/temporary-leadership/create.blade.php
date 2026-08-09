@@ -1,32 +1,28 @@
 @extends('layouts.app')
 @section('title', __('agencyos.temporary_leadership.create.title'))
 @section('page', 'temporary-tl')
+@section('page_header')
+    <div class="page-head"><div><h1>{{ __('agencyos.temporary_leadership.create.title') }}</h1></div></div>
+    <x-topbar-controls/>
+@endsection
 @section('content')
 <main class="page">
-    <div class="page-head"><div><h1>{{ __('agencyos.temporary_leadership.create.title') }}</h1></div></div>
-
     <form method="POST" action="{{ route('temporary-leadership.store') }}" class="card form-card">
         @csrf
         <div class="form-section">
             <div class="form-grid">
                 <div class="field @error('department_id') bad @enderror">
                     <label class="req">{{ __('agencyos.temporary_leadership.fields.department') }}</label>
-                    <select name="department_id" required>
-                        <option value="">—</option>
-                        @foreach($departments as $department)
-                            <option value="{{ $department->id }}" @selected((string) old('department_id') === (string) $department->id)>{{ $department->name }}</option>
-                        @endforeach
-                    </select>
+                    <x-form-select name="department_id" required
+                        placeholder="—" :options="$departments->pluck('name', 'id')"
+                        :selected="old('department_id')"/>
                     @error('department_id')<div class="err">{{ $message }}</div>@enderror
                 </div>
                 <div class="field @error('user_id') bad @enderror">
                     <label class="req">{{ __('agencyos.temporary_leadership.fields.temp_leader') }}</label>
-                    <select name="user_id" required>
-                        <option value="">—</option>
-                        @foreach($candidates as $candidate)
-                            <option value="{{ $candidate->id }}" @selected((string) old('user_id') === (string) $candidate->id)>{{ $candidate->full_name }} &middot; {{ __('agencyos.roles.'.$candidate->role->code) }}</option>
-                        @endforeach
-                    </select>
+                    <x-form-select name="user_id" required placeholder="—"
+                        :options="$candidates->mapWithKeys(fn ($candidate) => [$candidate->id => $candidate->full_name.' · '.__('agencyos.roles.'.$candidate->role->code)])"
+                        :selected="old('user_id')"/>
                     @error('user_id')<div class="err">{{ $message }}</div>@enderror
                 </div>
                 <div class="field @error('start_date') bad @enderror">

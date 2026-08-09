@@ -20,6 +20,9 @@ use Illuminate\Validation\ValidationException;
  */
 class UserService
 {
+    /** Every newly created account gets this password and must change it on first login. */
+    private const DEFAULT_TEMPORARY_PASSWORD = 'Demo123!';
+
     public function __construct(
         private readonly AuditService $audit,
         private readonly EmailVerificationService $emailVerification,
@@ -35,7 +38,7 @@ class UserService
     {
         $this->assertDepartmentRule($role, $department);
 
-        $temporaryPassword = Str::password(12);
+        $temporaryPassword = self::DEFAULT_TEMPORARY_PASSWORD;
 
         $user = User::create($attributes + [
             'role_id' => Role::where('code', $role->value)->firstOrFail()->id,

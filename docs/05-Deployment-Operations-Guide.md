@@ -138,22 +138,44 @@ repository can do it for you.
 Two things must run continuously in every environment, or the application silently stops
 doing time-driven work (deadlines don't reclassify, digests don't send, temporary
 leadership periods don't start/end) while still looking fully functional to anyone
-clicking around:
+clicking around. **Hostinger shared/business hosting cannot run a persistent process at
+all** (no SSH, no systemd/Supervisor access) — both the queue worker and the scheduler
+have to run as short-lived cron ticks instead, set up through cPanel's "Cron Jobs" tool,
+not a crontab file edited by hand.
 
 **Queue worker** — approved decision Q28: email never blocks a request.
-```bash
-php artisan queue:work --tries=5 --backoff=60
-```
-Run this under a process supervisor (systemd, Supervisor, etc.) that restarts it on
-crash and on deploy. `QUEUE_FAILED_DRIVER=database-uuids` is already set — check
-`failed_jobs` periodically; `agencyos:notification-retry-sweep` (below) only retries the
-two ledgers that track their own attempts (chat digests, WhatsApp invite emails), not
-arbitrary failed jobs.
+
+- **VPS / any host with process-supervisor access:**
+  ```bash
+  php artisan queue:work --tries=5 --backoff=60
+  ```
+  Run this under a process supervisor (systemd, Supervisor, etc.) that restarts it on
+  crash and on deploy.
+
+- **Hostinger shared hosting (no persistent processes) — cPanel Cron Jobs, every minute:**
+  ```bash
+  cd /home/USERNAME/agencyos && php artisan queue:work --stop-when-empty --tries=5 --backoff=60 >> /dev/null 2>&1
+  ```
+  `--stop-when-empty` is what makes this safe to run from cron: the worker drains
+  whatever is queued and exits on its own, rather than staying resident — so a plain
+  every-minute cron tick approximates a real worker (up to ~1 minute of added latency
+  on queued email/broadcast jobs, never more) without needing a daemon at all. Two
+  ticks can safely overlap (a job already being processed isn't picked up twice), so
+  there's no need for `withoutOverlapping()`-style locking here.
+
+Either way, `QUEUE_FAILED_DRIVER=database-uuids` is already set — check `failed_jobs`
+periodically; `agencyos:notification-retry-sweep` (below) only retries the two ledgers
+that track their own attempts (chat digests, WhatsApp invite emails), not arbitrary
+failed jobs.
 
 **Scheduler** — one cron line, Laravel dispatches everything else from `routes/console.php`:
 ```bash
 * * * * * cd /path/to/agencyos && php artisan schedule:run >> /dev/null 2>&1
 ```
+On Hostinger, add this exact line as a cPanel Cron Job ("Every Minute") pointing at your
+account's actual path (cPanel shows it, typically `/home/USERNAME/agencyos` or under
+`public_html`) — cPanel's cron IS a real, standard cron, so this line works unchanged;
+only the queue worker needed a different invocation above, not the scheduler itself.
 
 Everything currently scheduled (all `withoutOverlapping()`, all safe to miss-and-catch-up):
 

@@ -6,12 +6,13 @@ use App\Enums\RoleCode;
 use App\Models\User;
 
 /**
- * CONFIRMED slice of BRD §15 (account administration boundaries):
- *   Admin  → manages MANAGER accounts only.
+ * Account administration boundaries (originally BRD §15's Admin→Manager-only /
+ * Manager→TL,Employee split; widened by explicit product decision to give Admin full
+ * account administration — Admin now manages every non-Admin role, same range as
+ * Manager plus Manager accounts themselves):
+ *   Admin  → manages MANAGER, TEAM LEADER, and EMPLOYEE accounts.
  *   Manager→ manages TL + EMPLOYEE accounts.
  *   Nobody manages Admins through the app; TL/Employee manage nobody.
- * User CRUD screens themselves are a later phase — the policy exists so the rule
- * lives in exactly one place from day one.
  */
 class UserPolicy
 {
@@ -25,7 +26,7 @@ class UserPolicy
         $subjectRole = RoleCode::from($subject->role->code);
 
         if ($actor->hasRole(RoleCode::Admin)) {
-            return $subjectRole === RoleCode::Manager;
+            return in_array($subjectRole, [RoleCode::Manager, RoleCode::TeamLeader, RoleCode::Employee], true);
         }
 
         if ($actor->hasRole(RoleCode::Manager)) {
@@ -40,14 +41,11 @@ class UserPolicy
         return $actor->hasRole(RoleCode::Admin, RoleCode::Manager);
     }
 
-    /**
-     * The same Admin→Manager / Manager→TL,Employee mapping as manage(), applied at
-     * creation time when there is no subject user yet — only the target role.
-     */
+    /** The same manage() role range, applied at creation time when there is no subject yet. */
     public function createWithRole(User $actor, RoleCode $targetRole): bool
     {
         if ($actor->hasRole(RoleCode::Admin)) {
-            return $targetRole === RoleCode::Manager;
+            return in_array($targetRole, [RoleCode::Manager, RoleCode::TeamLeader, RoleCode::Employee], true);
         }
 
         if ($actor->hasRole(RoleCode::Manager)) {

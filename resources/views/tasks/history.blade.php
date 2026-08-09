@@ -1,8 +1,7 @@
 @extends('layouts.app')
 @section('title', __('agencyos.tasks.show.timeline'))
 @section('page', 'tasks')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <div class="small muted mono">{{ $task->task_code }}</div>
@@ -10,7 +9,10 @@
         </div>
         <div class="page-actions"><a class="small" href="{{ route('tasks.show', $task) }}">{{ __('agencyos.tasks.show.back_to_tasks') }}</a></div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     <div class="card">
         <div class="card-head"><h2>{{ __('agencyos.tasks.show.timeline') }}</h2></div>
         <div class="card-body">

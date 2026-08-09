@@ -1,7 +1,6 @@
 @extends('layouts.app')
 @section('title', __('agencyos.chat.index.title'))
 @section('page', 'chat')
-@section('content')
 @php
     $actorId = auth()->id();
 
@@ -44,15 +43,25 @@
 
         return $msg->isDeleted() ? __('agencyos.chat.index.deleted_placeholder') : ($msg->link_url ? '🔗 '.$msg->link_url : $msg->body);
     };
+
+    // For a group with no distinguishing title of its own (all_tls, manager_tls — and
+    // department_group/employee_tl/direct_tl/direct once they somehow lack one too),
+    // $titleFor() already falls back to the type label. Showing that same label again
+    // underneath as a "subtitle" is a plain duplicate, not extra information.
+    $typeLabelFor = fn ($conv) => __('agencyos.chat.type.'.$conv->type->value);
+    $showsTypeAsSubtitle = fn ($conv) => $titleFor($conv) !== $typeLabelFor($conv);
 @endphp
-<main class="page chatpage @if($conversation) chatpage-thread @endif" style="padding-bottom:0">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.chat.index.title') }}</h1>
             <div class="page-sub">{{ __('agencyos.chat.index.subtitle') }}</div>
         </div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page chatpage @if($conversation) chatpage-thread @endif" style="padding-bottom:0">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
@@ -72,7 +81,9 @@
                         <span class="avatar sm">{{ $conv->title || in_array($conv->type->value, ['department_group','all_tls','manager_tls'], true) ? $typeIcon[$conv->type->value] : $initialsOf($titleFor($conv)) }}</span>
                         <div style="flex:1;min-width:0">
                             <div class="cname">{{ $titleFor($conv) }}</div>
-                            <div class="clast">{{ $previewFor($conv) ?? __('agencyos.chat.type.'.$conv->type->value) }}</div>
+                            @if($previewFor($conv) || $showsTypeAsSubtitle($conv))
+                                <div class="clast">{{ $previewFor($conv) ?? $typeLabelFor($conv) }}</div>
+                            @endif
                         </div>
                         @if($conv->latestMessage)
                             <span class="ctime">{{ $conv->latestMessage->created_at->format('H:i') }}</span>
@@ -89,12 +100,8 @@
                             <form method="POST" action="{{ route('chat.direct') }}">
                                 @csrf
                                 <div class="field @error('user_id') bad @enderror">
-                                    <select name="user_id" required>
-                                        <option value="">{{ __('agencyos.chat.index.pick_leader') }}</option>
-                                        @foreach($directCandidates as $leader)
-                                            <option value="{{ $leader->id }}">{{ $leader->full_name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <x-form-select name="user_id" required
+                                        :placeholder="__('agencyos.chat.index.pick_leader')" :options="$directCandidates->pluck('full_name', 'id')"/>
                                     @error('user_id')<div class="err">{{ $message }}</div>@enderror
                                 </div>
                                 <button type="submit" class="btn btn-outline btn-sm">{{ __('agencyos.chat.index.start_button') }}</button>
@@ -171,7 +178,9 @@
                     <span class="avatar">{{ $conversation->title || in_array($conversation->type->value, ['department_group','all_tls','manager_tls'], true) ? $typeIcon[$conversation->type->value] : $initialsOf($titleFor($conversation)) }}</span>
                     <div>
                         <b>{{ $titleFor($conversation) }}</b>
-                        <div class="small muted">{{ __('agencyos.chat.type.'.$conversation->type->value) }}</div>
+                        @if($showsTypeAsSubtitle($conversation))
+                            <div class="small muted">{{ $typeLabelFor($conversation) }}</div>
+                        @endif
                     </div>
                 </div>
 

@@ -158,6 +158,22 @@ class ApprovedUiController extends Controller
         abort_if($relative === '' || str_contains($relative, '..'), 404);
         abort_unless(preg_match('/\A[A-Za-z0-9._\/-]+\z/', $relative) === 1, 404);
 
+        // A prototype-only screen (still awaiting its Blade rewrite) used to load its own
+        // frozen copy of agencyos.css, which drifted from the real one as the migrated
+        // pages picked up shadows/radius/transition refinements over time — the same
+        // class names, just visibly out of date. Serving the live file here instead means
+        // there is exactly one design system, not two that can silently diverge again.
+        if ($relative === 'agencyos.css') {
+            $contents = file_get_contents(public_path('assets/agencyos.css'));
+            abort_if($contents === false, 500);
+
+            return response($contents, 200, [
+                'Content-Type' => 'text/css; charset=UTF-8',
+                'Cache-Control' => 'private, max-age=3600',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }
+
         $root = realpath(resource_path('prototype/assets'));
         $path = realpath(resource_path('prototype/assets/'.$relative));
 

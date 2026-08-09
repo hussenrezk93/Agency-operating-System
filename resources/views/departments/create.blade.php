@@ -1,10 +1,12 @@
 @extends('layouts.app')
 @section('title', __('agencyos.departments.create.title'))
 @section('page', 'departments')
+@section('page_header')
+    <div class="page-head"><div><h1>{{ __('agencyos.departments.create.title') }}</h1></div></div>
+    <x-topbar-controls/>
+@endsection
 @section('content')
 <main class="page">
-    <div class="page-head"><div><h1>{{ __('agencyos.departments.create.title') }}</h1></div></div>
-
     <form method="POST" action="{{ route('departments.store') }}" class="card form-card">
         @csrf
         <div class="form-section">
@@ -16,12 +18,9 @@
                 </div>
                 <div class="field @error('primary_leader_id') bad @enderror">
                     <label class="req">{{ __('agencyos.departments.fields.primary_leader') }}</label>
-                    <select name="primary_leader_id" required>
-                        <option value="">—</option>
-                        @foreach($leaders as $leader)
-                            <option value="{{ $leader->id }}" @selected((string) old('primary_leader_id') === (string) $leader->id)>{{ $leader->full_name }}</option>
-                        @endforeach
-                    </select>
+                    <x-form-select name="primary_leader_id" required
+                        placeholder="—" :options="$leaders->pluck('full_name', 'id')"
+                        :selected="old('primary_leader_id')"/>
                     @error('primary_leader_id')<div class="err">{{ $message }}</div>@enderror
                     <div class="hint">{{ __('agencyos.departments.create.leader_hint') }}</div>
                 </div>

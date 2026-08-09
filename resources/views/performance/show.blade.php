@@ -1,17 +1,19 @@
 @extends('layouts.app')
 @section('title', __('agencyos.performance.title'))
 @section('page', 'performance')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ $isSelf ? __('agencyos.performance.my_score') : $subject->full_name }}</h1>
             <div class="page-sub">{{ now()->translatedFormat('F Y') }}</div>
         </div>
     </div>
-
-    <div class="grid-2" style="align-items:start">
-        <div class="card">
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
+    <div class="grid grid-2" style="align-items:start">
+        <div class="card glass-dark">
             <div class="card-head"><h2>{{ __('agencyos.performance.this_month') }}</h2></div>
             <div class="card-body">
                 <div class="k-value" style="font-size:48px">{{ $current?->displayScore() ?? 'N/A' }}</div>
@@ -26,7 +28,7 @@
             </div>
         </div>
 
-        <div class="card">
+        <div class="card glass-dark">
             <div class="card-head"><h2>{{ __('agencyos.performance.history') }}</h2></div>
             <div class="card-body">
                 @forelse($history as $snapshot)
@@ -38,7 +40,7 @@
         </div>
     </div>
 
-    <div class="card" style="margin-top:18px">
+    <div class="card glass-dark" style="margin-top:18px">
         <div class="card-head"><h2>{{ __('agencyos.performance.recent_steps') }}</h2></div>
         <div class="table-wrap">
             <table>

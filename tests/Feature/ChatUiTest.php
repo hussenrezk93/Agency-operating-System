@@ -44,6 +44,39 @@ class ChatUiTest extends TestCase
         }
     }
 
+    /**
+     * all_tls/manager_tls have no distinguishing title of their own — $titleFor()
+     * already falls back to the type label ("All Team Leaders"), so the list row must
+     * not print that same label a second time underneath as if it were a subtitle. A
+     * department_group DOES have a real distinguishing title (the department name), so
+     * its type label underneath is genuinely extra information and must still show.
+     */
+    public function test_a_conversation_with_no_distinct_title_does_not_repeat_its_type_label(): void
+    {
+        $this->chat->resolveAllTlsConversation();
+
+        $response = $this->actingAs($this->leader)->get(route('chat.index'));
+
+        $response->assertOk();
+        $response->assertSeeInOrder(['All Team Leaders'], escape: false);
+        $this->assertSame(
+            1,
+            substr_count($response->getContent(), 'All Team Leaders'),
+            'the type label must appear exactly once, not once as the title and again as the subtitle',
+        );
+    }
+
+    public function test_a_department_group_still_shows_its_type_label_alongside_the_department_name(): void
+    {
+        $conversation = $this->chat->resolveDepartmentGroupConversation($this->marketing);
+
+        $response = $this->actingAs($this->leader)->get(route('chat.show', $conversation));
+
+        $response->assertOk();
+        $response->assertSee($this->marketing->name);
+        $response->assertSee('Department group');
+    }
+
     public function test_an_admin_can_open_the_chat_page_but_sees_no_group_conversations(): void
     {
         $admin = $this->makeAdmin();

@@ -1,10 +1,12 @@
 @extends('layouts.app')
 @section('title', __('agencyos.clients.edit.title'))
 @section('page', 'clients')
+@section('page_header')
+    <div class="page-head"><div><h1>{{ __('agencyos.clients.edit.title') }}</h1><div class="page-sub">{{ $client->name }}</div></div></div>
+    <x-topbar-controls/>
+@endsection
 @section('content')
 <main class="page">
-    <div class="page-head"><div><h1>{{ __('agencyos.clients.edit.title') }}</h1><div class="page-sub">{{ $client->name }}</div></div></div>
-
     <form method="POST" action="{{ route('clients.update', $client) }}" class="card form-card">
         @csrf
         @method('PATCH')

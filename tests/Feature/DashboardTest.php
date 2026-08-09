@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\DeadlineStatus;
 use App\Models\Department;
+use App\Models\Task;
+use App\Models\TaskStatusHistory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\BuildsWorkflowScenarios;
@@ -89,7 +92,9 @@ class DashboardTest extends TestCase
             return $byEmployee->flatten()->every(fn ($a) => $a->first_seen_at === null);
         });
 
-        $this->actingAs($this->employee)->getJson(route('tasks.mine'));
+        // The real page an employee lands on via the "My tasks" sidebar link — NOT
+        // tasks.mine, which is a JSON endpoint nothing in the UI actually calls.
+        $this->actingAs($this->employee)->get('/tasks');
 
         $after = $this->actingAs($this->leader)->get(route('dashboard'));
         $after->assertViewHas('tasksByEmployee', function ($byEmployee) {
@@ -104,5 +109,162 @@ class DashboardTest extends TestCase
         $response = $this->actingAs($admin)->get(route('dashboard'));
 
         $response->assertOk()->assertViewIs('dashboard');
+    }
+
+    /**
+     * BRD §15 still stands: Admin gets no task/project CONTENT. The later product
+     * decision only adds aggregate counts per department — this proves both halves at
+     * once, real counts by department AND no titles/links leaking through.
+     */
+    public function test_the_admin_dashboard_shows_department_counts_but_no_task_content(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->newTask($this->marketing, $this->manager); // waiting assignment
+        $this->taskInProgress($this->design, $this->makeTeamLeader($this->design), $this->makeEmployee($this->design));
+        [$reviewTask] = $this->taskUnderReview($this->marketing, $this->leader, $this->employee);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertOk()->assertViewIs('dashboard');
+        $response->assertViewHas('departmentSummaries', function ($summaries) {
+            $marketing = collect($summaries)->firstWhere('name', 'Marketing');
+            $design = collect($summaries)->firstWhere('name', 'Design');
+
+            return $marketing['waitingAssignment'] === 1
+                && $marketing['underReview'] === 1
+                && $marketing['headcount'] === 2 // the TL + employee made in setUp()
+                && $design['inProgress'] === 1;
+        });
+
+        // No task title, brief, or link ever reaches this page.
+        $response->assertDontSee($reviewTask->title);
+        $response->assertDontSee(route('tasks.show', $reviewTask));
+
+        // The headline row is just the same per-department data, summed.
+        $response->assertViewHas('totals', fn ($totals) => $totals['waitingAssignment'] === 1
+            && $totals['inProgress'] === 1
+            && $totals['underReview'] === 1);
+    }
+
+    /** Open-but-not-overdue only → nothing overdue yet, score reads a clean 100 / healthy. */
+    public function test_the_health_score_is_100_with_nothing_overdue(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->newTask($this->marketing, $this->manager);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertViewHas('healthScore', 100);
+        $response->assertViewHas('healthBand', 'success');
+    }
+
+    /** Every open step overdue → the worst possible ratio, banded as at-risk. */
+    public function test_the_health_score_drops_into_the_danger_band_when_everything_is_overdue(): void
+    {
+        $admin = $this->makeAdmin();
+        [, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $step->forceFill(['deadline_status' => DeadlineStatus::Overdue->value])->save();
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertViewHas('healthScore', 0);
+        $response->assertViewHas('healthBand', 'danger');
+    }
+
+    /** 14 days of [date, count] pairs, today's task included, older ones excluded. */
+    public function test_the_admin_activity_series_covers_the_last_14_days_and_counts_todays_task(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->newTask($this->marketing, $this->manager);
+        Task::factory()->create(['created_at' => now()->subDays(20)]);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertViewHas('activitySeries', function ($series) {
+            $today = collect($series)->last();
+
+            return count($series) === 14
+                && $today['date']->isToday()
+                && $today['count'] === 1;
+        });
+    }
+
+    /** A real week-over-week comparison on new-task creation, not a fabricated number. */
+    public function test_the_manager_dashboard_shows_a_real_week_over_week_new_task_trend(): void
+    {
+        Task::factory()->count(2)->create(['created_at' => now()->subDays(10)]);
+        $this->newTask($this->marketing, $this->manager);
+
+        $response = $this->actingAs($this->manager)->get(route('dashboard'));
+
+        $response->assertViewHas('newTasksTrend', fn ($trend) => $trend['current'] === 1
+            && $trend['previous'] === 2
+            && $trend['direction'] === 'down');
+    }
+
+    /** The Admin's "Recent Activity" widget is the real, existing audit log — not a stub. */
+    public function test_the_admin_dashboard_recent_activity_is_the_real_audit_log(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->newTask($this->marketing, $this->manager);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertViewHas('recentActivity', fn ($logs) => $logs->isNotEmpty()
+            && $logs->contains(fn ($log) => $log->action === 'task.created'));
+        $response->assertViewHas('newestTeamMembers', fn ($members) => $members->contains($this->leader));
+    }
+
+    /** Manager's donut is a real grouped count, and the two new list widgets are real rows. */
+    public function test_the_manager_dashboard_status_distribution_and_widgets_are_real(): void
+    {
+        $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $task = $this->newTask($this->marketing, $this->manager);
+        $this->workflow()->redirect($task, $this->manager, $this->design, 'Wrong department, correcting');
+
+        $response = $this->actingAs($this->manager)->get(route('dashboard'));
+
+        $response->assertViewHas('statusSegments', function ($segments) {
+            $inProgress = collect($segments)->firstWhere('label', __('agencyos.dashboard_admin.column_in_progress'));
+
+            return $inProgress['count'] === 1;
+        });
+        $response->assertViewHas('recentTransfers', fn ($transfers) => $transfers->count() === 1
+            && $transfers->first()->toDepartment->id === $this->design->id);
+    }
+
+    /** TL's chart/donut/trend are scoped to their OWN department, never the other one. */
+    public function test_the_tl_dashboard_widgets_are_scoped_to_their_own_department(): void
+    {
+        $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $this->taskInProgress($this->design, $this->makeTeamLeader($this->design), $this->makeEmployee($this->design));
+
+        $marketingEvents = TaskStatusHistory::where('department_id', $this->marketing->id)->count();
+        $this->assertGreaterThan(0, $marketingEvents, 'the scenario must actually generate marketing-department events');
+
+        $response = $this->actingAs($this->leader)->get(route('dashboard'));
+
+        $response->assertViewHas('activitySeries', fn ($series) => collect($series)->sum('count') === $marketingEvents);
+        $response->assertViewHas('statusSegments', function ($segments) {
+            $inProgress = collect($segments)->firstWhere('label', __('agencyos.dashboard_admin.column_in_progress'));
+
+            return $inProgress['count'] === 1;
+        });
+    }
+
+    /** Employee's donut/deadlines are free re-shapes of $openAssignments — no new query. */
+    public function test_the_employee_dashboard_status_and_deadlines_reflect_only_their_own_work(): void
+    {
+        [$task] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $task->currentStep->forceFill(['current_due_at' => now()->addDays(3)])->save();
+
+        $response = $this->actingAs($this->employee)->get(route('dashboard'));
+
+        $response->assertViewHas('statusSegments', function ($segments) {
+            $inProgress = collect($segments)->firstWhere('label', __('agencyos.dashboard_admin.column_in_progress'));
+
+            return $inProgress['count'] === 1;
+        });
+        $response->assertViewHas('upcomingDeadlines', fn ($deadlines) => $deadlines->count() === 1);
     }
 }

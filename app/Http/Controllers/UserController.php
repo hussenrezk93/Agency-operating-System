@@ -30,10 +30,12 @@ class UserController extends Controller
 
         $query = User::query()->with(['role:id,code', 'department:id,name'])->orderBy('full_name');
 
-        // BRD §15: an Admin's account list is scoped to Managers, a Manager's to TL/Employee
-        // — the same boundary UserPolicy::manage() already enforces per-row.
+        // Account list is scoped to the roles the actor can manage — the same boundary
+        // UserPolicy::manage() enforces per-row (Admin: Manager/TL/Employee, Manager: TL/Employee).
         if ($actor->hasRole(RoleCode::Admin)) {
-            $query->whereHas('role', fn ($q) => $q->where('code', RoleCode::Manager->value));
+            $query->whereHas('role', fn ($q) => $q->whereIn('code', [
+                RoleCode::Manager->value, RoleCode::TeamLeader->value, RoleCode::Employee->value,
+            ]));
         } else {
             $query->whereHas('role', fn ($q) => $q->whereIn('code', [RoleCode::TeamLeader->value, RoleCode::Employee->value]));
         }
@@ -43,7 +45,7 @@ class UserController extends Controller
         if (! $request->expectsJson()) {
             return view('users.index', [
                 'users' => $users,
-                'canCreate' => $actor->can('createWithRole', [User::class, $actor->hasRole(RoleCode::Admin) ? RoleCode::Manager : RoleCode::TeamLeader]),
+                'canCreate' => $actor->can('create', User::class),
             ]);
         }
 

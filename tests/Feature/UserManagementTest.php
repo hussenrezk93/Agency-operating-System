@@ -14,9 +14,11 @@ use Tests\Concerns\BuildsWorkflowScenarios;
 use Tests\TestCase;
 
 /**
- * BRD §5/§18 — Admin creates Manager accounts only; Manager creates Employee/TL
- * accounts only; nobody self-registers. Every account starts with a generated
- * temporary password and must_change_password = true (BRD §18).
+ * BRD §5/§18, widened by explicit product decision: Admin creates and manages
+ * Manager, Team Leader, and Employee accounts (originally Manager-only); Manager still
+ * creates TL/Employee accounts only. Nobody self-registers, nobody manages Admin
+ * accounts through the app. Every account starts with a generated temporary password
+ * and must_change_password = true (BRD §18).
  */
 class UserManagementTest extends TestCase
 {
@@ -57,29 +59,42 @@ class UserManagementTest extends TestCase
         ]);
     }
 
-    /** @return array<string, array{RoleCode}> */
-    public static function rolesAdminCannotCreate(): array
-    {
-        return [
-            'team leader' => [RoleCode::TeamLeader],
-            'employee' => [RoleCode::Employee],
-            'admin' => [RoleCode::Admin],
-        ];
-    }
-
-    #[DataProvider('rolesAdminCannotCreate')]
-    public function test_admin_cannot_create_non_manager_accounts(RoleCode $role): void
+    public function test_admin_cannot_create_another_admin_account(): void
     {
         $this->actingAs($this->admin)->postJson('/users', [
             'full_name' => 'Someone',
-            'username' => 'someone.'.$role->value,
-            'personal_email' => $role->value.'@dev.local',
-            'role' => $role->value,
-            'department_id' => in_array($role, [RoleCode::TeamLeader, RoleCode::Employee], true)
-                ? $this->department->id : null,
+            'username' => 'someone.admin',
+            'personal_email' => 'admin@dev.local',
+            'role' => RoleCode::Admin->value,
         ])->assertForbidden();
 
-        $this->assertDatabaseMissing('users', ['username' => 'someone.'.$role->value]);
+        $this->assertDatabaseMissing('users', ['username' => 'someone.admin']);
+    }
+
+    public function test_admin_creates_a_team_leader_in_a_department(): void
+    {
+        $this->actingAs($this->admin)->postJson('/users', [
+            'full_name' => 'Admin-made TL',
+            'username' => 'admin.made.tl',
+            'personal_email' => 'admin.made.tl@dev.local',
+            'role' => RoleCode::TeamLeader->value,
+            'department_id' => $this->department->id,
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('users', ['username' => 'admin.made.tl', 'department_id' => $this->department->id]);
+    }
+
+    public function test_admin_creates_an_employee_in_a_department(): void
+    {
+        $this->actingAs($this->admin)->postJson('/users', [
+            'full_name' => 'Admin-made Employee',
+            'username' => 'admin.made.employee',
+            'personal_email' => 'admin.made.employee@dev.local',
+            'role' => RoleCode::Employee->value,
+            'department_id' => $this->department->id,
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('users', ['username' => 'admin.made.employee']);
     }
 
     public function test_manager_creates_a_team_leader_in_a_department(): void
@@ -160,6 +175,24 @@ class UserManagementTest extends TestCase
         $this->assertSame('active', $employee->fresh()->status->value);
     }
 
+    public function test_admin_disables_and_reactivates_a_team_leader(): void
+    {
+        $leader = User::factory()->role(RoleCode::TeamLeader)->inDepartment($this->department)->create();
+
+        $this->actingAs($this->admin)->postJson("/users/{$leader->id}/disable")->assertOk();
+        $this->assertSame('inactive', $leader->fresh()->status->value);
+
+        $this->actingAs($this->admin)->postJson("/users/{$leader->id}/reactivate")->assertOk();
+        $this->assertSame('active', $leader->fresh()->status->value);
+    }
+
+    public function test_admin_cannot_disable_another_admin(): void
+    {
+        $otherAdmin = User::factory()->role(RoleCode::Admin)->create();
+
+        $this->actingAs($this->admin)->postJson("/users/{$otherAdmin->id}/disable")->assertForbidden();
+    }
+
     public function test_manager_cannot_disable_another_manager(): void
     {
         $otherManager = User::factory()->role(RoleCode::Manager)->create();
@@ -208,11 +241,23 @@ class UserManagementTest extends TestCase
         $this->assertTrue((bool) $this->manager->fresh()->must_change_password);
     }
 
-    public function test_admin_cannot_reset_an_employees_password(): void
+    public function test_admin_resets_an_employees_password(): void
     {
         $employee = User::factory()->role(RoleCode::Employee)->inDepartment($this->department)->create();
 
-        $this->actingAs($this->admin)->postJson("/users/{$employee->id}/reset-password")->assertForbidden();
+        $response = $this->actingAs($this->admin)
+            ->postJson("/users/{$employee->id}/reset-password")
+            ->assertOk();
+
+        $this->assertNotEmpty($response->json('temporary_password'));
+        $this->assertTrue((bool) $employee->fresh()->must_change_password);
+    }
+
+    public function test_admin_cannot_reset_another_admins_password(): void
+    {
+        $otherAdmin = User::factory()->role(RoleCode::Admin)->create();
+
+        $this->actingAs($this->admin)->postJson("/users/{$otherAdmin->id}/reset-password")->assertForbidden();
     }
 
     /** @return array<string, array{RoleCode}> */

@@ -42,12 +42,18 @@ class LocalizationTest extends TestCase
             ->assertSee(__('agencyos.auth.title', [], 'ar'));
     }
 
-    public function test_dashboard_mock_data_follows_the_selected_language(): void
+    /**
+     * The admin dashboard has no mock content anymore (BRD §15 — Admin sees no task/
+     * project data, so there's nothing role-specific to fake). What's left to check is
+     * that the one thing that DOES vary by locale — the role label — actually does,
+     * while the real, user-entered name never gets translated.
+     */
+    public function test_the_admin_dashboard_role_label_follows_the_selected_language(): void
     {
         $user = new User([
             'id' => 1,
             'username' => 'admin',
-            'full_name' => 'Khaled Samir',
+            'full_name' => 'Rana Toulan',
             'status' => UserStatus::Active->value,
             'must_change_password' => false,
         ]);
@@ -57,16 +63,16 @@ class LocalizationTest extends TestCase
             ->withSession(['locale' => 'ar'])
             ->get('/dashboard')
             ->assertOk()
-            ->assertSee('خالد سمير')
-            ->assertSee('تصميم منشورات شهر أغسطس')
-            ->assertDontSee('Design August social posts');
+            ->assertSee('Rana Toulan')
+            ->assertSee('مسؤول النظام')
+            ->assertDontSee('System Admin');
 
         $this->actingAs($user)
             ->withSession(['locale' => 'en'])
             ->get('/dashboard')
             ->assertOk()
-            ->assertSee('Khaled Samir')
-            ->assertSee('Design August social posts')
-            ->assertDontSee('تصميم منشورات شهر أغسطس');
+            ->assertSee('Rana Toulan')
+            ->assertSee('System Admin')
+            ->assertDontSee('مسؤول النظام');
     }
 }

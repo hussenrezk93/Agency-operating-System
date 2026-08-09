@@ -1,8 +1,7 @@
 @extends('layouts.app')
 @section('title', __('agencyos.departments.index.title'))
 @section('page', 'departments')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div><h1>{{ __('agencyos.departments.index.title') }}</h1></div>
         @if($canCreate)
@@ -11,12 +10,15 @@
             </div>
         @endif
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card">
+    <div class="card glass-dark">
         <div class="table-wrap">
             <table>
                 <thead>

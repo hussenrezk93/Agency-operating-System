@@ -19,7 +19,8 @@ class PolicyFoundationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_manages_managers_only(): void
+    /** Widened by product decision — Admin now manages every non-Admin role (UserPolicy::manage()). */
+    public function test_admin_manages_every_non_admin_role(): void
     {
         $admin = User::factory()->role(RoleCode::Admin)->create();
         $manager = User::factory()->role(RoleCode::Manager)->create();
@@ -27,8 +28,8 @@ class PolicyFoundationTest extends TestCase
         $employee = User::factory()->role(RoleCode::Employee)->create();
 
         $this->assertTrue($admin->can('manage', $manager));
-        $this->assertFalse($admin->can('manage', $tl));
-        $this->assertFalse($admin->can('manage', $employee));
+        $this->assertTrue($admin->can('manage', $tl));
+        $this->assertTrue($admin->can('manage', $employee));
     }
 
     public function test_manager_manages_team_leaders_and_employees_but_not_managers(): void
@@ -53,14 +54,15 @@ class PolicyFoundationTest extends TestCase
         $this->assertFalse($employee->can('viewAny', User::class));
     }
 
-    public function test_only_the_manager_creates_departments(): void
+    /** Widened by product decision — Admin now has the same department authority as Manager. */
+    public function test_the_manager_and_admin_create_departments_but_not_the_tl(): void
     {
         $manager = User::factory()->role(RoleCode::Manager)->create();
         $admin = User::factory()->role(RoleCode::Admin)->create();
         $tl = User::factory()->role(RoleCode::TeamLeader)->create();
 
         $this->assertTrue($manager->can('create', Department::class));
-        $this->assertFalse($admin->can('create', Department::class));
+        $this->assertTrue($admin->can('create', Department::class));
         $this->assertFalse($tl->can('create', Department::class));
     }
 

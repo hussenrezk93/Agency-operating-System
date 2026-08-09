@@ -1,15 +1,17 @@
 @extends('layouts.app')
 @section('title', __('agencyos.tasks.edit.title'))
 @section('page', 'tasks')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.tasks.edit.title') }}</h1>
             <div class="page-sub">{{ $task->task_code }} — {{ __('agencyos.tasks.edit.subtitle') }}</div>
         </div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     <form method="POST" action="{{ route('tasks.update', $task) }}" class="card form-card">
         @csrf
         @method('PATCH')
@@ -31,11 +33,9 @@
                 </div>
                 <div class="field">
                     <label>{{ __('agencyos.tasks.fields.priority') }}</label>
-                    <select name="priority">
-                        @foreach(\App\Enums\Priority::cases() as $priority)
-                            <option value="{{ $priority->value }}" @selected(old('priority', $task->priority->value) === $priority->value)>{{ \App\Support\TaskPresenter::priorityTag($priority)['label'] }}</option>
-                        @endforeach
-                    </select>
+                    <x-form-select name="priority"
+                        :options="collect(\App\Enums\Priority::cases())->mapWithKeys(fn ($p) => [$p->value => \App\Support\TaskPresenter::priorityTag($p)['label']])"
+                        :selected="old('priority', $task->priority->value)"/>
                 </div>
             </div>
         </div>

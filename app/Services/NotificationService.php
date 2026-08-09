@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\DeliveryStatus;
 use App\Enums\NotificationChannel;
+use App\Jobs\SendInstantNotificationEmailJob;
 use App\Models\Notification;
 use App\Models\User;
 
@@ -56,6 +57,41 @@ class NotificationService
                 'status' => DeliveryStatus::Queued->value,
                 'created_at' => now(),
             ]);
+        }
+
+        return $notification;
+    }
+
+    /**
+     * Same as notify(), except the email leg is dispatched right away instead of
+     * being left `Queued` for agencyos:notification-digest-sweep to batch up to 3
+     * hours later — for an event that's rare and important enough to skip the wait
+     * (currently: a project being created). The delivery row is written already in
+     * its final state, Sent or Failed, never `Queued` — the sweep's own query is a
+     * blind `channel=email AND status=Queued` scan, so a row that briefly sat
+     * `Queued` could be picked up a second time by an unlucky-timed sweep. A failed
+     * send still gets retried: it lands in the sweep's normal due-for-retry clause,
+     * which matches any `Failed` row regardless of how it got there.
+     */
+    public function notifyInstant(
+        User $recipient,
+        string $type,
+        string $title,
+        string $body,
+        ?string $entityType = null,
+        ?int $entityId = null,
+    ): Notification {
+        $notification = $this->createRecord($recipient, $type, $title, $body, $entityType, $entityId);
+
+        $notification->deliveries()->create([
+            'channel' => NotificationChannel::InApp->value,
+            'status' => DeliveryStatus::Sent->value,
+            'sent_at' => now(),
+            'created_at' => now(),
+        ]);
+
+        if ($recipient->canReceiveEmail()) {
+            SendInstantNotificationEmailJob::dispatch($notification);
         }
 
         return $notification;

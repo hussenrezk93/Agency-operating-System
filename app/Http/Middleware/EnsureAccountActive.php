@@ -22,6 +22,10 @@ class EnsureAccountActive
         if ($user !== null && $user->isSignInBlocked()) {
             $this->auth->logout($request);
 
+            if ($request->expectsJson()) {
+                return response()->json(['error' => __('agencyos.auth.disabled')], 403);
+            }
+
             return redirect()->route('login')
                 ->withErrors(['username' => __('agencyos.auth.disabled')]);
         }

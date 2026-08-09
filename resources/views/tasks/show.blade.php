@@ -1,7 +1,6 @@
 @extends('layouts.app')
 @section('title', $task->title)
 @section('page', 'tasks')
-@section('content')
 @php
     $closed = $task->isClosed();
     $onHold = $task->isOnHold();
@@ -11,7 +10,7 @@
     $deadlineBadge = $step ? \App\Support\TaskPresenter::deadlineBadge($step->deadline_status) : null;
     $priorityTag = \App\Support\TaskPresenter::priorityTag($task->priority);
 @endphp
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <div class="small muted mono">{{ $task->task_code }}@if($task->project) &middot; {{ $task->project->name }}@endif</div>
@@ -26,12 +25,15 @@
         </div>
         <div class="page-actions">
             @if($canEdit)
-                <a class="btn btn-outline btn-sm" href="{{ route('tasks.edit-form', $task) }}">{{ __('agencyos.tasks.show.edit') }}</a>
+                <a class="btn btn-outline btn-sm" href="{{ route('tasks.edit-form', $task) }}"><x-icon name="edit"/> {{ __('agencyos.tasks.show.edit') }}</a>
             @endif
             <a class="small" href="{{ route('tasks.index') }}">{{ __('agencyos.tasks.show.back_to_tasks') }}</a>
         </div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
@@ -57,7 +59,7 @@
         </div>
     </div>
 
-    <div class="grid-2" style="align-items:start">
+    <div class="grid grid-2" style="align-items:start">
         <div>
             <div class="card" style="margin-bottom:18px">
                 <div class="card-head"><h2>{{ __('agencyos.tasks.show.details') }}</h2></div>
@@ -102,7 +104,13 @@
                         @endforelse
                     @endif
 
-                    @if($canAddOutput)
+                    {{-- addOutput()/submit() both require In Progress or Changes Requested
+                         (422 otherwise). The assignee stays the step's "current assignee"
+                         all the way through Under Review too (submit() doesn't end the
+                         assignment, only approve() does) — canAddOutput/canSubmit alone
+                         can't tell the two apart, so the state must be checked here. --}}
+                    @php($stepIsEditable = $step !== null && $step->workflow_status->isEditableByAssignee())
+                    @if($canAddOutput && $stepIsEditable)
                         <form method="POST" action="{{ route('tasks.steps.outputs.store', $step) }}" class="form-row" style="margin-top:14px;align-items:end">
                             @csrf
                             <div class="field"><label>{{ __('agencyos.tasks.fields.url') }}</label><input type="url" name="url" required></div>
@@ -110,7 +118,7 @@
                             <div class="field span2"><button type="submit" class="btn btn-outline btn-sm">{{ __('agencyos.tasks.actions.add_output_button') }}</button></div>
                         </form>
                     @endif
-                    @if($canSubmit)
+                    @if($canSubmit && $stepIsEditable)
                         <form method="POST" action="{{ route('tasks.steps.submit', $step) }}" style="margin-top:10px">
                             @csrf
                             <button type="submit" class="btn btn-primary btn-sm">{{ __('agencyos.tasks.actions.submit_work') }}</button>
@@ -162,25 +170,21 @@
                             <form method="POST" action="{{ route('tasks.steps.assign', $step) }}" style="margin-bottom:16px">
                                 @csrf
                                 <div class="field"><label class="req">{{ __('agencyos.tasks.actions.assignee') }}</label>
-                                    <select name="assignee_id" required>
-                                        @foreach($assignableUsers as $user)
-                                            <option value="{{ $user->id }}">{{ $user->full_name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <x-form-select name="assignee_id" required :options="$assignableUsers->pluck('full_name', 'id')"/>
                                 </div>
                                 <div class="field"><label class="req">{{ __('agencyos.tasks.actions.start_date') }}</label><input type="date" name="start_date" required></div>
                                 <div class="field"><label class="req">{{ __('agencyos.tasks.actions.due_date') }}</label><input type="date" name="due_date" required></div>
                                 <button type="submit" class="btn btn-primary btn-sm">{{ __('agencyos.tasks.actions.assign') }}</button>
                             </form>
-                        @elseif($canAssign)
+                        {{-- reassign() only accepts In Progress or Changes Requested (422
+                             otherwise) — canAssign alone doesn't distinguish that from
+                             Under Review/Approved, so the state must be checked here too. --}}
+                        @elseif($canAssign && $step->workflow_status->isEditableByAssignee())
                             <form method="POST" action="{{ route('tasks.steps.reassign', $step) }}" style="margin-bottom:16px">
                                 @csrf
                                 <div class="field"><label class="req">{{ __('agencyos.tasks.actions.assignee') }}</label>
-                                    <select name="assignee_id" required>
-                                        @foreach($assignableUsers as $user)
-                                            <option value="{{ $user->id }}" @selected($step->activeAssignment?->assignee_id === $user->id)>{{ $user->full_name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <x-form-select name="assignee_id" required :options="$assignableUsers->pluck('full_name', 'id')"
+                                        :selected="$step->activeAssignment?->assignee_id"/>
                                 </div>
                                 <div class="field"><label class="req">{{ __('agencyos.tasks.actions.start_date') }}</label><input type="date" name="start_date" required></div>
                                 <div class="field"><label class="req">{{ __('agencyos.tasks.actions.due_date') }}</label><input type="date" name="due_date" required></div>
@@ -193,7 +197,13 @@
                             </form>
                         @endif
 
-                        @if($canReview)
+                        {{-- canReview is deliberately state-agnostic at the policy layer
+                             (TaskStepPolicy's own doc comment: state checks belong to the
+                             service, not here) — approve()/requestChanges() both reject
+                             anything but Under Review with a 422, so the form must only
+                             render once the assignee has actually submitted, not merely
+                             because the actor is the department's effective leader. --}}
+                        @if($canReview && $step->workflow_status->value === 'under_review')
                             <form method="POST" action="{{ route('tasks.steps.review', $step) }}" style="margin-bottom:16px">
                                 @csrf
                                 <div class="field @error('comment') bad @enderror">
@@ -209,29 +219,32 @@
                             </form>
                         @endif
 
-                        @if($canTransfer)
-                            <form method="POST" action="{{ route('tasks.steps.transfer', $step) }}" style="margin-bottom:16px">
-                                @csrf
-                                <div class="field"><label class="req">{{ __('agencyos.tasks.actions.target_department') }}</label>
-                                    <select name="to_department_id" required>
-                                        @foreach($allowedDepartments as $department)
-                                            <option value="{{ $department->id }}">{{ $department->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="field"><label>{{ __('agencyos.tasks.actions.reason') }}</label><input type="text" name="reason" maxlength="1000"></div>
-                                <button type="submit" class="btn btn-outline btn-sm">{{ __('agencyos.tasks.actions.transfer') }}</button>
-                            </form>
+                        {{-- Both actions below require the CURRENT step to already be Approved
+                             (TaskWorkflowService::sendToNextDepartment()/completeTask() both
+                             reject anything earlier with a 422) — shown only once it is, so
+                             they never sit next to the Approve/Request changes buttons above
+                             for a step still awaiting review. --}}
+                        @if($step->workflow_status->value === 'approved')
+                            @if($canTransfer)
+                                <form method="POST" action="{{ route('tasks.steps.transfer', $step) }}" style="margin-bottom:16px">
+                                    @csrf
+                                    <div class="field"><label class="req">{{ __('agencyos.tasks.actions.target_department') }}</label>
+                                        <x-form-select name="to_department_id" required :options="$allowedDepartments->pluck('name', 'id')"/>
+                                    </div>
+                                    <div class="field"><label>{{ __('agencyos.tasks.actions.reason') }}</label><input type="text" name="reason" maxlength="1000"></div>
+                                    <button type="submit" class="btn btn-outline btn-sm">{{ __('agencyos.tasks.actions.transfer') }}</button>
+                                </form>
 
-                            <form method="POST" action="{{ route('tasks.steps.complete', $step) }}" style="margin-bottom:16px">
-                                @csrf
-                                <button type="submit" class="btn btn-primary btn-sm">{{ __('agencyos.tasks.actions.finish') }}</button>
-                            </form>
-                        @elseif($canComplete)
-                            <form method="POST" action="{{ route('tasks.steps.complete', $step) }}" style="margin-bottom:16px">
-                                @csrf
-                                <button type="submit" class="btn btn-primary btn-sm">{{ __('agencyos.tasks.actions.finish') }}</button>
-                            </form>
+                                <form method="POST" action="{{ route('tasks.steps.complete', $step) }}" style="margin-bottom:16px">
+                                    @csrf
+                                    <button type="submit" class="btn btn-primary btn-sm">{{ __('agencyos.tasks.actions.finish') }}</button>
+                                </form>
+                            @elseif($canComplete)
+                                <form method="POST" action="{{ route('tasks.steps.complete', $step) }}" style="margin-bottom:16px">
+                                    @csrf
+                                    <button type="submit" class="btn btn-primary btn-sm">{{ __('agencyos.tasks.actions.finish') }}</button>
+                                </form>
+                            @endif
                         @endif
 
                         @if($canCancel)
@@ -246,15 +259,16 @@
                             </form>
                         @endif
 
-                        @if($canRedirect)
+                        {{-- redirect() runs the move through the WorkflowStatus transition
+                             map, where Approved (and every terminal status) allows no
+                             further transitions at all — canRedirect alone doesn't know
+                             that, so a step already Approved (awaiting Transfer/Finish
+                             instead) must not still offer Redirect. --}}
+                        @if($canRedirect && $step !== null && ! $step->workflow_status->isTerminal())
                             <form method="POST" action="{{ route('tasks.redirect', $task) }}" style="margin-top:16px">
                                 @csrf
                                 <div class="field"><label class="req">{{ __('agencyos.tasks.actions.redirect_target_department') }}</label>
-                                    <select name="department_id" required>
-                                        @foreach($redirectDepartments as $department)
-                                            <option value="{{ $department->id }}">{{ $department->name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <x-form-select name="department_id" required :options="$redirectDepartments->pluck('name', 'id')"/>
                                 </div>
                                 <div class="field @error('reason') bad @enderror">
                                     <label class="req">{{ __('agencyos.tasks.actions.reason') }}</label>

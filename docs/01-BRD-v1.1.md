@@ -149,7 +149,7 @@ More than one department never works the same stage in parallel within one task.
 | Brief/description | Explains the requirement and expected result |
 | Priority | Low / Medium / High / Urgent; Urgent sorts to the top of lists |
 | First department | Required, drawn from allowed departments |
-| Reference Links | One or more |
+| Reference Links | Optional |
 | Notes | Optional |
 | Project | Optional; omitting it allows a standalone task |
 | Route | Recorded automatically: departments, dates, entry/exit time |

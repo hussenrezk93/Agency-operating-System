@@ -39,6 +39,24 @@ class ClientUiTest extends TestCase
         $this->actingAs($this->employee)->get('/clients')->assertForbidden();
     }
 
+    /**
+     * A TL passes the coarse `role:manager,tl` route gate onto the list (same as the
+     * test above) but ClientPolicy::update/deactivate/reactivate are Manager-only — the
+     * list must not offer buttons for actions that only lead to a 403 when clicked.
+     */
+    public function test_the_list_only_offers_edit_and_deactivate_to_a_manager(): void
+    {
+        $client = Client::factory()->create();
+
+        $managerView = $this->actingAs($this->manager)->get('/clients');
+        $managerView->assertSee(__('agencyos.clients.index.edit'));
+        $managerView->assertSee(__('agencyos.clients.index.deactivate'));
+
+        $tlView = $this->actingAs($this->tl)->get('/clients');
+        $tlView->assertDontSee(__('agencyos.clients.index.edit'));
+        $tlView->assertDontSee(__('agencyos.clients.index.deactivate'));
+    }
+
     public function test_the_create_form_renders_and_a_classic_submit_redirects_to_the_list(): void
     {
         $this->actingAs($this->manager)->get('/clients/create')->assertOk()->assertViewIs('clients.create');

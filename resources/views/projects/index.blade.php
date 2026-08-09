@@ -1,8 +1,7 @@
 @extends('layouts.app')
 @section('title', __('agencyos.projects.index.title'))
 @section('page', 'projects')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.projects.index.title') }}</h1>
@@ -10,16 +9,19 @@
         </div>
         @if($canCreate)
             <div class="page-actions">
-                <a class="btn btn-primary" href="{{ route('projects.create-form') }}">＋ {{ __('agencyos.projects.index.new_project') }}</a>
+                <a class="btn btn-primary" href="{{ route('projects.create-form') }}"><x-icon name="plus"/> {{ __('agencyos.projects.index.new_project') }}</a>
             </div>
         @endif
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card">
+    <div class="card glass-dark">
         <div class="table-wrap">
             <table>
                 <thead>
@@ -50,7 +52,7 @@
                             @php($badge = \App\Support\ProjectPresenter::statusBadge($project->status))
                             <span class="badge {{ $badge['class'] }}"><span class="bdot"></span>{{ $badge['label'] }}</span>
                         </td>
-                        <td style="text-align:end"><a class="btn btn-sm btn-outline" href="{{ route('projects.show', $project) }}">{{ __('agencyos.projects.index.open') }}</a></td>
+                        <td style="text-align:end"><a class="btn btn-sm btn-outline" href="{{ route('projects.show', $project) }}"><x-icon name="eye"/> {{ __('agencyos.projects.index.open') }}</a></td>
                     </tr>
                 @empty
                     <tr><td colspan="5" style="text-align:center;padding:34px" class="muted">{{ __('agencyos.projects.index.empty') }}</td></tr>

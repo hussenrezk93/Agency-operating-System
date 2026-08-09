@@ -15,9 +15,10 @@ use RuntimeException;
 /**
  * DEVELOPMENT ONLY — refuses to run in production.
  *
- * Seeds exactly the two real accounts this deployment uses. No demo/mock users, clients,
- * projects, tasks, or chat messages — this seeder is idempotent (safe to rerun) and never
- * creates anything beyond these two people and the one department Leila leads.
+ * Seeds the two real accounts this deployment uses plus the company's real department
+ * list. No demo/mock users, clients, projects, tasks, or chat messages — this seeder is
+ * idempotent (safe to rerun) and never creates anything beyond these two people, the
+ * one department Leila leads, and the unmanned departments below.
  *
  * Shared password for both, documented and non-production: Demo123!
  *   manager  — Admin
@@ -38,10 +39,14 @@ class DemoSeeder extends Seeder
 
         $marketing = Department::firstOrCreate(['name' => 'Marketing'], ['is_active' => true]);
 
+        foreach (['Content', 'Editing', 'Photography/Videography', 'Moderation', 'Sales', 'Web Development'] as $name) {
+            Department::firstOrCreate(['name' => $name], ['is_active' => true]);
+        }
+
         $mk = fn (array $attrs) => User::updateOrCreate(
             ['username' => $attrs['username']],
             $attrs + ['password_hash' => Hash::make(self::DEMO_PASSWORD), 'status' => 'active',
-                'must_change_password' => false, 'email_verified_at' => now()],
+                'must_change_password' => true, 'email_verified_at' => now()],
         );
 
         $admin = $mk(['username' => 'manager', 'full_name' => 'Rana Toulan',

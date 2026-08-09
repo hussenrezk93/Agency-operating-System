@@ -83,10 +83,32 @@ class SearchTest extends TestCase
         $response->assertOk()->assertDontSee('Confidential planning doc');
     }
 
-    public function test_an_admin_is_forbidden_from_search(): void
+    /** BRD §15 — Admin's search exists, but it is scoped to users/departments, never task content. */
+    public function test_an_admin_searching_never_sees_task_or_project_content(): void
+    {
+        $admin = $this->makeAdmin();
+        $task = $this->newTask($this->marketing, $this->manager, ['title' => 'Confidential planning doc']);
+
+        $response = $this->actingAs($admin)->get(route('search.index', ['q' => 'Confidential']));
+
+        $response->assertOk()->assertDontSee('Confidential planning doc')->assertDontSee($task->task_code);
+    }
+
+    public function test_an_admin_can_find_a_user_by_name(): void
     {
         $admin = $this->makeAdmin();
 
-        $this->actingAs($admin)->get(route('search.index', ['q' => 'anything']))->assertForbidden();
+        $response = $this->actingAs($admin)->get(route('search.index', ['q' => $this->leader->full_name]));
+
+        $response->assertOk()->assertSee($this->leader->full_name);
+    }
+
+    public function test_an_admin_can_find_a_department_by_name(): void
+    {
+        $admin = $this->makeAdmin();
+
+        $response = $this->actingAs($admin)->get(route('search.index', ['q' => 'Marketing']));
+
+        $response->assertOk()->assertSee('Marketing');
     }
 }

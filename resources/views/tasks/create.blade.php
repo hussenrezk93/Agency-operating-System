@@ -1,15 +1,17 @@
 @extends('layouts.app')
 @section('title', __('agencyos.tasks.create.title'))
 @section('page', 'tasks')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.tasks.create.title') }}</h1>
             <div class="page-sub">{{ __('agencyos.tasks.create.subtitle') }}</div>
         </div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     <form method="POST" action="{{ route('tasks.store') }}" class="card form-card">
         @csrf
         <div class="form-section">
@@ -31,31 +33,23 @@
                 </div>
                 <div class="field">
                     <label>{{ __('agencyos.tasks.fields.priority') }}</label>
-                    <select name="priority">
-                        @foreach(\App\Enums\Priority::cases() as $priority)
-                            <option value="{{ $priority->value }}" @selected(old('priority', 'medium') === $priority->value)>{{ \App\Support\TaskPresenter::priorityTag($priority)['label'] }}</option>
-                        @endforeach
-                    </select>
+                    <x-form-select name="priority"
+                        :options="collect(\App\Enums\Priority::cases())->mapWithKeys(fn ($p) => [$p->value => \App\Support\TaskPresenter::priorityTag($p)['label']])"
+                        :selected="old('priority', 'medium')"/>
                 </div>
                 <div class="field @error('first_department_id') bad @enderror">
                     <label class="req">{{ __('agencyos.tasks.fields.first_department') }}</label>
-                    <select name="first_department_id" required>
-                        <option value="">—</option>
-                        @foreach($departments as $department)
-                            <option value="{{ $department->id }}" @selected((string) old('first_department_id') === (string) $department->id)>{{ $department->name }}</option>
-                        @endforeach
-                    </select>
+                    <x-form-select name="first_department_id" required
+                        placeholder="—" :options="$departments->pluck('name', 'id')"
+                        :selected="old('first_department_id')"/>
                     @error('first_department_id')<div class="err">{{ $message }}</div>@enderror
                 </div>
                 @if($projects->isNotEmpty())
                     <div class="field span2">
                         <label>{{ __('agencyos.tasks.fields.project') }}</label>
-                        <select name="project_id">
-                            <option value="">{{ __('agencyos.tasks.fields.project_none') }}</option>
-                            @foreach($projects as $project)
-                                <option value="{{ $project->id }}" @selected((string) old('project_id') === (string) $project->id)>{{ $project->name }}</option>
-                            @endforeach
-                        </select>
+                        <x-form-select name="project_id"
+                            :placeholder="__('agencyos.tasks.fields.project_none')" :options="$projects->pluck('name', 'id')"
+                            :selected="old('project_id')"/>
                     </div>
                 @endif
             </div>

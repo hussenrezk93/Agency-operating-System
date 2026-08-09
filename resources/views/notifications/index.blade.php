@@ -1,20 +1,31 @@
 @extends('layouts.app')
 @section('title', __('agencyos.notifications.index.title'))
 @section('page', 'notifications')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.notifications.index.title') }}</h1>
             <div class="page-sub">{{ __('agencyos.notifications.index.subtitle') }}</div>
         </div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card">
+    @if($notifications->contains(fn ($notification) => ! $notification->is_read))
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+            <form method="POST" action="{{ route('notifications.read-all') }}">
+                @csrf
+                <button type="submit" class="btn btn-sm btn-outline">{{ __('agencyos.notifications.index.mark_all_read') }}</button>
+            </form>
+        </div>
+    @endif
+
+    <div class="card glass-dark">
         <div class="table-wrap">
             <table>
                 <thead>

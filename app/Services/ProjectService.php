@@ -31,6 +31,7 @@ class ProjectService
         private readonly AuditService $audit,
         private readonly TaskWorkflowService $taskWorkflow,
         private readonly ProjectWhatsappService $whatsapp,
+        private readonly NotificationService $notifications,
     ) {}
 
     /**
@@ -79,6 +80,23 @@ class ProjectService
                 after: ['name' => $project->name, 'client_id' => $client->id, 'department_ids' => $departmentIds],
                 actorId: $actor->id,
             );
+
+            // Same audience as the eventual WhatsApp invite fan-out (participating
+            // departments, the creator, every active Manager) — but this fires the
+            // moment the project exists, not only once a WhatsApp link is set.
+            foreach ($this->whatsapp->resolveMembers($project) as $member) {
+                $this->notifications->notifyInstant(
+                    $member['user'],
+                    'project.created',
+                    __('agencyos.notifications.messages.project_created_title'),
+                    __('agencyos.notifications.messages.project_created_body', [
+                        'project' => $project->name,
+                        'client' => $client->name,
+                    ]),
+                    'project',
+                    $project->id,
+                );
+            }
 
             return $project->refresh();
         });

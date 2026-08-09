@@ -1,15 +1,17 @@
 @extends('layouts.app')
 @section('title', __('agencyos.search.title'))
 @section('page', 'search')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.search.title') }}</h1>
             <div class="page-sub">{{ __('agencyos.search.query_label') }}: "{{ $query }}"</div>
         </div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     <div class="card" style="margin-bottom:18px">
         <div class="card-head"><h2>{{ __('agencyos.search.tasks') }}</h2></div>
         <div class="table-wrap">

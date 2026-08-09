@@ -1,8 +1,7 @@
 @extends('layouts.app')
 @section('title', __('agencyos.temporary_leadership.index.title'))
 @section('page', 'temporary-tl')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.temporary_leadership.index.title') }}</h1>
@@ -12,12 +11,15 @@
             <a class="btn btn-primary" href="{{ route('temporary-leadership.create-form') }}">＋ {{ __('agencyos.temporary_leadership.index.new_delegation') }}</a>
         </div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card">
+    <div class="card glass-dark">
         <div class="table-wrap">
             <table>
                 <thead>

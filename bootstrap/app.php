@@ -7,6 +7,7 @@ use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -26,5 +27,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'account.active' => EnsureAccountActive::class,
             'password.changed' => EnsurePasswordChanged::class,
         ]);
+
+        // SubstituteBindings resolves route-model params (e.g. {conversation}) and 404s
+        // if the row is gone. It ships in the base `web` group, ahead of every
+        // route-level middleware below — so without this, a stale/deleted-resource URL
+        // 404s before these gates ever run, instead of redirecting (forced password
+        // change, disabled account, wrong role) the way it does for URLs whose resource
+        // still exists.
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsureAccountActive::class);
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsurePasswordChanged::class);
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsureRole::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {})->create();

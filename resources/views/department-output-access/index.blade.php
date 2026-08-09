@@ -1,13 +1,15 @@
 @extends('layouts.app')
 @section('title', __('agencyos.output_access.index.title'))
 @section('page', 'output-access')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head"><div>
         <h1>{{ __('agencyos.output_access.index.title') }}</h1>
         <div class="page-sub">{{ __('agencyos.output_access.index.subtitle') }}</div>
     </div></div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
@@ -15,33 +17,28 @@
         <div class="alert alert-danger" style="margin-bottom:16px"><div>{{ $errors->first() }}</div></div>
     @endif
 
-    <div class="card" style="margin-bottom:18px">
+    <div class="card glass-dark" style="margin-bottom:18px">
         <div class="card-head"><h2>{{ __('agencyos.output_access.index.new_rule') }}</h2></div>
         <div class="card-body">
             <form method="POST" action="{{ route('department-output-access.upsert') }}" class="form-row" style="align-items:end;grid-template-columns:1fr 1fr 1fr auto">
                 @csrf
                 <div class="field">
                     <label>{{ __('agencyos.output_access.fields.viewer') }}</label>
-                    <select name="viewer_department_id" required>
-                        @foreach($departments as $department)
-                            <option value="{{ $department->id }}">{{ $department->name }}</option>
-                        @endforeach
-                    </select>
+                    <x-form-select name="viewer_department_id" required
+                        :options="$departments->pluck('name', 'id')"
+                        :selected="old('viewer_department_id')"/>
                 </div>
                 <div class="field">
                     <label>{{ __('agencyos.output_access.fields.source') }}</label>
-                    <select name="source_department_id" required>
-                        @foreach($departments as $department)
-                            <option value="{{ $department->id }}">{{ $department->name }}</option>
-                        @endforeach
-                    </select>
+                    <x-form-select name="source_department_id" required
+                        :options="$departments->pluck('name', 'id')"
+                        :selected="old('source_department_id')"/>
                 </div>
                 <div class="field">
                     <label>{{ __('agencyos.output_access.fields.scope') }}</label>
-                    <select name="scope" required>
-                        <option value="final_only">{{ __('agencyos.output_access.scope.final_only') }}</option>
-                        <option value="all_outputs">{{ __('agencyos.output_access.scope.all_outputs') }}</option>
-                    </select>
+                    <x-form-select name="scope" required
+                        :options="['final_only' => __('agencyos.output_access.scope.final_only'), 'all_outputs' => __('agencyos.output_access.scope.all_outputs')]"
+                        :selected="old('scope', 'final_only')"/>
                 </div>
                 <div class="field">
                     <input type="hidden" name="is_allowed" value="1">
@@ -51,7 +48,7 @@
         </div>
     </div>
 
-    <div class="card">
+    <div class="card glass-dark">
         <div class="table-wrap">
             <table>
                 <thead>

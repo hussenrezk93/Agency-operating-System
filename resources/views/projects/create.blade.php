@@ -1,15 +1,17 @@
 @extends('layouts.app')
 @section('title', __('agencyos.projects.create.title'))
 @section('page', 'projects')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.projects.create.title') }}</h1>
             <div class="page-sub">{{ __('agencyos.projects.create.subtitle') }}</div>
         </div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     <form method="POST" action="{{ route('projects.store') }}" class="card form-card">
         @csrf
         <div class="form-section">
@@ -56,12 +58,8 @@
 
             <div class="field @error('client_id') bad @enderror" id="existing-client-box" style="margin-top:12px;{{ $isNewClient ? 'display:none' : '' }}">
                 <label class="req">{{ __('agencyos.projects.fields.client') }}</label>
-                <select name="client_id">
-                    <option value="">—</option>
-                    @foreach($clients as $client)
-                        <option value="{{ $client->id }}" @selected((string) old('client_id') === (string) $client->id)>{{ $client->name }}</option>
-                    @endforeach
-                </select>
+                <x-form-select name="client_id" placeholder="—" :options="$clients->pluck('name', 'id')"
+                    :selected="old('client_id')"/>
                 @error('client_id')<div class="err">{{ $message }}</div>@enderror
             </div>
 

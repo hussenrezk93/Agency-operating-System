@@ -1,28 +1,30 @@
 @extends('layouts.app')
 @section('title', __('agencyos.reports.title'))
 @section('page', 'reports')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.reports.title') }}</h1>
             <div class="page-sub">{{ \Illuminate\Support\Carbon::parse($monthStart)->translatedFormat('F Y') }}</div>
         </div>
     </div>
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
+    @php
+        $currentMonthKey = \Illuminate\Support\Carbon::parse($monthStart)->format('Y-m');
+        $monthOptions = collect($availableMonths)->isNotEmpty()
+            ? collect($availableMonths)->mapWithKeys(fn ($month) => [
+                \Illuminate\Support\Carbon::parse($month)->format('Y-m') => \Illuminate\Support\Carbon::parse($month)->translatedFormat('F Y'),
+            ])
+            : collect([$currentMonthKey => \Illuminate\Support\Carbon::parse($monthStart)->translatedFormat('F Y')]);
+    @endphp
+    <div class="card glass-dark" style="padding:12px 14px;display:flex;gap:10px;align-items:center;margin-bottom:14px">
+        <x-filter-select name="month" :options="$monthOptions" :selected="$currentMonthKey" :placeholder="$monthOptions[$currentMonthKey] ?? $currentMonthKey" :allow-clear="false"/>
+    </div>
 
-    <form method="GET" action="{{ route('reports.index') }}" class="card" style="padding:12px 14px;display:flex;gap:10px;align-items:center;margin-bottom:14px">
-        <select name="month" class="select" onchange="this.form.submit()">
-            @foreach($availableMonths as $month)
-                @php($m = \Illuminate\Support\Carbon::parse($month))
-                <option value="{{ $m->format('Y-m') }}" @selected($m->format('Y-m') === \Illuminate\Support\Carbon::parse($monthStart)->format('Y-m'))>{{ $m->translatedFormat('F Y') }}</option>
-            @endforeach
-            @if($availableMonths->isEmpty())
-                <option value="{{ \Illuminate\Support\Carbon::parse($monthStart)->format('Y-m') }}" selected>{{ \Illuminate\Support\Carbon::parse($monthStart)->translatedFormat('F Y') }}</option>
-            @endif
-        </select>
-    </form>
-
-    <div class="card" style="margin-bottom:18px">
+    <div class="card glass-dark" style="margin-bottom:18px">
         <div class="card-head"><h2>{{ __('agencyos.reports.department_report') }}</h2></div>
         <div class="table-wrap">
             <table>
@@ -44,7 +46,7 @@
         </div>
     </div>
 
-    <div class="card" style="margin-bottom:18px">
+    <div class="card glass-dark" style="margin-bottom:18px">
         <div class="card-head"><h2>{{ __('agencyos.reports.tl_report') }}</h2></div>
         <div class="table-wrap">
             <table>
@@ -65,7 +67,7 @@
         </div>
     </div>
 
-    <div class="card">
+    <div class="card glass-dark">
         <div class="card-head"><h2>{{ __('agencyos.reports.employee_report') }}</h2></div>
         <div class="table-wrap">
             <table>

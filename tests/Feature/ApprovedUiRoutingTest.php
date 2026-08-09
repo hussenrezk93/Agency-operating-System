@@ -83,4 +83,20 @@ class ApprovedUiRoutingTest extends TestCase
             ->assertOk()
             ->assertHeader('Content-Type', 'text/css; charset=UTF-8');
     }
+
+    /**
+     * A prototype-only screen (like System Settings) used to load its own frozen copy of
+     * agencyos.css, which visibly drifted from the real one as migrated Blade pages picked
+     * up shadow/radius/transition refinements — same class names, stale values. It must
+     * serve the SAME file the real app uses, not resources/prototype/assets/agencyos.css.
+     */
+    public function test_the_prototype_stylesheet_is_the_same_file_the_real_app_uses(): void
+    {
+        $employee = User::factory()->role(RoleCode::Employee)->create();
+
+        $response = $this->actingAs($employee)->get('/app/assets/agencyos.css');
+
+        $response->assertOk();
+        $this->assertSame(file_get_contents(public_path('assets/agencyos.css')), $response->getContent());
+    }
 }

@@ -1,10 +1,12 @@
 @extends('layouts.app')
 @section('title', __('agencyos.departments.edit.title'))
 @section('page', 'departments')
+@section('page_header')
+    <div class="page-head"><div><h1>{{ __('agencyos.departments.edit.title') }}</h1></div></div>
+    <x-topbar-controls/>
+@endsection
 @section('content')
 <main class="page">
-    <div class="page-head"><div><h1>{{ __('agencyos.departments.edit.title') }}</h1></div></div>
-
     <form method="POST" action="{{ route('departments.update', $department) }}" class="card form-card">
         @csrf
         @method('PATCH')

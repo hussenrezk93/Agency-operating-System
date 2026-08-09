@@ -98,10 +98,20 @@ class DepartmentUiTest extends TestCase
         $this->assertTrue((bool) $department->fresh()->is_active);
     }
 
-    public function test_an_admin_cannot_open_the_create_form(): void
+    public function test_an_admin_can_open_the_create_form_and_submit_it(): void
     {
         $admin = User::factory()->role(RoleCode::Admin)->create();
+        $leader = User::factory()->role(RoleCode::TeamLeader)->create();
 
-        $this->actingAs($admin)->get('/departments/create')->assertForbidden();
+        $this->actingAs($admin)->get('/departments/create')
+            ->assertOk()->assertViewIs('departments.create');
+
+        $response = $this->actingAs($admin)->post('/departments', [
+            'name' => 'Admin Classic Form Department',
+            'primary_leader_id' => $leader->id,
+        ]);
+
+        $response->assertRedirect(route('departments.index'));
+        $this->assertDatabaseHas('departments', ['name' => 'Admin Classic Form Department']);
     }
 }

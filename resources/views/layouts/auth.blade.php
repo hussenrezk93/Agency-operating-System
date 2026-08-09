@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
-    <meta name="theme-color" content="#F97316">
+    <meta name="theme-color" content="#FC6E20">
     <link rel="icon" type="image/png" href="{{ asset('images/agencyos-favicon-64.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('assets/agencyos.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/agencyos-laravel.css') }}">
     <title>{{ __('agencyos.common.system_name') }} — @yield('title')</title>

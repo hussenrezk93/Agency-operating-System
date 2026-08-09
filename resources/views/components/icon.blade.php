@@ -28,6 +28,21 @@
         'menu' => '<path d="M3.5 6.5h17"/><path d="M3.5 12h17"/><path d="M3.5 17.5h17"/>',
         'log-out' => '<path d="M9.5 21H5.5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16.5 16.5 21 12l-4.5-4.5"/><path d="M21 12H9.5"/>',
         'globe' => '<circle cx="12" cy="12" r="9.3"/><path d="M2.7 12h18.6"/><path d="M12 2.7a15 15 0 0 1 0 18.6"/><path d="M12 2.7a15 15 0 0 0 0 18.6"/>',
+        'alert-triangle' => '<path d="M12 3.2 2.2 20.5h19.6L12 3.2Z"/><path d="M12 10v4"/><path d="M12 17.3h.01"/>',
+        'edit' => '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+        'trash' => '<path d="M4 7h16"/><path d="M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7"/><path d="M6.5 7 7.3 19a2 2 0 0 0 2 1.9h5.4a2 2 0 0 0 2-1.9L17.5 7"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+        'plus' => '<path d="M12 5v14"/><path d="M5 12h14"/>',
+        'chevron-down' => '<path d="m6 9 6 6 6-6"/>',
+        'chevron-up' => '<path d="m6 15 6-6 6 6"/>',
+        'chevron-right' => '<path d="m9 6 6 6-6 6"/>',
+        'eye' => '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>',
+        'download' => '<path d="M12 3.5v11.5"/><path d="m7 11 5 5 5-5"/><path d="M4.5 19.5h15"/>',
+        'filter' => '<path d="M4 5h16"/><path d="M7 12h10"/><path d="M10.5 19h3"/>',
+        'x' => '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
+        'arrow-right' => '<path d="M4.5 12h15"/><path d="m13.5 6 6 6-6 6"/>',
+        'calendar' => '<rect x="3.5" y="5" width="17" height="16" rx="2.2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M3.5 10h17"/>',
+        'mail' => '<rect x="2.5" y="5" width="19" height="14" rx="2.2"/><path d="m3.5 6.5 8.5 7 8.5-7"/>',
+        'sparkles' => '<path d="M12 3v3.5"/><path d="M12 17.5V21"/><path d="M3 12h3.5"/><path d="M17.5 12H21"/><path d="m5.5 5.5 2.5 2.5"/><path d="m16 16 2.5 2.5"/><path d="m18.5 5.5-2.5 2.5"/><path d="m8 16-2.5 2.5"/><circle cx="12" cy="12" r="2.3"/>',
     ];
 
     $svg = $paths[$name] ?? $paths['star'];

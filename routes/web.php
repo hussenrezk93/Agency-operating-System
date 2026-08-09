@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\ApprovedUiController;
+use App\Http\Controllers\AssistantController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\ForcedPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ChatController;
@@ -118,8 +120,8 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
 
         Route::middleware('role:admin,manager')->prefix('departments')->group(function (): void {
             Route::get('/', [DepartmentController::class, 'index'])->name('departments.index');
-            // Create/update/deactivate/reactivate are Manager-only (DepartmentPolicy) —
-            // Admin passes this coarse gate for viewAny only.
+            // Full create/update/deactivate/reactivate for both Admin and Manager
+            // (DepartmentPolicy) — this route-level gate matches the policy exactly.
             Route::get('/create', [DepartmentController::class, 'create'])->name('departments.create-form');
             Route::get('/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit-form');
             Route::post('/', [DepartmentController::class, 'store'])->name('departments.store');
@@ -142,6 +144,13 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
                 ->name('department-output-access.index');
             Route::post('/', [DepartmentOutputAccessController::class, 'upsert'])
                 ->name('department-output-access.upsert');
+        });
+
+        // Admin-only, read-only (BRD §19). audit_logs is append-only at the database
+        // level — there is no write route here on purpose.
+        Route::middleware('role:admin')->prefix('audit-log')->group(function (): void {
+            Route::get('/', [AuditLogController::class, 'index'])->name('audit-log.index');
+            Route::get('/export', [AuditLogController::class, 'export'])->name('audit-log.export');
         });
 
         /*
@@ -301,8 +310,16 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
 
         Route::prefix('notifications')->group(function (): void {
             Route::get('/', [NotificationController::class, 'index'])->name('notifications.index');
+            Route::post('/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
             Route::post('/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
         });
+
+        // Gemini-powered assistant widget (bottom-right, every page). Stateless: the
+        // widget keeps conversation history client-side and resends it each turn —
+        // nothing about the chat is persisted server-side.
+        Route::post('/assistant/chat', [AssistantController::class, 'chat'])
+            ->middleware('throttle:15,1')
+            ->name('assistant.chat');
 
         Route::post('/email/resend-verification', [EmailVerificationController::class, 'resend'])
             ->middleware('throttle:3,1')
@@ -330,8 +347,13 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
         Route::middleware('role:manager,tl,employee')->group(function (): void {
             Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
             Route::get('/performance/{user?}', [PerformanceController::class, 'show'])->name('performance.show');
-            Route::get('/search', [SearchController::class, 'index'])->name('search.index');
         });
+
+        // Admin gets search too, but SearchController scopes it to Users/Departments —
+        // never task/project content (BRD §15) — so it's an intentionally separate
+        // branch, not the same query widened to a new role.
+        Route::middleware('role:admin,manager,tl,employee')
+            ->get('/search', [SearchController::class, 'index'])->name('search.index');
 
         // Role-spine smoke routes — one per role, used by RoleMiddlewareTest.
         Route::get('/admin/foundation', fn () => response()->json(['area' => 'admin']))

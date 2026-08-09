@@ -45,17 +45,26 @@ class TaskController extends Controller
             ->orderByRaw("CASE WHEN priority = 'urgent' THEN 0 ELSE 1 END")
             ->latest('id');
 
+        $isOwnList = false;
+
         if ($actor->hasRole(RoleCode::Employee)) {
+            $isOwnList = true;
             $query->whereHas('steps.assignments', fn (Builder $q) => $q->where('assignee_id', $actor->id));
         } elseif ($actor->hasRole(RoleCode::TeamLeader)) {
             if ($request->query('view') === 'my') {
-                $query->where(function (Builder $q) use ($actor): void {
-                    $q->whereHas('steps.assignments', fn (Builder $qq) => $qq->where('assignee_id', $actor->id))
-                        ->orWhere('created_by', $actor->id);
-                });
+                $isOwnList = true;
+                $query->whereHas('steps.assignments', fn (Builder $q) => $q->where('assignee_id', $actor->id));
             } else {
                 $query->whereHas('steps', fn (Builder $q) => $q->where('department_id', $actor->department_id));
             }
+        }
+
+        // Approved decision Q19/CR-006 — there is no "Seen" button; opening the list of
+        // one's own tasks IS the seen signal. This is the page real users actually land
+        // on (via the "My tasks" sidebar link); MyTasksController's identical sweep
+        // guards the JSON endpoint but nothing in the UI calls it.
+        if ($isOwnList) {
+            $this->workflow->markMyTasksSeen($actor);
         }
 
         if ($status = $request->query('status')) {

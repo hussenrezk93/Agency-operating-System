@@ -368,7 +368,8 @@ class RoutingAndApprovedUiTest extends TestCase
 
     // ------------------------------------------------------------------- seeded accounts
 
-    public function test_the_seeded_accounts_can_sign_in_without_a_forced_password_change(): void
+    /** DemoSeeder now forces a password change on the two real accounts, like any other. */
+    public function test_the_seeded_accounts_sign_in_and_are_forced_to_change_their_password(): void
     {
         $this->seed(DemoSeeder::class);
 
@@ -379,9 +380,9 @@ class RoutingAndApprovedUiTest extends TestCase
             ])->assertRedirect(route('dashboard'));
 
             $this->assertAuthenticated();
-            $this->assertFalse(
+            $this->assertTrue(
                 User::where('username', $username)->firstOrFail()->must_change_password,
-                "{$username} must not be intercepted by the forced password screen",
+                "{$username} must be intercepted by the forced password screen",
             );
 
             $this->post(route('logout'));

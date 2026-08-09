@@ -1,8 +1,7 @@
 @extends('layouts.app')
 @section('title', __('agencyos.clients.index.title'))
 @section('page', 'clients')
-@section('content')
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <h1>{{ __('agencyos.clients.index.title') }}</h1>
@@ -10,16 +9,19 @@
         </div>
         @if($canCreate)
             <div class="page-actions">
-                <a class="btn btn-primary" href="{{ route('clients.create-form') }}">＋ {{ __('agencyos.clients.index.new_client') }}</a>
+                <a class="btn btn-primary" href="{{ route('clients.create-form') }}"><x-icon name="plus"/> {{ __('agencyos.clients.index.new_client') }}</a>
             </div>
         @endif
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card">
+    <div class="card glass-dark">
         <div class="table-wrap">
             <table>
                 <thead>
@@ -50,17 +52,23 @@
                             @endif
                         </td>
                         <td style="text-align:end;white-space:nowrap">
-                            <a class="btn btn-sm btn-outline" href="{{ route('clients.edit-form', $client) }}">{{ __('agencyos.clients.index.edit') }}</a>
+                            @if($canUpdate)
+                                <a class="btn btn-sm btn-outline" href="{{ route('clients.edit-form', $client) }}"><x-icon name="edit"/> {{ __('agencyos.clients.index.edit') }}</a>
+                            @endif
                             @if($client->status->value === 'active')
-                                <form method="POST" action="{{ route('clients.deactivate', $client) }}" style="display:inline">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-danger-outline">{{ __('agencyos.clients.index.deactivate') }}</button>
-                                </form>
+                                @if($canDeactivate)
+                                    <form method="POST" action="{{ route('clients.deactivate', $client) }}" style="display:inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-danger-outline">{{ __('agencyos.clients.index.deactivate') }}</button>
+                                    </form>
+                                @endif
                             @else
-                                <form method="POST" action="{{ route('clients.reactivate', $client) }}" style="display:inline">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-outline">{{ __('agencyos.clients.index.reactivate') }}</button>
-                                </form>
+                                @if($canReactivate)
+                                    <form method="POST" action="{{ route('clients.reactivate', $client) }}" style="display:inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-outline">{{ __('agencyos.clients.index.reactivate') }}</button>
+                                    </form>
+                                @endif
                             @endif
                         </td>
                     </tr>

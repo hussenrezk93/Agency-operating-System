@@ -26,6 +26,9 @@ class ClientController extends Controller
             return view('clients.index', [
                 'clients' => $clients,
                 'canCreate' => $request->user()->can('create', Client::class),
+                'canUpdate' => $request->user()->can('update', Client::class),
+                'canDeactivate' => $request->user()->can('deactivate', Client::class),
+                'canReactivate' => $request->user()->can('reactivate', Client::class),
             ]);
         }
 

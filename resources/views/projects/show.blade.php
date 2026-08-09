@@ -1,12 +1,11 @@
 @extends('layouts.app')
 @section('title', $project->name)
 @section('page', 'projects')
-@section('content')
 @php
     $closed = $project->isClosed();
     $badge = \App\Support\ProjectPresenter::statusBadge($project->status);
 @endphp
-<main class="page">
+@section('page_header')
     <div class="page-head">
         <div>
             <div class="small muted mono">{{ $project->project_code }} &middot; {{ $project->client->name }}</div>
@@ -15,7 +14,10 @@
         </div>
         <div class="page-actions"><a class="small" href="{{ route('projects.index') }}">{{ __('agencyos.projects.show.back_to_projects') }}</a></div>
     </div>
-
+    <x-topbar-controls/>
+@endsection
+@section('content')
+<main class="page">
     @if(session('status'))
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
@@ -26,7 +28,7 @@
         <div class="alert alert-danger" style="margin-bottom:16px"><div>🔒 {{ __('agencyos.projects.show.read_only') }}@if($project->cancelled_reason) &middot; {{ $project->cancelled_reason }}@endif</div></div>
     @endif
 
-    <div class="grid-2" style="align-items:start">
+    <div class="grid grid-2" style="align-items:start">
         <div>
             <div class="card" style="margin-bottom:18px">
                 <div class="card-head"><h2>{{ __('agencyos.projects.show.details') }}</h2></div>
@@ -64,12 +66,8 @@
                             @csrf
                             <div class="field span2">
                                 <label>{{ __('agencyos.projects.show.add_department') }}</label>
-                                <select name="department_id" required>
-                                    <option value="">—</option>
-                                    @foreach(\App\Models\Department::where('is_active', true)->orderBy('name')->get() as $department)
-                                        <option value="{{ $department->id }}">{{ $department->name }}</option>
-                                    @endforeach
-                                </select>
+                                <x-form-select name="department_id" required placeholder="—"
+                                    :options="\App\Models\Department::where('is_active', true)->orderBy('name')->get()->pluck('name', 'id')"/>
                             </div>
                             <div class="field"><button type="submit" class="btn btn-outline btn-sm">{{ __('agencyos.projects.show.add_department') }}</button></div>
                         </form>

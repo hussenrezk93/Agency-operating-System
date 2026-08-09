@@ -157,4 +157,48 @@ class ChatDigestTest extends TestCase
 
         Queue::assertPushed(SendChatDigestEmailJob::class, fn ($job) => $job->batch->is($batch));
     }
+
+    /**
+     * A Direct message (person-to-person, ConversationType::Direct) skips the 2-hour
+     * window entirely: its own one-message batch is dispatched for sending right away,
+     * with `window_end` left null so neither the sweep nor a later group message can
+     * ever touch it (see NotifyOnChatMessageSent's class doc for why null is safe here).
+     */
+    public function test_a_direct_message_gets_its_own_batch_sent_immediately(): void
+    {
+        Queue::fake();
+        $other = $this->makeEmployee($this->marketing);
+        $conversation = $this->chat->startDirectMessage($this->employee, $other);
+
+        $this->chat->sendMessage($conversation, $this->employee, 'Hey');
+
+        $batch = ChatDigestBatch::where('user_id', $other->id)->firstOrFail();
+        $this->assertSame(1, $batch->message_count);
+        $this->assertNull($batch->window_end);
+        Queue::assertPushed(SendChatDigestEmailJob::class, fn ($job) => $job->batch->is($batch));
+    }
+
+    /** The null window_end must never be swept up as if it were "due" or "still open." */
+    public function test_a_direct_messages_batch_is_invisible_to_the_sweep_and_never_reused(): void
+    {
+        $other = $this->makeEmployee($this->marketing);
+        $conversation = $this->chat->startDirectMessage($this->employee, $other);
+        $this->chat->sendMessage($conversation, $this->employee, 'Hey');
+
+        // Faked only from here on, same as "the sweep only closes..." above — sending
+        // the message already dispatched its own (legitimate) instant job.
+        Queue::fake();
+
+        $this->artisan('agencyos:chat-digests')->assertExitCode(0);
+        Queue::assertNothingPushed();
+
+        // A later, non-Direct message to the same recipient must open its OWN batch,
+        // not append to the null-window Direct one.
+        $group = $this->chat->resolveDepartmentGroupConversation($this->marketing);
+        $this->chat->sendMessage($group, $this->leader, 'unrelated group message');
+
+        $this->assertSame(2, ChatDigestBatch::where('user_id', $other->id)->count());
+        $this->assertSame(1, ChatDigestBatch::where('user_id', $other->id)->whereNull('window_end')->count());
+        $this->assertSame(1, ChatDigestBatch::where('user_id', $other->id)->whereNotNull('window_end')->count());
+    }
 }

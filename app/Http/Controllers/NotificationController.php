@@ -29,4 +29,13 @@ class NotificationController extends Controller
 
         return redirect()->route('notifications.index');
     }
+
+    public function markAllRead(Request $request): RedirectResponse
+    {
+        $request->user()->notifications()->unread()
+            ->update(['is_read' => true, 'read_at' => now()]);
+
+        return redirect()->route('notifications.index')
+            ->with('status', __('agencyos.notifications.index.marked_all_read'));
+    }
 }

@@ -28,6 +28,7 @@ use App\Policies\TaskPolicy;
 use App\Policies\TaskStepPolicy;
 use App\Policies\TemporaryLeadershipPolicy;
 use App\Policies\UserPolicy;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -37,6 +38,12 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // The framework's built-in pagination views assume Tailwind/Bootstrap is
+        // loaded; this app ships neither, so they render broken (see
+        // resources/views/vendor/pagination/agencyos.blade.php for why).
+        Paginator::defaultView('pagination::agencyos');
+        Paginator::defaultSimpleView('pagination::agencyos');
+
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Department::class, DepartmentPolicy::class);
         Gate::policy(Project::class, ProjectPolicy::class);
