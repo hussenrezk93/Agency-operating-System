@@ -905,6 +905,10 @@ textarea.input{resize:vertical;min-height:92px}
   .only-mobile{display:block}
   .kv{grid-template-columns:120px 1fr}
   .msg{max-width:88%}
+  /* Touch targets: 38px is a fine density on a mouse-driven desktop layout but sits
+     under the ~44px platform guideline (Apple HIG / Material) for a finger on glass —
+     bump the tappable icon controls up on touch-sized viewports only. */
+  .icon-btn,.topbar-avatar,.burger{width:42px;height:42px}
 }
 @media (max-width:560px){
   .grid-4{grid-template-columns:1fr}
