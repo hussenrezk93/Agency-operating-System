@@ -7,6 +7,11 @@ Work arrives as a task, is routed to a department, assigned to a person, submitt
 review, approved through a multi-stage chain, and either passed to the next department or
 closed. Everything that happens to it is recorded, timed, and scored.
 
+> **Built for the desktop.** This is a back-office system meant for a full-width screen,
+> and that is what it is designed and tested against. The layout does respond down to
+> phone widths, but the small-screen experience is not finished and is not what the
+> product is for — view it on a desktop browser.
+
 ---
 
 ## What it does
@@ -115,7 +120,8 @@ through it.
 ### Signing in
 
 `migrate --seed` builds a demo workspace rather than an empty database, so there is
-something to look at immediately. Every account uses the password **`Demo1234!`**:
+something to look at immediately. Open it in a desktop browser — see the note at the top.
+Every account uses the password **`Demo1234!`**:
 
 | Username | Role | What it shows |
 |---|---|---|
