@@ -2,8 +2,11 @@
 
 namespace App\Policies;
 
+use App\Enums\DepartmentSpecialRole;
 use App\Enums\RoleCode;
 use App\Enums\TaskLifecycle;
+use App\Enums\WorkflowStatus;
+use App\Models\Department;
 use App\Models\Task;
 use App\Models\User;
 
@@ -60,11 +63,33 @@ class TaskPolicy
         }
 
         if ($actor->hasRole(RoleCode::TeamLeader)) {
-            return $actor->department_id !== null
-                && $task->steps()->where('department_id', $actor->department_id)->exists();
+            if ($actor->department_id !== null
+                && $task->steps()->where('department_id', $actor->department_id)->exists()) {
+                return true;
+            }
+
+            // Product decision 2026-09 — Content reviews Graphic's work, so its leader
+            // has to be able to OPEN a task that never touched their own department.
+            // Read access lasts exactly as long as their turn does: once the step moves
+            // on to the Manager, the task disappears from their view again.
+            return $this->isAwaitingContentReview($task) && $this->leadsContent($actor);
         }
 
         return $this->hasEverBeenAssigned($actor, $task);
+    }
+
+    /** Whether the task's live step is sitting in Content's review stage. */
+    private function isAwaitingContentReview(Task $task): bool
+    {
+        return $task->currentStep?->workflow_status === WorkflowStatus::PendingContentReview;
+    }
+
+    /** Resolved through effectiveLeader() so a temporary stand-in inherits the review. */
+    private function leadsContent(User $actor): bool
+    {
+        $content = Department::withSpecialRole(DepartmentSpecialRole::Content);
+
+        return $content !== null && $actor->canActAsLeaderOf($content->id);
     }
 
     /** BRD §8 — only the Manager and Team Leaders create tasks. */
@@ -119,6 +144,23 @@ class TaskPolicy
         $step = $task->currentStep;
 
         return $step !== null && $actor->canActAsLeaderOf($step->department_id);
+    }
+
+    /**
+     * Product decision 2026-09 — a Manager may send an already-Approved step back for
+     * changes, mandatory reason, instead of letting it move on. This covers both a step
+     * that's Approved but still awaiting Transfer/Finish (task still Active) and a step
+     * that already closed the task (task Completed) — completeTask() and sendToNext
+     * both leave current_step_id pointing at the Approved step either way, so checking
+     * the current step's status alone covers both without needing a lifecycle branch.
+     * Deliberately excludes Cancelled tasks — cancellation is an administrative kill,
+     * not a workflow outcome, and stays permanently closed.
+     */
+    public function reopen(User $actor, Task $task): bool
+    {
+        return $actor->hasRole(RoleCode::Manager)
+            && $task->lifecycle_status !== TaskLifecycle::Cancelled
+            && $task->currentStep?->workflow_status === WorkflowStatus::Approved;
     }
 
     /** BRD §10 — the Manager or the task's creator, with a mandatory reason. */

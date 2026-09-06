@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\DeadlineStatus;
+use App\Enums\DepartmentSpecialRole;
 use App\Enums\Priority;
 use App\Enums\ReviewDecision;
 use App\Enums\RoleCode;
@@ -13,6 +14,7 @@ use App\Events\TaskCancelled;
 use App\Events\TaskCompleted;
 use App\Events\TaskHeld;
 use App\Events\TaskRedirected;
+use App\Events\TaskReopened;
 use App\Events\TaskResumed;
 use App\Events\TaskStepAssigned;
 use App\Events\TaskStepFirstSeen;
@@ -54,7 +56,11 @@ use Illuminate\Validation\ValidationException;
  *   "Submitted"       → WorkflowStatus::UnderReview, with `submitted_at` recording when
  *   "Next Department" → a NEW step; the finished step stays Approved
  *   "Completed"       → tasks.lifecycle_status, never a step status
- * No new status value was added and no table was altered.
+ *
+ * Product decision 2026-09 — a step is no longer Approved the moment the Team Leader
+ * decides: it passes through WorkflowStatus::PendingManagerReview first, and only a
+ * Manager's own approve() reaches the true terminal Approved. approve()/requestChanges()
+ * are unified across both stages rather than duplicated — see their doc comments.
  *
  * PHASE 1B SLICE 3 — hold/resume accounting (Q5/Q9/Q23) and Manager redirect (BRD §10)
  * now live here too, alongside the transitions above: this class already owns
@@ -87,7 +93,7 @@ class TaskWorkflowService
      *
      * @param  array{title: string, brief: string, notes?: ?string, priority?: string,
      *               project_id?: ?int, first_department_id: int,
-     *               reference_links?: array<int, array{url: string, label?: ?string}>}  $data
+     *               reference_links?: array<int, array{url: string, label?: ?string, is_upload?: bool}>}  $data
      */
     public function createTask(User $actor, array $data): Task
     {
@@ -246,6 +252,7 @@ class TaskWorkflowService
                 'added_by' => $actor->id,
                 'url' => $link['url'],
                 'label' => $link['label'] ?? null,
+                'is_upload' => $link['is_upload'] ?? false,
             ]);
         }
 
@@ -326,6 +333,11 @@ class TaskWorkflowService
         $this->assertAssignable($step, $assignee, $actor);
 
         return DB::transaction(function () use ($step, $actor, $assignee, $startDate, $dueDate): TaskStepAssignment {
+            // Locking the step row serializes concurrent assign() calls: the loser blocks
+            // here until the winner commits, then sees the now-InProgress status and fails
+            // cleanly instead of racing to insert a second open assignment.
+            $step = $this->lockStep($step, WorkflowStatus::WaitingAssignment);
+
             $assignment = $this->openAssignment($step, $actor, $assignee, $startDate, $dueDate);
 
             $this->moveStep($step, WorkflowStatus::InProgress, [
@@ -381,6 +393,7 @@ class TaskWorkflowService
         $this->assertAssignable($step, $assignee, $actor);
 
         return DB::transaction(function () use ($step, $actor, $assignee, $startDate, $dueDate, $reason): TaskStepAssignment {
+            $step = $this->lockStep($step, WorkflowStatus::InProgress, WorkflowStatus::ChangesRequested);
             $previous = $step->activeAssignment;
 
             $previous?->forceFill([
@@ -567,20 +580,28 @@ class TaskWorkflowService
      * adds a new row. Q25: the row carries the submission round it belongs to, because
      * approving a submission makes ALL of that round's links final, not just the latest.
      */
-    public function addOutput(TaskStep $step, User $actor, string $url, ?string $label = null): TaskStepOutput
+    /**
+     * @param  string  $url  An external link, or — when $isUpload is true — a relative
+     *                       path already stored on the `public` disk (e.g. from
+     *                       `$file->store('task-outputs', 'public')`); this method never
+     *                       touches an UploadedFile directly, same convention as
+     *                       UserService::updateAvatar().
+     */
+    public function addOutput(TaskStep $step, User $actor, string $url, ?string $label = null, bool $isUpload = false): TaskStepOutput
     {
         Gate::forUser($actor)->authorize('addOutput', $step);
 
         $this->assertTaskMutable($step->task);
-        $this->assertStepStatus($step, WorkflowStatus::InProgress, WorkflowStatus::ChangesRequested);
+        $this->assertStepStatus($step, WorkflowStatus::InProgress, WorkflowStatus::ChangesRequested, WorkflowStatus::UnderReview);
 
-        return DB::transaction(function () use ($step, $actor, $url, $label): TaskStepOutput {
+        return DB::transaction(function () use ($step, $actor, $url, $label, $isUpload): TaskStepOutput {
             $output = $step->outputs()->create([
                 'added_by' => $actor->id,
                 'submission_no' => $step->currentSubmissionNo(),
                 'url' => $url,
                 'label' => $label,
                 'is_final' => false,
+                'is_upload' => $isUpload,
             ]);
 
             $this->record($step->task, $step, TaskEvent::OutputAdded, $actor, null, null, null, [
@@ -597,6 +618,45 @@ class TaskWorkflowService
             );
 
             return $output;
+        });
+    }
+
+    /**
+     * Retracting a link the assignee no longer wants counted — same window as
+     * addOutput() (InProgress, ChangesRequested, or UnderReview, right up until the
+     * reviewer decides). The row stays forever (BRD §13's immutability, unchanged);
+     * this only marks it removed so it drops out of outputsForCurrentSubmission() and
+     * out of approve()'s finalization query.
+     */
+    public function removeOutput(TaskStepOutput $output, User $actor): void
+    {
+        $step = $output->step;
+
+        Gate::forUser($actor)->authorize('removeOutput', $step);
+
+        $this->assertTaskMutable($step->task);
+        $this->assertStepStatus($step, WorkflowStatus::InProgress, WorkflowStatus::ChangesRequested, WorkflowStatus::UnderReview);
+
+        if ($output->is_final || $output->removed_at !== null) {
+            throw IllegalTransitionException::outputNotRemovable();
+        }
+
+        DB::transaction(function () use ($step, $output, $actor): void {
+            $output->forceFill(['removed_at' => now()])->save();
+
+            $this->record($step->task, $step, TaskEvent::OutputRemoved, $actor, null, null, null, [
+                'output_id' => $output->id,
+                'submission_no' => $output->submission_no,
+            ]);
+
+            $this->audit->log(
+                action: 'task_step.output_removed',
+                entityType: 'task_step',
+                entityId: $step->id,
+                before: ['output_id' => $output->id],
+                after: ['output_id' => $output->id, 'removed_at' => $output->removed_at->toIso8601String()],
+                actorId: $actor->id,
+            );
         });
     }
 
@@ -650,9 +710,15 @@ class TaskWorkflowService
     // ---------------------------------------------------------------- submit
 
     /**
-     * BRD §9.5 / §22.2 — submitting requires at least one output in the CURRENT round.
-     * Links carried over from an earlier rejected round do not satisfy it, which is what
-     * stops "request changes" from being closed by resubmitting the same work untouched.
+     * BRD §9.5 / §22.2 — submitting requires at least one live output in the CURRENT
+     * round. A round that adds nothing of its own (2026-08 decision, reversing the
+     * original "must add something new" rule) carries the previous round's still-live
+     * links forward instead of forcing the assignee to re-add an unchanged URL — the
+     * assignee can just resubmit the same work as-is. A round that DOES add its own
+     * output is left alone: the earlier round's links keep their own submission_no and
+     * never become final (see approve()'s Q25 finalization, and the "second round" test
+     * this carry-forward does not touch, since it only ever fires when this round's own
+     * count is zero).
      */
     public function submit(TaskStep $step, User $actor): TaskStep
     {
@@ -668,14 +734,39 @@ class TaskWorkflowService
         $outputCount = $step->outputs()
             ->where('submission_no', $submissionNo)
             ->whereNull('superseded_by_output_id')
+            ->whereNull('removed_at')
             ->count();
 
-        if ($outputCount === 0) {
+        $carriedIds = collect();
+
+        if ($outputCount === 0 && $isResubmission) {
+            $carriedIds = $step->outputs()
+                ->where('submission_no', $submissionNo - 1)
+                ->whereNull('superseded_by_output_id')
+                ->whereNull('removed_at')
+                ->pluck('id');
+            $outputCount = $carriedIds->count();
+        }
+
+        // Product decision 2026-09 — Photography/Videography and Moderator hand work
+        // over off-system (a shoot, a published post), so neither has a link to attach;
+        // every other department still owes at least one output before it can submit.
+        $outputExempt = in_array($step->department->special_role, [
+            DepartmentSpecialRole::PhotographyVideography,
+            DepartmentSpecialRole::Moderator,
+        ], true);
+
+        if ($outputCount === 0 && ! $outputExempt) {
             throw MissingOutputException::forSubmission($submissionNo);
         }
 
-        return DB::transaction(function () use ($step, $actor, $submissionNo, $isResubmission, $outputCount): TaskStep {
+        return DB::transaction(function () use ($step, $actor, $submissionNo, $isResubmission, $outputCount, $carriedIds): TaskStep {
+            $step = $this->lockStep($step, WorkflowStatus::InProgress, WorkflowStatus::ChangesRequested);
             $from = $step->workflow_status;
+
+            if ($carriedIds->isNotEmpty()) {
+                $step->outputs()->whereIn('id', $carriedIds)->update(['submission_no' => $submissionNo]);
+            }
 
             $this->moveStep($step, WorkflowStatus::UnderReview, ['submitted_at' => now()]);
 
@@ -702,21 +793,30 @@ class TaskWorkflowService
     // ---------------------------------------------------------------- review
 
     /**
-     * BRD §9.6 / §22.3 + approved decision Q12 — the effective Team Leader reviews, except
-     * on a step the Team Leader assigned to themselves, which only a Manager may judge.
-     * Q25: approval marks every link of the approved round final.
+     * BRD §9.6 / §22.3 + approved decision Q12 — the effective Team Leader reviews first
+     * (except on a step the Team Leader assigned to themselves, which only a Manager may
+     * judge), except a step is not truly Approved until a Manager ALSO reviews it
+     * (product decision 2026-09) — one call handles both stages, since the only
+     * difference between them is WHO may act (TaskStepPolicy::review()) and what happens
+     * once the step is genuinely done (below), not the shape of the action itself.
+     * Q25: reaching Approved marks every link of the approved round final.
      */
     public function approve(TaskStep $step, User $actor, ?string $comment = null): TaskStepReview
     {
         Gate::forUser($actor)->authorize('review', $step);
 
         $this->assertTaskMutable($step->task);
-        $this->assertStepStatus($step, WorkflowStatus::UnderReview);
-        $this->assertTransitionAllowed($step, WorkflowStatus::Approved);
+        $this->assertStepStatus($step, WorkflowStatus::UnderReview, WorkflowStatus::PendingContentReview, WorkflowStatus::PendingManagerReview);
 
         $submissionNo = $step->currentSubmissionNo();
 
         return DB::transaction(function () use ($step, $actor, $comment, $submissionNo): TaskStepReview {
+            $step = $this->lockStep($step, WorkflowStatus::UnderReview, WorkflowStatus::PendingContentReview, WorkflowStatus::PendingManagerReview);
+            $from = $step->workflow_status;
+            $to = $this->stageAfterApproval($step, $from);
+
+            $this->assertTransitionAllowed($step, $to);
+
             $review = $step->reviews()->create([
                 'reviewer_id' => $actor->id,
                 'submission_no' => $submissionNo,
@@ -724,22 +824,36 @@ class TaskWorkflowService
                 'comment' => $comment,
             ]);
 
-            // Q25 — the whole approved round becomes final, not only the newest link.
-            $step->outputs()
-                ->where('submission_no', $submissionNo)
-                ->whereNull('superseded_by_output_id')
-                ->update(['is_final' => true]);
+            if ($to === WorkflowStatus::Approved) {
+                // Q25 — the whole approved round becomes final, not only the newest
+                // link. A removed link never becomes final even if it belonged to this
+                // round. Only happens once truly Approved (post-Manager), same as the
+                // assignment ending below — the TL's own approval leaves both alone.
+                $step->outputs()
+                    ->where('submission_no', $submissionNo)
+                    ->whereNull('superseded_by_output_id')
+                    ->whereNull('removed_at')
+                    ->update(['is_final' => true]);
 
-            // The assignee's work on this step is finished.
-            $step->activeAssignment?->forceFill([
-                'ended_at' => now(),
-                'end_reason' => 'approved',
-            ])->save();
+                // The assignee's work on this step is finished.
+                $step->activeAssignment?->forceFill([
+                    'ended_at' => now(),
+                    'end_reason' => 'approved',
+                ])->save();
 
-            $this->moveStep($step, WorkflowStatus::Approved, ['approved_at' => now()]);
+                $this->moveStep($step, $to, ['approved_at' => now()]);
+            } else {
+                $this->moveStep($step, $to);
+            }
 
-            $this->record($step->task, $step, TaskEvent::Approved, $actor,
-                WorkflowStatus::UnderReview, WorkflowStatus::Approved, $comment,
+            $this->record(
+                $step->task, $step,
+                match ($from) {
+                    WorkflowStatus::UnderReview => TaskEvent::Approved,
+                    WorkflowStatus::PendingContentReview => TaskEvent::ContentApproved,
+                    default => TaskEvent::ManagerApproved,
+                },
+                $actor, $from, $to, $comment,
                 ['submission_no' => $submissionNo, 'reviewer_role' => $actor->roleCode()->value],
             );
 
@@ -751,7 +865,7 @@ class TaskWorkflowService
                 actorId: $actor->id,
             );
 
-            TaskStepReviewed::dispatch($step, $review);
+            TaskStepReviewed::dispatch($step, $review, $from);
 
             return $review;
         });
@@ -762,12 +876,15 @@ class TaskWorkflowService
      * The database enforces the comment too (`tsr_comment_required_check`); rejecting it
      * here first turns a constraint violation into a readable message.
      */
+    /** Unified across both review stages the same way approve() is — see its doc
+     *  comment. Whoever is currently reviewing (TL or Manager) sends the step back to
+     *  the same place either way, so unlike approve() the destination never varies. */
     public function requestChanges(TaskStep $step, User $actor, string $comment): TaskStepReview
     {
         Gate::forUser($actor)->authorize('review', $step);
 
         $this->assertTaskMutable($step->task);
-        $this->assertStepStatus($step, WorkflowStatus::UnderReview);
+        $this->assertStepStatus($step, WorkflowStatus::UnderReview, WorkflowStatus::PendingContentReview, WorkflowStatus::PendingManagerReview);
         $this->assertTransitionAllowed($step, WorkflowStatus::ChangesRequested);
 
         if (trim($comment) === '') {
@@ -779,6 +896,9 @@ class TaskWorkflowService
         $submissionNo = $step->currentSubmissionNo();
 
         return DB::transaction(function () use ($step, $actor, $comment, $submissionNo): TaskStepReview {
+            $step = $this->lockStep($step, WorkflowStatus::UnderReview, WorkflowStatus::PendingContentReview, WorkflowStatus::PendingManagerReview);
+            $from = $step->workflow_status;
+
             $review = $step->reviews()->create([
                 'reviewer_id' => $actor->id,
                 'submission_no' => $submissionNo,
@@ -788,8 +908,14 @@ class TaskWorkflowService
 
             $this->moveStep($step, WorkflowStatus::ChangesRequested, ['submitted_at' => null]);
 
-            $this->record($step->task, $step, TaskEvent::ChangesRequested, $actor,
-                WorkflowStatus::UnderReview, WorkflowStatus::ChangesRequested, $comment,
+            $this->record(
+                $step->task, $step,
+                match ($from) {
+                    WorkflowStatus::PendingManagerReview => TaskEvent::ManagerChangesRequested,
+                    WorkflowStatus::PendingContentReview => TaskEvent::ContentChangesRequested,
+                    default => TaskEvent::ChangesRequested,
+                },
+                $actor, $from, WorkflowStatus::ChangesRequested, $comment,
                 [
                     'submission_no' => $submissionNo,
                     'returned_to_assignee_id' => $step->activeAssignment?->assignee_id,
@@ -804,7 +930,7 @@ class TaskWorkflowService
                 actorId: $actor->id,
             );
 
-            TaskStepReviewed::dispatch($step, $review);
+            TaskStepReviewed::dispatch($step, $review, $from);
 
             return $review;
         });
@@ -917,6 +1043,89 @@ class TaskWorkflowService
         });
     }
 
+    // ---------------------------------------------------------------- reopen
+
+    /**
+     * Product decision 2026-09 — a Manager may send an already-Approved current step
+     * back for changes, with a mandatory reason and a new due date they set themselves.
+     * This covers a step that already closed the task (Completed) just as much as one
+     * that's Approved but still awaiting Transfer/Finish (task still Active) — see
+     * TaskPolicy::reopen()'s doc comment for why checking the current step's status
+     * alone is enough. Modeled on cancelTask()'s shape (a mandatory-reason control
+     * action, not a normal review-cycle move) plus resume()'s due-date/DeadlineService
+     * handling.
+     *
+     * Deliberately NO assertTaskMutable() call: it throws whenever the task isClosed(),
+     * which is only true for the Completed-task case this method also has to handle.
+     *
+     * The step is moved to ChangesRequested by a direct moveStep() call, not through
+     * assertTransitionAllowed()/the general transition map — same precedent as
+     * cancelTask() writing Cancelled on every live step with no map check. Approved →
+     * ChangesRequested is deliberately NOT added to WorkflowStatus::allowedNextStatuses()
+     * — it would be misleading there, since nothing else about Approved is meant to be
+     * reachable-from again; reopen() is the one, explicit, admin-style exception.
+     */
+    public function reopen(Task $task, User $actor, string $reason, string $dueDate): Task
+    {
+        Gate::forUser($actor)->authorize('reopen', $task);
+
+        if (trim($reason) === '') {
+            throw ValidationException::withMessages([
+                'reason' => __('A reason is required when reopening a task.'),
+            ]);
+        }
+
+        return DB::transaction(function () use ($task, $actor, $reason, $dueDate): Task {
+            $task = $this->lockTask($task);
+
+            if ($task->lifecycle_status === TaskLifecycle::Cancelled) {
+                throw IllegalTransitionException::taskClosed($task->lifecycle_status);
+            }
+
+            $step = $task->currentStep;
+            $this->assertStepStatus($step, WorkflowStatus::Approved);
+            $from = $step->workflow_status;
+            $newDueAt = $this->dueAt($dueDate);
+
+            // activeAssignment (whereNull('ended_at')) is already null by this point —
+            // approve() ended it when the step reached Approved — so the most RECENT
+            // assignment (regardless of ended state) is the one to revive.
+            $step->assignments()->latest('id')->first()?->forceFill([
+                'ended_at' => null,
+                'end_reason' => null,
+                'due_date' => $newDueAt->toDateString(),
+            ])->save();
+
+            $this->moveStep($step, WorkflowStatus::ChangesRequested, [
+                'current_due_at' => $newDueAt,
+                'completed_at' => null,
+            ]);
+            $this->deadline->recomputeStep($step->refresh());
+
+            $task->forceFill([
+                'lifecycle_status' => TaskLifecycle::Active->value,
+                'completed_at' => null,
+                'completed_by' => null,
+            ])->save();
+
+            $this->record($task, $step, TaskEvent::TaskReopened, $actor,
+                $from, WorkflowStatus::ChangesRequested, $reason, []);
+
+            $this->audit->log(
+                action: 'task.reopened',
+                entityType: 'task',
+                entityId: $task->id,
+                after: ['reopened_by' => $actor->id, 'reason' => $reason],
+                actorId: $actor->id,
+            );
+
+            $reopened = $task->refresh();
+            TaskReopened::dispatch($reopened, $step->refresh(), $reason);
+
+            return $reopened;
+        });
+    }
+
     // ---------------------------------------------------------------- cancel
 
     /**
@@ -937,6 +1146,9 @@ class TaskWorkflowService
         }
 
         return DB::transaction(function () use ($task, $actor, $reason): Task {
+            $task = $this->lockTask($task);
+            $this->assertTaskMutable($task);
+
             foreach ($task->steps as $step) {
                 if ($step->workflow_status->isTerminal()) {
                     continue;
@@ -1004,6 +1216,13 @@ class TaskWorkflowService
         }
 
         return DB::transaction(function () use ($task, $actor, $reason, $projectHold): Task {
+            // Closes the double-hold race: two near-simultaneous hold() calls on the same
+            // task (e.g. a double-click) would otherwise both pass the pre-transaction
+            // policy check and both create a TaskHold row, leaving the first one leaked
+            // with ended_at never set.
+            $task = $this->lockTask($task);
+            $this->assertTaskMutable($task);
+
             $hold = $task->holds()->create([
                 'created_by' => $actor->id,
                 'project_hold_id' => $projectHold?->id,
@@ -1051,6 +1270,14 @@ class TaskWorkflowService
         Gate::forUser($actor)->authorize('resume', $task);
 
         return DB::transaction(function () use ($task, $actor): Task {
+            // Closes the mirror-image race to hold(): two near-simultaneous resume()
+            // calls must not both end the same hold and both extend the step's deadline.
+            $task = $this->lockTask($task);
+
+            if (! $task->isOnHold()) {
+                throw IllegalTransitionException::taskNotOnHold();
+            }
+
             $hold = $task->openHold();
             $pausedSeconds = $hold !== null ? max(0, (int) round($hold->started_at->diffInSeconds(now()))) : 0;
 
@@ -1140,6 +1367,12 @@ class TaskWorkflowService
         }
 
         return DB::transaction(function () use ($task, $actor, $target, $current, $reason): TaskStep {
+            $task = $this->lockTask($task);
+            $this->assertTaskMutable($task);
+
+            $current = $this->lockStep($current);
+            $this->assertTransitionAllowed($current, WorkflowStatus::Redirected);
+
             $from = $current->workflow_status;
 
             $current->activeAssignment?->forceFill([
@@ -1229,6 +1462,29 @@ class TaskWorkflowService
         }
     }
 
+    /**
+     * Where an approval hands the step next. The review chain is normally
+     * UnderReview → PendingManagerReview → Approved; a step belonging to the Graphic
+     * department gains one stage in the middle, Content's review (product decision
+     * 2026-09), so its chain is UnderReview → PendingContentReview →
+     * PendingManagerReview → Approved.
+     *
+     * Keyed on special_role, never the department's name — `name` is freely editable by
+     * an Admin and renaming a department must not silently reroute its approvals.
+     */
+    private function stageAfterApproval(TaskStep $step, WorkflowStatus $from): WorkflowStatus
+    {
+        if ($from === WorkflowStatus::UnderReview) {
+            return $step->department?->special_role === DepartmentSpecialRole::Graphic
+                ? WorkflowStatus::PendingContentReview
+                : WorkflowStatus::PendingManagerReview;
+        }
+
+        return $from === WorkflowStatus::PendingContentReview
+            ? WorkflowStatus::PendingManagerReview
+            : WorkflowStatus::Approved;
+    }
+
     private function assertStepStatus(TaskStep $step, WorkflowStatus ...$expected): void
     {
         if (! in_array($step->workflow_status, $expected, true)) {
@@ -1272,6 +1528,59 @@ class TaskWorkflowService
     }
 
     // ------------------------------------------------------------- primitives
+
+    /**
+     * Re-reads $step under a row lock, inside the caller's open transaction, and
+     * re-validates it is still in one of $expected statuses before any write happens —
+     * the same TOCTOU guard markSeen() already applies to its own assignment row,
+     * extended to the transitions that write `workflow_status` itself. Without this,
+     * two concurrent actions on the same step (e.g. one reviewer approving while
+     * another requests changes) can both pass the pre-transaction status check and
+     * leave the step in an inconsistent combination of fields.
+     */
+    private function lockStep(TaskStep $step, WorkflowStatus ...$expected): TaskStep
+    {
+        $fresh = TaskStep::query()->whereKey($step->id)->lockForUpdate()->first();
+
+        if ($fresh === null) {
+            throw IllegalTransitionException::wrongStatus($step->workflow_status, $expected);
+        }
+
+        // Sync the CALLER's own $step instance in place rather than returning a
+        // different object: every write below (and every caller of assign()/submit()/
+        // etc.) relies on PHP's shared-object-reference semantics to see the post-write
+        // state on the same $step variable it already holds, exactly like every other
+        // forceFill()->save() in this class. Returning a distinct instance here would
+        // silently desync the caller's copy from what was actually persisted.
+        $step->setRawAttributes($fresh->getAttributes(), true);
+
+        if ($expected !== []) {
+            $this->assertStepStatus($step, ...$expected);
+        }
+
+        return $step;
+    }
+
+    /**
+     * Row-lock counterpart to lockStep(), for the task-level transitions
+     * (hold/resume/cancel/redirect). Deliberately does NOT assert a status itself —
+     * hold()/cancelTask()/redirect() require the task to still be mutable
+     * (assertTaskMutable()) while resume() requires the opposite (still on hold), so
+     * each caller re-checks its own condition against the freshly locked row.
+     */
+    private function lockTask(Task $task): Task
+    {
+        $fresh = Task::query()->whereKey($task->id)->lockForUpdate()->first();
+
+        if ($fresh === null) {
+            throw IllegalTransitionException::taskClosed($task->lifecycle_status);
+        }
+
+        // Same in-place sync as lockStep() — see its comment for why.
+        $task->setRawAttributes($fresh->getAttributes(), true);
+
+        return $task;
+    }
 
     private function openStep(Task $task, Department $department, int $sequenceNo): TaskStep
     {

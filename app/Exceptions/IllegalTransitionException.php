@@ -39,4 +39,14 @@ class IllegalTransitionException extends WorkflowException
     {
         return new self('The task is on hold and cannot advance.');
     }
+
+    public static function taskNotOnHold(): self
+    {
+        return new self('The task is not on hold and cannot be resumed.');
+    }
+
+    public static function outputNotRemovable(): self
+    {
+        return new self('This output link has already been removed or finalized and cannot be removed.');
+    }
 }

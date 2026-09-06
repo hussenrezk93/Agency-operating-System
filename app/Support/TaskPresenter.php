@@ -14,20 +14,34 @@ use App\Enums\WorkflowStatus;
  */
 final class TaskPresenter
 {
-    /** @return array{class: string, label: string} */
-    public static function workflowBadge(WorkflowStatus $status): array
+    /**
+     * @return array{class: string, label: string}
+     *
+     * $isSelfAssigned matters only for UnderReview: a self-assigned step's first
+     * review is done by the Manager, not the department's Team Leader (Q12 — a TL
+     * can never review a stage they executed themself), so the label has to say
+     * "awaiting Manager review" there too, same as PendingManagerReview — otherwise
+     * it names the wrong reviewer for the one person who can actually act on it.
+     */
+    public static function workflowBadge(WorkflowStatus $status, ?bool $isSelfAssigned = false): array
     {
         $class = match ($status) {
             WorkflowStatus::WaitingAssignment => 'b-waiting',
             WorkflowStatus::InProgress => 'b-progress',
             WorkflowStatus::UnderReview => 'b-review',
+            WorkflowStatus::PendingContentReview => 'b-review',
+            WorkflowStatus::PendingManagerReview => 'b-review',
             WorkflowStatus::ChangesRequested => 'b-changes',
             WorkflowStatus::Approved => 'b-approved',
             WorkflowStatus::Redirected => 'b-neutral',
             WorkflowStatus::Cancelled => 'b-cancel',
         };
 
-        return ['class' => $class, 'label' => __('agencyos.tasks.workflow_status.'.$status->value)];
+        $labelKey = $status === WorkflowStatus::UnderReview && $isSelfAssigned
+            ? WorkflowStatus::PendingManagerReview->value
+            : $status->value;
+
+        return ['class' => $class, 'label' => __('agencyos.tasks.workflow_status.'.$labelKey)];
     }
 
     /** @return array{class: string, label: string} */

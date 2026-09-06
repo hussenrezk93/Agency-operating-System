@@ -2,7 +2,10 @@
 
 namespace App\Policies;
 
+use App\Enums\DepartmentSpecialRole;
 use App\Enums\RoleCode;
+use App\Enums\WorkflowStatus;
+use App\Models\Department;
 use App\Models\TaskStep;
 use App\Models\User;
 
@@ -72,6 +75,12 @@ class TaskStepPolicy
         return $this->stepIsLive($step) && $this->isCurrentAssignee($actor, $step);
     }
 
+    /** Same authority as addOutput() — adding and retracting a link are one right. */
+    public function removeOutput(User $actor, TaskStep $step): bool
+    {
+        return $this->addOutput($actor, $step);
+    }
+
     /** BRD §9.5 — the assignee submits their own work; nobody submits on their behalf. */
     public function submit(User $actor, TaskStep $step): bool
     {
@@ -79,14 +88,31 @@ class TaskStepPolicy
     }
 
     /**
-     * BRD §9.6 + Q12. The reviewer is the effective Team Leader of the department, unless
-     * the Team Leader assigned the step to themselves, in which case it is the Manager.
-     * In no case may the person who did the work review it.
+     * BRD §9.6 + Q12, plus the mandatory Manager stage added 2026-09. At UnderReview,
+     * the reviewer is the effective Team Leader of the department, unless the Team
+     * Leader assigned the step to themselves, in which case it is the Manager (Q12
+     * stays exactly as it was — it's a separation-of-duties rule about who may DECIDE
+     * at that stage, not superseded by the Manager reviewing again afterward regardless).
+     * At PendingManagerReview, only a Manager may act, self-assignment or not. In no
+     * case may the person who did the work review it.
      */
     public function review(User $actor, TaskStep $step): bool
     {
         if (! $this->stepIsLive($step) || $this->isCurrentAssignee($actor, $step)) {
             return false;
+        }
+
+        if ($step->workflow_status === WorkflowStatus::PendingManagerReview) {
+            return $actor->hasRole(RoleCode::Manager);
+        }
+
+        // Product decision 2026-09 — Content reviews Graphic's work before the Manager
+        // does. Their own Team Leader holds that call, resolved through the effective
+        // leader so a temporary stand-in inherits it like everywhere else.
+        if ($step->workflow_status === WorkflowStatus::PendingContentReview) {
+            $content = Department::withSpecialRole(DepartmentSpecialRole::Content);
+
+            return $content !== null && $actor->canActAsLeaderOf($content->id);
         }
 
         if ($step->isSelfAssigned()) {
@@ -134,15 +160,26 @@ class TaskStepPolicy
 
     /**
      * BRD §13 — stage comments belong to the assignee and the department's Team Leader,
-     * and are never visible to the next department.
+     * and are never visible to the next department. Widened 2026-08 (product decision)
+     * to also let the Manager read and post — they already oversee every task
+     * everywhere else in this app, and a comment never touches workflow_status or
+     * anything else the review cycle depends on (see TaskWorkflowService::addComment()
+     * — it only ever writes the comment row and an audit entry), so opening this up
+     * to the Manager carries none of the risk a real review action would.
      */
     public function viewComments(User $actor, TaskStep $step): bool
     {
         return $this->isCurrentAssignee($actor, $step)
-            || $actor->canActAsLeaderOf($step->department_id);
+            || $actor->canActAsLeaderOf($step->department_id)
+            || $actor->hasRole(RoleCode::Manager)
+            // Whoever holds the current review turn reads the thread too — otherwise
+            // Content, reviewing a Graphic step, would decide on it without the
+            // discussion that produced it (product decision 2026-09).
+            || $this->review($actor, $step);
     }
 
-    /** BRD §13 — the same private thread: the assignee and the department's effective Team Leader. */
+    /** BRD §13 — the same private thread as viewComments() above (assignee, the
+     *  department's effective Team Leader, and now the Manager too). */
     public function addComment(User $actor, TaskStep $step): bool
     {
         return $this->stepIsLive($step) && $this->viewComments($actor, $step);

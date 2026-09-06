@@ -35,12 +35,60 @@ class WorkflowStatusTransitionTest extends TestCase
         $this->assertFalse(WorkflowStatus::InProgress->canTransitionTo(WorkflowStatus::Approved));
     }
 
-    public function test_under_review_leads_to_either_review_decision(): void
+    /** Product decision 2026-09 — a TL's approval hands off to a mandatory Manager
+     *  review instead of reaching Approved directly. */
+    public function test_under_review_leads_to_pending_manager_review_or_changes_requested(): void
     {
         $from = WorkflowStatus::UnderReview;
 
+        $this->assertTrue($from->canTransitionTo(WorkflowStatus::PendingManagerReview));
+        $this->assertTrue($from->canTransitionTo(WorkflowStatus::ChangesRequested));
+        $this->assertFalse($from->canTransitionTo(WorkflowStatus::Approved));
+    }
+
+    /** Product decision 2026-09 — Graphic's steps gain one stage in the middle:
+     *  Content reviews them before the Manager ever sees them. */
+    public function test_under_review_may_also_lead_to_content_review(): void
+    {
+        $this->assertTrue(WorkflowStatus::UnderReview->canTransitionTo(WorkflowStatus::PendingContentReview));
+    }
+
+    public function test_content_review_hands_off_to_the_manager_never_straight_to_approved(): void
+    {
+        $from = WorkflowStatus::PendingContentReview;
+
+        $this->assertTrue($from->canTransitionTo(WorkflowStatus::PendingManagerReview));
+        $this->assertTrue($from->canTransitionTo(WorkflowStatus::ChangesRequested));
+        $this->assertFalse($from->canTransitionTo(WorkflowStatus::Approved));
+    }
+
+    public function test_content_review_is_not_terminal_and_still_allows_managing_outputs(): void
+    {
+        $this->assertFalse(WorkflowStatus::PendingContentReview->isTerminal());
+        $this->assertFalse(WorkflowStatus::PendingContentReview->isEditableByAssignee());
+        $this->assertTrue(WorkflowStatus::PendingContentReview->canManageOutputs());
+    }
+
+    /** The Manager's own review step — the true end of the review cycle. */
+    public function test_pending_manager_review_leads_to_either_review_decision(): void
+    {
+        $from = WorkflowStatus::PendingManagerReview;
+
         $this->assertTrue($from->canTransitionTo(WorkflowStatus::Approved));
         $this->assertTrue($from->canTransitionTo(WorkflowStatus::ChangesRequested));
+    }
+
+    public function test_pending_manager_review_is_not_terminal_and_not_editable_by_assignee(): void
+    {
+        $this->assertFalse(WorkflowStatus::PendingManagerReview->isTerminal());
+        $this->assertFalse(WorkflowStatus::PendingManagerReview->isEditableByAssignee());
+    }
+
+    /** Matches UnderReview's own inclusion — the assignee stays the current assignee,
+     *  and so may still manage outputs, through both review stages. */
+    public function test_pending_manager_review_still_allows_managing_outputs(): void
+    {
+        $this->assertTrue(WorkflowStatus::PendingManagerReview->canManageOutputs());
     }
 
     public function test_changes_requested_leads_back_to_under_review_on_resubmission(): void

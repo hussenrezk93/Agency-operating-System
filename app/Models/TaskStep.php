@@ -79,9 +79,32 @@ class TaskStep extends Model
             ->where('decision', 'changes_requested')->count() + 1);
     }
 
+    /**
+     * What the assignee sees as "this round's outputs" — and, not coincidentally,
+     * exactly what TaskWorkflowService::submit() is willing to carry forward for them.
+     * A round that hasn't added anything of its own falls back to the previous round's
+     * still-live links, so a step just sent back with "request changes" still shows the
+     * assignee their own submitted work instead of an empty list.
+     */
     public function outputsForCurrentSubmission()
     {
-        return $this->outputs()->where('submission_no', $this->currentSubmissionNo())->get();
+        $current = $this->currentSubmissionNo();
+
+        $own = $this->outputs()
+            ->where('submission_no', $current)
+            ->whereNull('superseded_by_output_id')
+            ->whereNull('removed_at')
+            ->get();
+
+        if ($own->isNotEmpty() || $current <= 1) {
+            return $own;
+        }
+
+        return $this->outputs()
+            ->where('submission_no', $current - 1)
+            ->whereNull('superseded_by_output_id')
+            ->whereNull('removed_at')
+            ->get();
     }
 
     /** Q12 — a step the effective TL assigned to themselves is reviewed by a Manager. */
