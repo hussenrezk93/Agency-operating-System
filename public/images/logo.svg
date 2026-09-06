@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 48" role="img" aria-label="Agency OS">
+  <title>Agency OS</title>
+  <g fill="none" stroke="#ffffff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 34 L22 14 L32 34"/>
+    <path d="M17 27 H27"/>
+  </g>
+  <text x="46" y="31" font-family="'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif"
+        font-size="19" font-weight="700" letter-spacing="0.5" fill="#ffffff">Agency</text>
+  <text x="129" y="31" font-family="'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif"
+        font-size="19" font-weight="700" letter-spacing="0.5" fill="#FC6E20">OS</text>
+</svg>
