@@ -112,6 +112,28 @@ composer run dev
 The queue worker matters in development — chat delivery, notifications and email all go
 through it.
 
+### Signing in
+
+`migrate --seed` builds a demo workspace rather than an empty database, so there is
+something to look at immediately. Every account uses the password **`Demo1234!`**:
+
+| Username | Role | What it shows |
+|---|---|---|
+| `manager` | Manager | Everything: approvals, the monthly report, payroll and spending |
+| `leila.mansour` | Team Leader (Graphic) | A department queue, submissions to review, the daily report |
+| `salma.fouad` | Employee | Only their own assigned work |
+| `admin` | Admin | Configuration and the audit log — deliberately no task content |
+
+The seeded workspace holds tasks sitting in every workflow state at once — one waiting
+to be assigned, one in progress, one at each of the three review gates, one sent back for
+changes, one overdue and one finished — plus a month of scored performance, daily reports
+at different stages, and a payroll with last month paid and frozen while this month is
+still open.
+
+It is built by driving the application's own services rather than inserting rows, so
+every task carries real history and real timestamps; none of it is a state the app itself
+would refuse to produce.
+
 ### Tests
 
 ```bash

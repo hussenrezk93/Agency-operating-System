@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Enums\RoleCode;
+use App\Enums\WorkflowStatus;
 use App\Models\Department;
 use App\Models\Role;
+use App\Models\Task;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
 use Database\Seeders\RoleSeeder;
@@ -32,32 +34,60 @@ class SeederAndHealthTest extends TestCase
         }
     }
 
-    public function test_dev_seeder_creates_the_documented_development_accounts(): void
+    public function test_the_demo_seeder_builds_an_account_for_every_role(): void
     {
         $this->seed(DemoSeeder::class);
 
-        $admin = User::where('username', 'manager')->firstOrFail();
-        $tl = User::where('username', 'leila.mansour')->firstOrFail();
+        foreach (RoleCode::cases() as $code) {
+            $this->assertTrue(
+                User::whereHas('role', fn ($q) => $q->where('code', $code->value))->exists(),
+                "the demo workspace has nobody with the {$code->value} role",
+            );
+        }
 
-        $this->assertTrue($admin->hasRole(RoleCode::Admin));
-        $this->assertSame('manager@example.com', $admin->personal_email);
-
-        $this->assertTrue($tl->hasRole(RoleCode::TeamLeader));
-        $this->assertSame('leila.mansour@example.com', $tl->personal_email);
-        $this->assertSame('Marketing', $tl->department?->name);
+        $this->assertTrue(User::where('username', 'manager')->firstOrFail()->hasRole(RoleCode::Manager));
+        $this->assertSame('Graphic', User::where('username', 'leila.mansour')->firstOrFail()->department?->name);
     }
 
-    /** Rerunning must never duplicate the two accounts or the department. */
-    public function test_dev_seeder_is_idempotent(): void
+    /**
+     * The whole point of the demo data is that a fresh install has something to look
+     * at, so the workspace must come up populated rather than merely valid.
+     */
+    public function test_the_demo_seeder_fills_the_workspace_with_work_to_look_at(): void
     {
         $this->seed(DemoSeeder::class);
-        $this->seed(DemoSeeder::class);
 
-        $this->assertSame(2, User::count());
-        $this->assertSame(1, Department::where('name', 'Marketing')->count());
+        $this->assertGreaterThan(5, Task::count());
+        $this->assertGreaterThan(1, Department::count());
+
+        // Every review stage represented at once, which is what makes the screens
+        // worth opening: a queue, work in flight, and something waiting at each gate.
+        foreach ([
+            WorkflowStatus::WaitingAssignment,
+            WorkflowStatus::InProgress,
+            WorkflowStatus::UnderReview,
+            WorkflowStatus::PendingContentReview,
+            WorkflowStatus::PendingManagerReview,
+            WorkflowStatus::ChangesRequested,
+        ] as $status) {
+            $this->assertDatabaseHas('task_steps', ['workflow_status' => $status->value]);
+        }
     }
 
-    public function test_dev_seeder_refuses_to_run_in_production(): void
+    /** Rerunning must not duplicate the workspace. */
+    public function test_the_demo_seeder_is_idempotent(): void
+    {
+        $this->seed(DemoSeeder::class);
+        $users = User::count();
+        $tasks = Task::count();
+
+        $this->seed(DemoSeeder::class);
+
+        $this->assertSame($users, User::count());
+        $this->assertSame($tasks, Task::count());
+    }
+
+    public function test_the_demo_seeder_refuses_to_run_in_production(): void
     {
         app()['env'] = 'production';
 
@@ -70,14 +100,14 @@ class SeederAndHealthTest extends TestCase
         }
     }
 
-    public function test_seeded_admin_and_team_leader_accounts_use_the_shared_demo_password(): void
+    public function test_every_demo_account_signs_in_with_the_documented_password(): void
     {
         $this->seed(DemoSeeder::class);
 
-        foreach (['manager', 'leila.mansour'] as $username) {
+        foreach (['manager', 'admin', 'leila.mansour', 'salma.fouad'] as $username) {
             $user = User::where('username', $username)->firstOrFail();
 
-            $this->post('/login', ['username' => $username, 'password' => 'Demo123!'])
+            $this->post('/login', ['username' => $username, 'password' => 'Demo1234!'])
                 ->assertRedirect(route('dashboard'));
 
             $this->assertAuthenticatedAs($user);

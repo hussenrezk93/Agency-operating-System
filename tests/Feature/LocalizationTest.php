@@ -53,7 +53,7 @@ class LocalizationTest extends TestCase
         $user = new User([
             'id' => 1,
             'username' => 'admin',
-            'full_name' => 'Rana Toulan',
+            'full_name' => 'Nadia Farouk',
             'status' => UserStatus::Active->value,
             'must_change_password' => false,
         ]);
@@ -63,7 +63,7 @@ class LocalizationTest extends TestCase
             ->withSession(['locale' => 'ar'])
             ->get('/dashboard')
             ->assertOk()
-            ->assertSee('Rana Toulan')
+            ->assertSee('Nadia Farouk')
             ->assertSee('مسؤول النظام')
             ->assertDontSee('System Admin');
 
@@ -71,7 +71,7 @@ class LocalizationTest extends TestCase
             ->withSession(['locale' => 'en'])
             ->get('/dashboard')
             ->assertOk()
-            ->assertSee('Rana Toulan')
+            ->assertSee('Nadia Farouk')
             ->assertSee('System Admin')
             ->assertDontSee('مسؤول النظام');
     }

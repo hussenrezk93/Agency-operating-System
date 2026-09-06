@@ -368,28 +368,32 @@ class RoutingAndApprovedUiTest extends TestCase
 
     // ------------------------------------------------------------------- seeded accounts
 
-    /** DemoSeeder now forces a password change on the two real accounts, like any other. */
-    public function test_the_seeded_accounts_sign_in_and_are_forced_to_change_their_password(): void
+    /**
+     * The demo accounts land straight on the dashboard. A forced password change is
+     * right for a real account handed to a real person, but here it would put a wall
+     * in front of the first thing anyone opening the project sees.
+     */
+    public function test_the_demo_accounts_sign_in_straight_to_the_dashboard(): void
     {
         $this->seed(DemoSeeder::class);
 
         foreach (['manager', 'leila.mansour'] as $username) {
             $this->post(route('login.store'), [
                 'username' => $username,
-                'password' => 'Demo123!',
+                'password' => 'Demo1234!',
             ])->assertRedirect(route('dashboard'));
 
             $this->assertAuthenticated();
-            $this->assertTrue(
+            $this->assertFalse(
                 User::where('username', $username)->firstOrFail()->must_change_password,
-                "{$username} must be intercepted by the forced password screen",
+                "{$username} should not be stopped by the forced password screen",
             );
 
             $this->post(route('logout'));
         }
     }
 
-    public function test_the_seeded_team_leader_actually_leads_marketing(): void
+    public function test_the_seeded_team_leader_actually_leads_their_department(): void
     {
         $this->seed(DemoSeeder::class);
         $tl = User::where('username', 'leila.mansour')->firstOrFail();

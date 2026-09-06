@@ -10,6 +10,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(RoleSeeder::class);
 
+        // A fresh install lands on a populated workspace rather than empty dashboards.
         if (! app()->environment('production')) {
             $this->call(DemoSeeder::class);
         }

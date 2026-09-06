@@ -152,12 +152,12 @@ No production seeder can create these accounts.
 
 | Username | Role | Password | Purpose |
 |---|---|---|---|
-| `admin` | Admin | `Demo123!` | configuration + audit surface |
-| `manager` | Manager | `Demo123!` | operations |
-| `tl` | Team Leader | `Demo123!` | Marketing department leader |
-| `employee` | Employee | `Demo123!` | Marketing department member |
-| `newuser` | Employee | `Demo123!` | starts in **forced password change** |
-| `disabled.user` | Employee | `Demo123!` | deactivated — sign-in blocked |
+| `admin` | Admin | `Demo1234!` | configuration + audit surface |
+| `manager` | Manager | `Demo1234!` | operations |
+| `tl` | Team Leader | `Demo1234!` | Marketing department leader |
+| `employee` | Employee | `Demo1234!` | Marketing department member |
+| `newuser` | Employee | `Demo1234!` | starts in **forced password change** |
+| `disabled.user` | Employee | `Demo1234!` | deactivated — sign-in blocked |
 
 These are development-only credentials. Real accounts are created internally by an
 Admin (Managers) or a Manager (TLs and Employees) — there is **no public registration**.
