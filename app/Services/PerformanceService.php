@@ -19,12 +19,19 @@ use Illuminate\Support\Carbon;
  * "in progress" numbers are never computed two different ways.
  *
  * A step belongs to the month its `current_due_at` falls in. On-time is reconstructed
- * from `approved_at <= current_due_at` — `deadline_status` becomes `Closed` the moment a
- * step closes and loses the distinction, but `approved_at` is written exactly once
- * (TaskWorkflowService::approve()) and `current_due_at` already carries any hold
- * extension (Phase 6), so "on-hold time excluded" needs no special-casing here.
+ * from `submitted_at <= current_due_at` — `deadline_status` becomes `Closed` the moment
+ * a step closes and loses the distinction, but `current_due_at` already carries any
+ * hold extension (Phase 6), so "on-hold time excluded" needs no special-casing here.
  * Cancelled and Redirected steps are excluded entirely — administratively closed, not a
  * performance failure — matching the approved prototype's own stated formula text.
+ *
+ * Product decision 2026-09 — deliberately `submitted_at`, not `approved_at`: the
+ * assignee is judged on when THEY handed the work over, not on how long the reviewer
+ * then sat on it before approving. `submitted_at` is overwritten on every resubmission
+ * (TaskWorkflowService::submit()) and cleared on RequestChanges, so it always reflects
+ * the timestamp of the submission that actually went on to be approved — a step that
+ * needed a changes-requested round is judged on ITS final, on-time-or-not resubmission,
+ * not the original one.
  */
 class PerformanceService
 {
@@ -70,10 +77,16 @@ class PerformanceService
 
         $due = (clone $base)->count();
 
+        // On time means the assignee handed the work over by the deadline — nothing
+        // about where the REVIEW has got to. This used to also require the step to be
+        // Approved, which quietly scored "submitted on the 1st, still unreviewed on the
+        // 9th" as late and made the reviewer's backlog the assignee's problem — the
+        // exact dependency the product decision above exists to remove. CR-003 (two
+        // mandatory approvals per step) turned that into most of a department's score.
+        // A step never submitted still has a null submitted_at, so it stays late.
         $onTime = (clone $base)
-            ->where('workflow_status', WorkflowStatus::Approved->value)
-            ->whereNotNull('approved_at')
-            ->whereColumn('approved_at', '<=', 'current_due_at')
+            ->whereNotNull('submitted_at')
+            ->whereColumn('submitted_at', '<=', 'current_due_at')
             ->count();
 
         $overdue = $due - $onTime;

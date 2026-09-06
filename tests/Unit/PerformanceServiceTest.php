@@ -16,8 +16,10 @@ use Tests\TestCase;
 
 /**
  * PHASE 9 — the BRD §17 score calculation, resolved per the plan's stated rules:
- * on-time = approved_at <= current_due_at; Cancelled/Redirected excluded; a step not
- * yet due within the month isn't counted yet; N/A (not 0) when nothing was due.
+ * on-time = submitted_at <= current_due_at (product decision 2026-09 — judged on when
+ * the assignee handed the work over, not on how long the reviewer sat on it before
+ * approving); Cancelled/Redirected excluded; a step not yet due within the month isn't
+ * counted yet; N/A (not 0) when nothing was due.
  */
 class PerformanceServiceTest extends TestCase
 {
@@ -49,13 +51,19 @@ class PerformanceServiceTest extends TestCase
         parent::tearDown();
     }
 
-    private function stepDueOn(string $date, WorkflowStatus $status, ?string $approvedAt = null, ?User $assignee = null): TaskStep
-    {
+    private function stepDueOn(
+        string $date,
+        WorkflowStatus $status,
+        ?string $submittedAt = null,
+        ?User $assignee = null,
+        ?string $approvedAt = null,
+    ): TaskStep {
         $step = TaskStep::factory()->create([
             'department_id' => $this->marketing->id,
             'workflow_status' => $status->value,
             'current_due_at' => $date.' 23:59:00',
-            'approved_at' => $approvedAt,
+            'submitted_at' => $submittedAt,
+            'approved_at' => $approvedAt ?? ($status === WorkflowStatus::Approved ? $submittedAt : null),
         ]);
 
         TaskStepAssignment::create([
@@ -71,7 +79,7 @@ class PerformanceServiceTest extends TestCase
         return $step->fresh();
     }
 
-    public function test_a_step_approved_before_its_deadline_counts_as_on_time(): void
+    public function test_a_step_submitted_before_its_deadline_counts_as_on_time(): void
     {
         $this->stepDueOn('2026-08-15', WorkflowStatus::Approved, '2026-08-14 10:00:00');
 
@@ -83,7 +91,7 @@ class PerformanceServiceTest extends TestCase
         $this->assertSame(100.0, $stats['score']);
     }
 
-    public function test_a_step_approved_after_its_deadline_counts_as_late(): void
+    public function test_a_step_submitted_after_its_deadline_counts_as_late(): void
     {
         $this->stepDueOn('2026-08-15', WorkflowStatus::Approved, '2026-08-16 10:00:00');
 
@@ -94,11 +102,58 @@ class PerformanceServiceTest extends TestCase
         $this->assertSame(1, $stats['overdue']);
     }
 
-    public function test_a_step_never_approved_after_its_deadline_passed_counts_as_late(): void
+    public function test_a_step_never_submitted_after_its_deadline_passed_counts_as_late(): void
     {
         $this->stepDueOn('2026-08-15', WorkflowStatus::InProgress);
 
         $stats = $this->service->calculateForUser($this->employee, Carbon::parse('2026-08-01'), Carbon::parse('2026-09-01'));
+
+        $this->assertSame(1, $stats['due']);
+        $this->assertSame(0, $stats['on_time']);
+        $this->assertSame(1, $stats['overdue']);
+    }
+
+    /** Product decision 2026-09 — the whole point of the fix: the reviewer's own delay
+     *  in approving must never turn an on-time submission into a "late" mark against
+     *  the assignee. */
+    public function test_a_step_submitted_on_time_but_approved_late_still_counts_as_on_time(): void
+    {
+        $this->stepDueOn(
+            '2026-08-15', WorkflowStatus::Approved,
+            submittedAt: '2026-08-14 10:00:00',
+            approvedAt: '2026-08-20 10:00:00',
+        );
+
+        $stats = $this->service->calculateForUser($this->employee, Carbon::parse('2026-08-01'));
+
+        $this->assertSame(1, $stats['on_time']);
+        $this->assertSame(0, $stats['overdue']);
+    }
+
+    /**
+     * The same rule, one stage earlier — and the case that actually bit: work handed in
+     * before the deadline but still sitting in the review queue. Requiring Approved here
+     * scored it as late, which CR-003's two mandatory approvals turned into most of a
+     * department's score (marketing read 25% with nothing actually delivered late).
+     */
+    public function test_a_step_submitted_on_time_and_not_reviewed_yet_counts_as_on_time(): void
+    {
+        $this->stepDueOn('2026-08-15', WorkflowStatus::UnderReview, submittedAt: '2026-08-14 10:00:00');
+        $this->stepDueOn('2026-08-15', WorkflowStatus::PendingManagerReview, submittedAt: '2026-08-15 09:00:00');
+
+        $stats = $this->service->calculateForUser($this->employee, Carbon::parse('2026-08-01'));
+
+        $this->assertSame(2, $stats['due']);
+        $this->assertSame(2, $stats['on_time']);
+        $this->assertSame(0, $stats['overdue']);
+    }
+
+    /** The guard that keeps the above honest: unsubmitted work past its deadline is late. */
+    public function test_a_step_still_in_progress_past_its_deadline_counts_as_late(): void
+    {
+        $this->stepDueOn('2026-08-15', WorkflowStatus::InProgress);
+
+        $stats = $this->service->calculateForUser($this->employee, Carbon::parse('2026-08-01'));
 
         $this->assertSame(1, $stats['due']);
         $this->assertSame(0, $stats['on_time']);
@@ -152,7 +207,7 @@ class PerformanceServiceTest extends TestCase
 
     /**
      * The due date already reflects any hold extension (Phase 6 writes it directly to
-     * `current_due_at`) — approval within the extended window still counts on time,
+     * `current_due_at`) — submitting within the extended window still counts on time,
      * proving the calculator needs no hold-awareness of its own.
      */
     public function test_a_held_then_resumed_steps_extended_due_date_is_respected(): void
