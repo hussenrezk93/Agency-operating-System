@@ -107,7 +107,7 @@ class SeederAndHealthTest extends TestCase
         foreach (['manager', 'admin', 'leila.mansour', 'salma.fouad'] as $username) {
             $user = User::where('username', $username)->firstOrFail();
 
-            $this->post('/login', ['username' => $username, 'password' => 'Demo1234!'])
+            $this->post('/login', ['username' => $username, 'password' => 'demo123'])
                 ->assertRedirect(route('dashboard'));
 
             $this->assertAuthenticatedAs($user);

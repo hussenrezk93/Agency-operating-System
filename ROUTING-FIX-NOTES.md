@@ -29,9 +29,9 @@ Direct public access to `/prototype/*.html` no longer exists.
 The following accounts are enforced by `DemoSeeder`:
 
 ```text
-manager  / Demo1234!
-tl       / Demo1234!
-employee / Demo1234!
+manager  / demo123
+tl       / demo123
+employee / demo123
 ```
 
 Run this after replacing the project to update existing local demo accounts:

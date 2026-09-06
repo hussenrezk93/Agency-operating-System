@@ -23,7 +23,7 @@ Reviewed: 30 July 2026
 
 ## Demo accounts
 
-`admin`, `manager`, `tl`, `employee` — password `Demo1234!`
+`admin`, `manager`, `tl`, `employee` — password `demo123`
 
 ```bash
 php artisan optimize:clear

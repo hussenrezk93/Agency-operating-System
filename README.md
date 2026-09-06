@@ -121,7 +121,7 @@ through it.
 
 `migrate --seed` builds a demo workspace rather than an empty database, so there is
 something to look at immediately. Open it in a desktop browser — see the note at the top.
-Every account uses the password **`Demo1234!`**:
+Every account uses the password **`demo123`**:
 
 | Username | Role | What it shows |
 |---|---|---|

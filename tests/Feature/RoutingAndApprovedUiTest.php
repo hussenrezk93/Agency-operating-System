@@ -380,7 +380,7 @@ class RoutingAndApprovedUiTest extends TestCase
         foreach (['manager', 'leila.mansour'] as $username) {
             $this->post(route('login.store'), [
                 'username' => $username,
-                'password' => 'Demo1234!',
+                'password' => 'demo123',
             ])->assertRedirect(route('dashboard'));
 
             $this->assertAuthenticated();

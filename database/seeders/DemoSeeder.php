@@ -42,11 +42,11 @@ use RuntimeException;
  * cannot contain a state the application itself would refuse to produce -- every task
  * here carries genuine history, timestamps and deadline states.
  *
- * Shared password for every account: Demo1234!
+ * Shared password for every account: demo123
  */
 class DemoSeeder extends Seeder
 {
-    private const PASSWORD = 'Demo1234!';
+    private const PASSWORD = 'demo123';
 
     /** @var array<string, User> */
     private array $people = [];
