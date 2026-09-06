@@ -99,6 +99,38 @@ string lives in `lang/`, and both files are checked for parity.
 
 ---
 
+## Screenshots
+
+![Manager dashboard](docs/screenshots/01-dashboard.png)
+
+The manager dashboard surfaces active work, deadlines, reviews, department performance and projects in one desktop workspace.
+
+![Task list](docs/screenshots/02-tasks.png)
+
+The task list brings department, assignee, workflow status and due date together so the whole operation can be scanned quickly.
+
+![Task workflow timeline](docs/screenshots/03-task-detail.png)
+
+Each task keeps a complete approval history, including assignment, submission, department review, manager approval and completion.
+
+![Performance report](docs/screenshots/04-reports.png)
+
+Monthly performance reporting connects on-time delivery with the bonuses and deductions that feed into payroll.
+
+![Payroll and spending](docs/screenshots/05-payroll.png)
+
+Payroll combines salary windows, adjustments and company spending while preserving the figures for completed pay periods.
+
+![Daily department reports](docs/screenshots/06-daily-reports.png)
+
+The daily-report calendar shows submission coverage across departments and provides a clear route into each day's report.
+
+![Arabic dashboard](docs/screenshots/07-dashboard-arabic.png)
+
+The Arabic interface mirrors the complete desktop layout, including navigation, cards, tables and status information.
+
+---
+
 ## Getting started
 
 ```bash
