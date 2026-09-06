@@ -12,7 +12,7 @@
 @endsection
 @section('content')
 <main class="page">
-    <form method="POST" action="{{ route('tasks.update', $task) }}" class="card form-card">
+    <form method="POST" action="{{ route('tasks.update', $task) }}" class="dx-card form-card">
         @csrf
         @method('PATCH')
         <div class="form-section">

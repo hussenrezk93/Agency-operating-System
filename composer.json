@@ -39,6 +39,10 @@
         "lint": [
             "./vendor/bin/pint"
         ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" --names=server,queue --kill-others"
+        ],
         "post-create-project-cmd": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate --ansi"

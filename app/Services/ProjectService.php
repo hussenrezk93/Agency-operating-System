@@ -49,7 +49,7 @@ class ProjectService
         Gate::forUser($actor)->authorize('create', Project::class);
         $this->assertDepartmentsAllowed($departmentIds, $actor);
 
-        return DB::transaction(function () use ($attributes, $client, $departmentIds, $links, $actor): Project {
+        $project = DB::transaction(function () use ($attributes, $client, $departmentIds, $links, $actor): Project {
             $project = Project::create($attributes + [
                 'client_id' => $client->id,
                 'project_code' => $this->nextProjectCode(),
@@ -81,25 +81,55 @@ class ProjectService
                 actorId: $actor->id,
             );
 
-            // Same audience as the eventual WhatsApp invite fan-out (participating
-            // departments, the creator, every active Manager) — but this fires the
-            // moment the project exists, not only once a WhatsApp link is set.
-            foreach ($this->whatsapp->resolveMembers($project) as $member) {
-                $this->notifications->notifyInstant(
-                    $member['user'],
-                    'project.created',
-                    __('agencyos.notifications.messages.project_created_title'),
-                    __('agencyos.notifications.messages.project_created_body', [
-                        'project' => $project->name,
-                        'client' => $client->name,
-                    ]),
-                    'project',
-                    $project->id,
-                );
-            }
-
             return $project->refresh();
         });
+
+        // Deliberately dispatched only after the transaction above has committed: this
+        // fans out real, blocking mail sends (NotificationService::notifyInstant() ->
+        // SendInstantNotificationEmailJob), and running that while a transaction is
+        // still open would hold DB locks for the duration of every send and could leave
+        // a user notified about a project whose creation later rolled back.
+        //
+        // Same audience as the eventual WhatsApp invite fan-out (participating
+        // departments, the creator, every active Manager) — but this fires the
+        // moment the project exists, not only once a WhatsApp link is set.
+        foreach ($this->whatsapp->resolveMembers($project) as $member) {
+            $this->notifications->notifyInstant(
+                $member['user'],
+                'project.created',
+                __('agencyos.notifications.messages.project_created_title'),
+                __('agencyos.notifications.messages.project_created_body', [
+                    'project' => $project->name,
+                    'client' => $client->name,
+                ]),
+                'project',
+                $project->id,
+            );
+        }
+
+        return $project;
+    }
+
+    /** @param  array{name?: string, description?: ?string}  $attributes */
+    public function update(Project $project, array $attributes, User $actor): Project
+    {
+        Gate::forUser($actor)->authorize('update', $project);
+        $this->assertMutable($project);
+
+        $before = ['name' => $project->name, 'description' => $project->description];
+
+        $project->update($attributes);
+
+        $this->audit->log(
+            action: 'project.updated',
+            entityType: 'project',
+            entityId: $project->id,
+            before: $before,
+            after: ['name' => $project->name, 'description' => $project->description],
+            actorId: $actor->id,
+        );
+
+        return $project->refresh();
     }
 
     public function addDepartment(Project $project, Department $department, User $actor): Project
@@ -156,6 +186,12 @@ class ProjectService
     public function complete(Project $project, User $actor): Project
     {
         Gate::forUser($actor)->authorize('complete', $project);
+
+        if ($project->unfinishedTasks()->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'project' => __('A project cannot be completed while it still has unfinished tasks.'),
+            ]);
+        }
 
         $project->forceFill([
             'status' => ProjectStatus::Completed->value,

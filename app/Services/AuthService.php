@@ -2,19 +2,28 @@
 
 namespace App\Services;
 
+use App\Jobs\SendPasswordResetJob;
+use App\Models\PasswordResetToken;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
- * Session authentication — username + password only (BRD §18):
- * no self-registration, no email login, no "forgot password" self-service.
+ * Session authentication — username + password only (BRD §18): no self-registration,
+ * no email login.
  * Outcomes: ok | invalid (generic — wrong username and wrong password are
  * indistinguishable) | disabled (deactivated accounts are told so, per the
  * approved BRD/UI login states) | throttled (brute-force protection).
  * Every attempt is audited. Passwords never reach the audit log.
+ *
+ * CR-002 (2026-09) reversed the earlier "no forgot password self-service" rule —
+ * requestPasswordReset()/resetPassword() below are that self-service path, alongside
+ * (not replacing) the Manager/Admin-driven UserService::resetPassword().
  */
 class AuthService
 {
@@ -114,12 +123,7 @@ class AuthService
     /** Forced rotation of a temporary password (BRD §18). */
     public function completeForcedPasswordChange(User $user, string $newPassword, Request $request): void
     {
-        $user->forceFill([
-            'password_hash' => Hash::make($newPassword),
-            'must_change_password' => false,
-        ])->save();
-
-        $request->session()->regenerate();
+        $this->rotatePassword($user, $newPassword, $request);
 
         $this->audit->log(
             action: 'auth.forced_password_changed',
@@ -130,5 +134,92 @@ class AuthService
             actorId: $user->id,
             request: $request,
         );
+    }
+
+    /**
+     * CR-002 — always a no-op response to the caller, whether or not the username
+     * exists: found/not-found, blocked, and unverified-email all fall through silently
+     * so the "forgot password" form can never be used to enumerate accounts. The three
+     * silent branches perform an equivalent-shaped dummy hash so they cost roughly the
+     * same as each other — not full timing-parity with the success path, which isn't
+     * worth chasing on an internal system already gated by login rate limiting.
+     */
+    public function requestPasswordReset(string $username, Request $request): void
+    {
+        $user = User::where('username', $username)->first();
+
+        if ($user === null || $user->isSignInBlocked() || $user->activeEmail() === null) {
+            Hash::make(Str::random(40));
+
+            return;
+        }
+
+        $rawToken = Str::random(40);
+
+        PasswordResetToken::create([
+            'user_id' => $user->id,
+            'token_hash' => Hash::make($rawToken),
+            'expires_at' => now()->addHours(2),
+            'created_at' => now(),
+        ]);
+
+        $resetUrl = route('password.reset.show', [$user, $rawToken]);
+
+        SendPasswordResetJob::dispatch($user, $user->activeEmail(), $resetUrl);
+
+        $this->audit->log(
+            action: 'auth.password_reset_requested',
+            entityType: 'user',
+            entityId: $user->id,
+            actorId: null,
+            request: $request,
+        );
+    }
+
+    /** @throws ValidationException when no usable token matches, or the account is now blocked */
+    public function resetPassword(User $user, string $rawToken, string $newPassword, Request $request): void
+    {
+        $token = $user->passwordResetTokens()
+            ->usable()
+            ->get()
+            ->first(fn (PasswordResetToken $candidate): bool => $candidate->matches($rawToken));
+
+        // Blocked is checked here too, not just at issuance — an admin could disable
+        // the account in the window between the email being sent and the link being
+        // clicked. Folded into the same generic error as a bad token so an
+        // unauthenticated requester never learns an account exists and was disabled.
+        if ($token === null || $user->isSignInBlocked()) {
+            throw ValidationException::withMessages([
+                'token' => __('agencyos.password_reset.invalid_or_expired'),
+            ]);
+        }
+
+        DB::transaction(function () use ($user, $token, $newPassword, $request): void {
+            $token->consume();
+
+            $this->rotatePassword($user, $newPassword, $request);
+
+            // A stale second link (still in an inbox or a mail-relay log) must not
+            // remain a live account-takeover path once the user has regained access.
+            $user->passwordResetTokens()->usable()->update(['consumed_at' => now()]);
+
+            $this->audit->log(
+                action: 'auth.password_reset_completed',
+                entityType: 'user',
+                entityId: $user->id,
+                actorId: $user->id,
+                request: $request,
+            );
+        });
+    }
+
+    private function rotatePassword(User $user, string $newPassword, Request $request): void
+    {
+        $user->forceFill([
+            'password_hash' => Hash::make($newPassword),
+            'must_change_password' => false,
+        ])->save();
+
+        $request->session()->regenerate();
     }
 }

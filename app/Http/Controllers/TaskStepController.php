@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ReviewDecision;
+use App\Enums\WorkflowStatus;
 use App\Http\Requests\AddTaskOutputRequest;
 use App\Http\Requests\AddTaskStepCommentRequest;
 use App\Http\Requests\AssignTaskStepRequest;
+use App\Http\Requests\RemoveTaskOutputRequest;
 use App\Http\Requests\ReviewTaskStepRequest;
 use App\Http\Requests\TransferTaskStepRequest;
 use App\Models\Department;
 use App\Models\TaskStep;
+use App\Models\TaskStepOutput;
 use App\Models\User;
 use App\Services\TaskRoutingService;
 use App\Services\TaskWorkflowService;
@@ -59,14 +62,25 @@ class TaskStepController extends Controller
 
     public function addOutput(AddTaskOutputRequest $request, TaskStep $step): JsonResponse|RedirectResponse
     {
-        $output = $this->workflow->addOutput(
-            $step,
-            $request->user(),
-            $request->string('url')->toString(),
-            $request->filled('label') ? $request->string('label')->toString() : null,
-        );
+        $label = $request->filled('label') ? $request->string('label')->toString() : null;
+
+        if ($request->hasFile('media')) {
+            $path = $request->file('media')->store('task-outputs', 'public');
+            $output = $this->workflow->addOutput($step, $request->user(), $path, $label, isUpload: true);
+        } else {
+            $output = $this->workflow->addOutput($step, $request->user(), $request->string('url')->toString(), $label);
+        }
 
         return $this->respond($request, $step, $output, __('agencyos.tasks.flash.output_added'), 201);
+    }
+
+    public function removeOutput(RemoveTaskOutputRequest $request, TaskStep $step, TaskStepOutput $output): JsonResponse|RedirectResponse
+    {
+        abort_unless($output->task_step_id === $step->id, 404);
+
+        $this->workflow->removeOutput($output, $request->user());
+
+        return $this->respond($request, $step, $output->fresh(), __('agencyos.tasks.flash.output_removed'));
     }
 
     public function submit(Request $request, TaskStep $step): JsonResponse|RedirectResponse
@@ -87,9 +101,15 @@ class TaskStepController extends Controller
             ? $this->workflow->approve($step, $request->user(), $comment)
             : $this->workflow->requestChanges($step, $request->user(), (string) $comment);
 
-        $flash = $decision === ReviewDecision::Approved
-            ? __('agencyos.tasks.flash.approved')
-            : __('agencyos.tasks.flash.changes_requested');
+        // Approval is two-stage, and both stages used to flash the same "Approved." —
+        // so after the first one the page came back still offering Approve, which reads
+        // as though the click did nothing. Name the stage the step actually reached.
+        $flash = match (true) {
+            $decision !== ReviewDecision::Approved => __('agencyos.tasks.flash.changes_requested'),
+            $step->fresh()?->workflow_status === WorkflowStatus::PendingContentReview => __('agencyos.tasks.flash.approved_pending_content'),
+            $step->fresh()?->workflow_status === WorkflowStatus::PendingManagerReview => __('agencyos.tasks.flash.approved_pending_manager'),
+            default => __('agencyos.tasks.flash.approved_final'),
+        };
 
         return $this->respond($request, $step, $review, $flash, 201);
     }

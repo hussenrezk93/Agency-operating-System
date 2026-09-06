@@ -32,8 +32,9 @@ class GroqService
      *                                                                  nothing is persisted server-side). Role is 'user'/'model' on the wire
      *                                                                  (a holdover from this service's original Gemini backing); 'model' maps
      *                                                                  to OpenAI's 'assistant' role when building the request below.
+     * @return array{text: string, suggestions: array<int, string>}
      */
-    public function reply(string $message, array $history, ?User $actor): string
+    public function reply(string $message, array $history, ?User $actor): array
     {
         $apiKey = config('services.groq.key');
 
@@ -46,21 +47,34 @@ class GroqService
         $tools = $actor === null ? null : $this->toolDefinitions($actor);
 
         $responseMessage = $this->call($apiKey, $model, $messages, $tools);
-        $toolCalls = $responseMessage['tool_calls'] ?? [];
 
-        // One round of tool calls is enough — a write action always spans two
-        // separate user turns (propose, then a human confirmation) by design.
-        if ($actor !== null && ! empty($toolCalls)) {
+        // Read-only tools (get_*) may chain across a few rounds — e.g. checking which
+        // departments are allowed before proposing a task — but the moment a
+        // propose_*/confirm_action call happens, the response right after it is
+        // treated as final regardless of whether the model asks for still more
+        // tools: a write action must always span two separate human turns (propose,
+        // then an explicit confirmation message), never auto-chain straight to
+        // confirm_action within a single reply() call.
+        for ($round = 0; $actor !== null && $round < 4; $round++) {
+            $toolCalls = $responseMessage['tool_calls'] ?? [];
+
+            if (empty($toolCalls)) {
+                break;
+            }
+
             $messages[] = [
                 'role' => 'assistant',
                 'content' => $responseMessage['content'] ?? null,
                 'tool_calls' => $toolCalls,
             ];
 
+            $wasWrite = false;
+
             foreach ($toolCalls as $toolCall) {
                 $name = $toolCall['function']['name'] ?? '';
                 $arguments = json_decode($toolCall['function']['arguments'] ?? '{}', true) ?: [];
                 $result = $this->runTool($actor, $name, $arguments);
+                $wasWrite = $wasWrite || str_starts_with($name, 'propose_') || $name === 'confirm_action';
 
                 $messages[] = [
                     'role' => 'tool',
@@ -70,6 +84,10 @@ class GroqService
             }
 
             $responseMessage = $this->call($apiKey, $model, $messages, $tools);
+
+            if ($wasWrite) {
+                break;
+            }
         }
 
         $text = trim((string) ($responseMessage['content'] ?? ''));
@@ -78,7 +96,35 @@ class GroqService
             throw new RuntimeException('Groq returned no reply.');
         }
 
-        return $text;
+        return $this->splitSuggestions($text);
+    }
+
+    /**
+     * Pulls the trailing "SUGGESTIONS: a | b | c" line the system prompt asks for off
+     * the visible reply, into a separate list the widget renders as clickable
+     * buttons. A model that forgets the line (small models don't always follow
+     * formatting instructions perfectly) just yields no suggestions that turn —
+     * never breaks the reply itself.
+     *
+     * @return array{text: string, suggestions: array<int, string>}
+     */
+    private function splitSuggestions(string $text): array
+    {
+        if (! preg_match('/^SUGGESTIONS:\s*(.+)$/mi', $text, $matches)) {
+            return ['text' => $text, 'suggestions' => []];
+        }
+
+        $suggestions = collect(explode('|', $matches[1]))
+            ->map(fn (string $s) => trim($s))
+            ->filter()
+            ->take(3)
+            ->values()
+            ->all();
+
+        return [
+            'text' => trim((string) preg_replace('/^SUGGESTIONS:\s*.+$/mi', '', $text)),
+            'suggestions' => $suggestions,
+        ];
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -122,7 +168,13 @@ class GroqService
             'clearly confirms (e.g. "yes", "confirm", "ايوة", "أكد") — it always acts on '.
             'whatever you most recently proposed for this user. If they decline or want to '.
             'change something, do not call confirm_action — propose again with the corrected '.
-            'details instead (this replaces the earlier proposal).';
+            'details instead (this replaces the earlier proposal). '.
+            'End EVERY reply, on its own final line, with 2-3 short follow-up questions the '.
+            "user could plausibly ask next, in {$language}, formatted EXACTLY as: ".
+            'SUGGESTIONS: first question | second question | third question — this line is '.
+            'stripped out and shown as clickable buttons, so it must never be mentioned in the '.
+            'visible reply text above it, and must always be present, even after a proposal or '.
+            'an error (suggest what to try next).';
     }
 
     /** @return array<string, mixed> The first choice's message. */
@@ -150,15 +202,16 @@ class GroqService
     {
         $tools = collect($this->allToolDefinitions());
         $names = match (true) {
-            $actor->hasRole(RoleCode::Admin) => ['get_suspicious_activity'],
+            $actor->hasRole(RoleCode::Admin) => ['get_suspicious_activity', 'get_all_departments'],
             $actor->hasRole(RoleCode::Manager) => [
                 'get_my_tasks', 'get_task_status', 'get_department_report', 'get_employee_report',
-                'get_due_or_overdue_tasks', 'propose_create_user', 'propose_create_department',
-                'propose_assign_temporary_tl', 'confirm_action',
+                'get_due_or_overdue_tasks', 'get_all_departments', 'propose_create_user',
+                'propose_create_department', 'propose_assign_temporary_tl', 'confirm_action',
             ],
             $actor->hasRole(RoleCode::TeamLeader) => [
                 'get_my_tasks', 'get_task_status', 'get_department_report', 'get_employee_report',
-                'get_due_or_overdue_tasks', 'propose_create_task', 'propose_assign_task_step', 'confirm_action',
+                'get_due_or_overdue_tasks', 'get_all_departments', 'get_allowed_departments_for_task',
+                'propose_create_task', 'propose_assign_task_step', 'confirm_action',
             ],
             default => ['get_my_tasks', 'get_task_status', 'get_employee_report', 'get_due_or_overdue_tasks'],
         };
@@ -189,6 +242,8 @@ class GroqService
                 'required' => ['employee_name'],
             ]),
             $this->def('get_due_or_overdue_tasks', 'List tasks whose current step is due soon or already overdue, scoped to what the current user can see.', $empty),
+            $this->def('get_all_departments', 'List every department in Agency OS by name, whether it is active, and who currently leads it. Use this whenever asked what departments exist — never guess or invent department names.', $empty),
+            $this->def('get_allowed_departments_for_task', "List the departments the current user can pick as a NEW task's first department right now (a Team Leader is limited to their own department plus whichever departments it has an active routing permission toward — call this before proposing a task if unsure a named department is actually allowed).", $empty),
             $this->def('get_suspicious_activity', 'Summarize suspicious login activity (failed/throttled/blocked logins) from the audit log over the last 7 days.', $empty),
             $this->def('propose_create_user', 'Validate and preview creating a new user. Does NOT create anything yet — call confirm_action after the user confirms.', [
                 'type' => 'object',
@@ -220,7 +275,7 @@ class GroqService
                 ],
                 'required' => ['department_name', 'candidate_name', 'start_date', 'end_date', 'reason'],
             ]),
-            $this->def('propose_create_task', 'Validate and preview creating a new task routed to a department. Does NOT create anything yet — call confirm_action after the user confirms.', [
+            $this->def('propose_create_task', 'Validate and preview creating a new task routed to a department. Does NOT create anything yet — call confirm_action after the user confirms. If asked which departments are valid, or unsure a named one is allowed, call get_allowed_departments_for_task first rather than guessing.', [
                 'type' => 'object',
                 'properties' => [
                     'title' => ['type' => 'string'],
@@ -260,6 +315,8 @@ class GroqService
             'get_department_report' => $this->tools->departmentReport($actor, $arguments['department_name'] ?? null),
             'get_employee_report' => $this->tools->employeeReport($actor, (string) ($arguments['employee_name'] ?? '')),
             'get_due_or_overdue_tasks' => $this->tools->dueOrOverdueTasks($actor),
+            'get_all_departments' => $this->tools->allDepartments($actor),
+            'get_allowed_departments_for_task' => $this->tools->allowedDepartmentsForTask($actor),
             'get_suspicious_activity' => $this->tools->suspiciousActivity($actor),
             'propose_create_user' => $this->actions->proposeCreateUser($actor, $arguments),
             'propose_create_department' => $this->actions->proposeCreateDepartment($actor, $arguments),

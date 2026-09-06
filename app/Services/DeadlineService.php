@@ -21,6 +21,15 @@ use Illuminate\Support\Collection;
  *   on_time  — now < due − 24h
  *   due_soon — due − 24h <= now <= due
  *   overdue  — now > due
+ *
+ * Product decision 2026-09 — once a step is submitted (UnderReview), the assignee has
+ * done their part; the deadline clock is theirs, not the reviewer's, so
+ * sweepLiveSteps() stops reclassifying a step the moment it leaves InProgress for
+ * review. Whatever deadline_status it already carried at that instant (on_time,
+ * due_soon, or overdue — an honest reflection of whether THEY were late) simply
+ * freezes until the review decision moves it on (RequestChanges reopens it to
+ * InProgress-equivalent ChangesRequested, which sweeps again; Approve/Redirect/Cancel
+ * close it outright via TaskWorkflowService::closeStep()).
  */
 class DeadlineService
 {
@@ -85,7 +94,6 @@ class DeadlineService
             ->whereNotNull('current_due_at')
             ->whereIn('workflow_status', [
                 WorkflowStatus::InProgress->value,
-                WorkflowStatus::UnderReview->value,
                 WorkflowStatus::ChangesRequested->value,
             ])
             ->with('task')

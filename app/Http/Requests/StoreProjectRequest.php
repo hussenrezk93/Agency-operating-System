@@ -45,7 +45,7 @@ class StoreProjectRequest extends FormRequest
         return [
             'client_id' => [$isNewClient ? 'nullable' : 'required', 'integer', 'exists:clients,id'],
             'new_client_name' => [$isNewClient ? 'required' : 'nullable', 'string', 'max:255'],
-            'new_client_phone' => [$isNewClient ? 'required' : 'nullable', 'string', 'max:50'],
+            'new_client_phone' => [$isNewClient ? 'required' : 'nullable', 'string', 'max:50', 'regex:/^(?=(?:.*[0-9]){7,})[0-9\s()+\-]+$/'],
             'new_client_email' => ['nullable', 'email', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],

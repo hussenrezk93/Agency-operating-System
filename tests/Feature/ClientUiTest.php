@@ -70,6 +70,15 @@ class ClientUiTest extends TestCase
         $this->assertDatabaseHas('clients', ['name' => 'Classic Form Client']);
     }
 
+    /** The phone field strips non-digit characters live, not just on submit. */
+    public function test_the_create_forms_phone_field_filters_out_letters_as_you_type(): void
+    {
+        $response = $this->actingAs($this->manager)->get('/clients/create');
+
+        $response->assertOk();
+        $response->assertSee('oninput="this.value=this.value.replace(/[^0-9+\s()\-]/g,\'\')"', false);
+    }
+
     public function test_an_employee_cannot_open_the_create_form(): void
     {
         $this->actingAs($this->employee)->get('/clients/create')->assertForbidden();

@@ -8,13 +8,17 @@ use App\Models\Department;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
- * BRD §18.1 — "A user can edit their own email from their profile." Every role,
- * self-service only: this route carries no {user} parameter, so there is nothing
- * to authorize beyond being signed in.
+ * BRD §18.1 — "A user can edit their own email from their profile." Self-view (email +
+ * avatar editing) needs nothing beyond being signed in. The optional {user} parameter
+ * opens the read-only Activity tab on someone else's profile, gated by the same
+ * UserPolicy::viewPerformance() boundary as the performance page — see
+ * ProfileActivityTest for that access-control matrix.
  */
 class ProfileTest extends TestCase
 {
@@ -81,5 +85,67 @@ class ProfileTest extends TestCase
     public function test_a_guest_cannot_reach_the_profile_page(): void
     {
         $this->get('/profile')->assertRedirect(route('login'));
+    }
+
+    public function test_a_user_uploads_a_profile_photo(): void
+    {
+        Storage::fake('public');
+
+        $employee = User::factory()->role(RoleCode::Employee)
+            ->inDepartment(Department::factory()->create())->create();
+
+        $this->actingAs($employee)
+            ->post('/profile/avatar', ['avatar' => UploadedFile::fake()->create('photo.jpg', 100)->mimeType('image/jpeg')])
+            ->assertRedirect(route('profile.edit'));
+
+        $fresh = $employee->fresh();
+        $this->assertNotNull($fresh->avatar_path);
+        Storage::disk('public')->assertExists($fresh->avatar_path);
+        $this->assertNotNull($fresh->avatar_url);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'user.avatar_updated',
+            'entity_type' => 'user',
+            'entity_id' => $employee->id,
+            'actor_user_id' => $employee->id,
+        ]);
+    }
+
+    public function test_a_non_image_upload_is_rejected(): void
+    {
+        Storage::fake('public');
+
+        $employee = User::factory()->role(RoleCode::Employee)
+            ->inDepartment(Department::factory()->create())->create();
+
+        $this->actingAs($employee)
+            ->postJson('/profile/avatar', ['avatar' => UploadedFile::fake()->create('resume.pdf', 100)])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('avatar');
+    }
+
+    public function test_a_user_removes_their_profile_photo_and_the_old_file_is_deleted(): void
+    {
+        Storage::fake('public');
+
+        $employee = User::factory()->role(RoleCode::Employee)
+            ->inDepartment(Department::factory()->create())->create();
+
+        $this->actingAs($employee)->post('/profile/avatar', ['avatar' => UploadedFile::fake()->create('photo.jpg', 100)->mimeType('image/jpeg')]);
+        $storedPath = $employee->fresh()->avatar_path;
+
+        $this->actingAs($employee)
+            ->delete('/profile/avatar')
+            ->assertRedirect(route('profile.edit'));
+
+        $fresh = $employee->fresh();
+        $this->assertNull($fresh->avatar_path);
+        Storage::disk('public')->assertMissing($storedPath);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'user.avatar_removed',
+            'entity_type' => 'user',
+            'entity_id' => $employee->id,
+        ]);
     }
 }

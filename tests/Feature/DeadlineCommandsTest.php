@@ -32,6 +32,13 @@ class DeadlineCommandsTest extends TestCase
         parent::setUp();
         $this->seedRoles();
 
+        // Frozen before makeTeamLeader() runs, not after: that helper backdates the
+        // leadership assignment's start_date to `now()->subMonth()` — if "now" were
+        // still the real clock at that point, the assignment could start AFTER the
+        // 2026-08-01 the tests below freeze to (once real time passes 2026-09-01),
+        // making canActAsLeaderOf() false and every assign() in this file 403.
+        Carbon::setTestNow(Carbon::parse('2026-08-01 09:00:00', config('app.timezone')));
+
         $this->marketing = $this->makeDepartment();
         $this->manager = $this->makeManager();
         $this->leader = $this->makeTeamLeader($this->marketing);
@@ -46,8 +53,6 @@ class DeadlineCommandsTest extends TestCase
 
     public function test_deadlines_due_soon_moves_a_step_that_just_entered_the_window(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-08-01 09:00:00', config('app.timezone')));
-
         [, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
         // due at 2026-08-04 23:59 — move "now" to inside the 24h window.
         Carbon::setTestNow($step->current_due_at->clone()->subHours(23));
@@ -59,8 +64,6 @@ class DeadlineCommandsTest extends TestCase
 
     public function test_deadlines_overdue_moves_a_step_past_its_due_date(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-08-01 09:00:00', config('app.timezone')));
-
         [, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
         Carbon::setTestNow($step->current_due_at->clone()->addDay());
 
@@ -71,8 +74,6 @@ class DeadlineCommandsTest extends TestCase
 
     public function test_the_sweep_never_touches_a_held_task(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-08-01 09:00:00', config('app.timezone')));
-
         [$task, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
         $this->workflow()->hold($task, $this->manager, 'Pausing');
 

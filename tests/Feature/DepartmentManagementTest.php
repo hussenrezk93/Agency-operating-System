@@ -13,9 +13,10 @@ use Tests\TestCase;
 
 /**
  * BRD §6, widened by explicit product decision: departments are managed by both
- * Manager and Admin (originally Manager-only). A department cannot exist without a
- * primary Team Leader (DepartmentService::createWithPrimaryLeader, already proven
- * at the service level by OrganizationStructureTest — this proves it over HTTP).
+ * Manager and Admin (originally Manager-only). A department may be created without
+ * a primary Team Leader, but stays inactive until one is assigned
+ * (DepartmentService::create/assignPrimaryLeader, already proven at the service
+ * level by OrganizationStructureTest — this proves it over HTTP).
  */
 class DepartmentManagementTest extends TestCase
 {
@@ -48,6 +49,38 @@ class DepartmentManagementTest extends TestCase
         $this->assertTrue(
             Department::find($response->json('data.id'))->primaryLeader()->is($leader)
         );
+    }
+
+    public function test_a_department_can_be_created_without_a_primary_leader_and_stays_inactive(): void
+    {
+        $response = $this->actingAs($this->manager)->postJson('/departments', [
+            'name' => 'Uncrewed',
+        ])->assertCreated();
+
+        $department = Department::find($response->json('data.id'));
+        $this->assertFalse((bool) $department->is_active);
+        $this->assertNull($department->primaryLeader());
+    }
+
+    public function test_assigning_a_leader_to_a_leaderless_department_activates_it(): void
+    {
+        $this->actingAs($this->manager)->postJson('/departments', ['name' => 'Uncrewed'])->assertCreated();
+        $department = Department::where('name', 'Uncrewed')->firstOrFail();
+        $leader = User::factory()->role(RoleCode::TeamLeader)->create();
+
+        $this->actingAs($this->manager)
+            ->postJson("/departments/{$department->id}/assign-leader", ['primary_leader_id' => $leader->id])
+            ->assertOk();
+
+        $department->refresh();
+        $this->assertTrue((bool) $department->is_active);
+        $this->assertTrue($department->primaryLeader()->is($leader));
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'department.leader_assigned',
+            'entity_type' => 'department',
+            'entity_id' => $department->id,
+            'actor_user_id' => $this->manager->id,
+        ]);
     }
 
     public function test_a_non_team_leader_cannot_be_the_primary_leader(): void

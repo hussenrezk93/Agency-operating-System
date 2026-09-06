@@ -18,7 +18,7 @@ class UpdateClientRequest extends FormRequest
         return [
             'name' => ['sometimes', 'string', 'max:255'],
             'short_description' => ['sometimes', 'nullable', 'string'],
-            'phone' => ['sometimes', 'string', 'max:50'],
+            'phone' => ['sometimes', 'string', 'max:50', 'regex:/^(?=(?:.*[0-9]){7,})[0-9\s()+\-]+$/'],
             'company_email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'website_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
         ];

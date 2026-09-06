@@ -17,10 +17,10 @@
         <div class="alert alert-danger" style="margin-bottom:16px"><div>{{ $errors->first() }}</div></div>
     @endif
 
-    <div class="card glass-dark" style="margin-bottom:18px">
-        <div class="card-head"><h2>{{ __('agencyos.output_access.index.new_rule') }}</h2></div>
-        <div class="card-body">
-            <form method="POST" action="{{ route('department-output-access.upsert') }}" class="form-row" style="align-items:end;grid-template-columns:1fr 1fr 1fr auto">
+    <div class="dx-card" style="margin-bottom:18px">
+        <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.output_access.index.new_rule') }}</h2></div></div>
+        <div class="dx-card-body">
+            <form method="POST" action="{{ route('department-output-access.upsert') }}" class="form-row form-row-quad" style="align-items:end">
                 @csrf
                 <div class="field">
                     <label>{{ __('agencyos.output_access.fields.viewer') }}</label>
@@ -48,9 +48,9 @@
         </div>
     </div>
 
-    <div class="card glass-dark">
-        <div class="table-wrap">
-            <table>
+    <div class="dx-card">
+        <div class="dx-table-wrap">
+            <table class="dx-table">
                 <thead>
                 <tr>
                     <th>{{ __('agencyos.output_access.fields.viewer') }}</th>
@@ -63,17 +63,17 @@
                 <tbody>
                 @forelse($rules as $rule)
                     <tr>
-                        <td><b>{{ $rule->viewerDepartment->name }}</b></td>
+                        <td><span class="dx-td-main">{{ $rule->viewerDepartment->name }}</span></td>
                         <td>{{ $rule->sourceDepartment->name }}</td>
-                        <td><span class="badge {{ $rule->scope->value === 'all_outputs' ? 'b-progress' : 'b-approved' }}">{{ __('agencyos.output_access.scope.'.$rule->scope->value) }}</span></td>
+                        <td><x-dx-pill :badge="['class' => $rule->scope->value === 'all_outputs' ? 'b-progress' : 'b-approved', 'label' => __('agencyos.output_access.scope.'.$rule->scope->value)]"/></td>
                         <td>
                             @if($rule->is_allowed)
-                                <span class="badge b-approved"><span class="bdot"></span>{{ __('agencyos.output_access.index.allowed') }}</span>
+                                <x-dx-pill :badge="['class' => 'b-approved', 'label' => __('agencyos.output_access.index.allowed')]"/>
                             @else
-                                <span class="badge b-cancel">{{ __('agencyos.output_access.index.blocked') }}</span>
+                                <x-dx-pill :badge="['class' => 'b-cancel', 'label' => __('agencyos.output_access.index.blocked')]"/>
                             @endif
                         </td>
-                        <td style="text-align:end;white-space:nowrap">
+                        <td class="dx-td-end" style="white-space:nowrap">
                             <form method="POST" action="{{ route('department-output-access.upsert') }}" style="display:inline">
                                 @csrf
                                 <input type="hidden" name="viewer_department_id" value="{{ $rule->viewer_department_id }}">
@@ -95,7 +95,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" style="text-align:center;padding:34px" class="muted">{{ __('agencyos.output_access.index.empty') }}</td></tr>
+                    <tr><td colspan="5" class="dx-empty-cell">{{ __('agencyos.output_access.index.empty') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>

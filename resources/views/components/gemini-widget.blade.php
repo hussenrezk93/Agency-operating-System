@@ -1,11 +1,16 @@
+    @php
+        // Role-scoped starter prompts (BRD-free, just UX) — one set per role, matching
+        // the tools that role's GroqService::toolDefinitions() actually offers, so a
+        // starter is never a dead end. Employee is the fallback for guests/no role.
+        $starters = __('agencyos.assistant.starters.'.(auth()->user()?->roleCode()->value ?? 'employee'));
+        $starters = is_array($starters) ? $starters : [];
+    @endphp
     <div class="gm-wrap" id="gm-wrap">
         <button type="button" class="gm-bubble" id="gm-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="gm-panel">
             <span class="gm-glass">
                 <span class="gm-smoke gm-smoke-a"></span>
                 <span class="gm-smoke gm-smoke-b"></span>
-                <svg class="gm-star" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#fff" d="M12 2c.9 5.8 1.8 7.9 4.2 10-2.4 2.1-3.3 4.2-4.2 10-.9-5.8-1.8-7.9-4.2-10 2.4-2.1 3.3-4.2 4.2-10Z"/>
-                </svg>
+                <x-icon name="message-circle" class="gm-star"/>
             </span>
         </button>
         <div class="gm-panel hide" id="gm-panel" role="dialog" aria-label="{{ __('agencyos.assistant.title') }}">
@@ -17,6 +22,13 @@
                 </div>
                 <div class="gm-msgs" id="gm-msgs">
                     <div class="gm-msg gm-model"><div class="gm-bub">{{ __('agencyos.assistant.greeting') }}</div></div>
+                    @if($starters)
+                        <div class="gm-suggestions" id="gm-initial-suggestions">
+                            @foreach($starters as $starter)
+                                <button type="button" class="gm-suggestion">{{ $starter }}</button>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
                 <form class="gm-input" id="gm-form">
                     <input type="text" id="gm-text" maxlength="2000" autocomplete="off" placeholder="{{ __('agencyos.assistant.placeholder') }}">
@@ -110,15 +122,54 @@
             return row;
         }
 
+        // Quick-reply buttons under the latest AI message — the model appends a
+        // machine-parsed suggestions line to every reply (see GroqService), stripped
+        // out server-side and sent here as a plain list. Old buttons are replaced,
+        // never stacked, so only the most recent turn's suggestions are ever tappable.
+        function renderSuggestions(list) {
+            var old = msgs.querySelector('.gm-suggestions');
+            if (old) old.remove();
+            if (!list || !list.length) return;
+
+            var wrap = document.createElement('div');
+            wrap.className = 'gm-suggestions';
+            list.forEach(function (q) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'gm-suggestion';
+                btn.textContent = q;
+                wrap.appendChild(btn);
+            });
+            msgs.appendChild(wrap);
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
+        // Delegated so it covers both the server-rendered starter buttons (present at
+        // load) and every batch renderSuggestions() adds later, with one listener.
+        msgs.addEventListener('click', function (e) {
+            var btn = e.target.closest('.gm-suggestion');
+            if (!btn || input.disabled) return;
+            input.value = btn.textContent;
+            form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true }));
+        });
+
         history.forEach(function (turn) {
             addMessage(turn.role === 'model' ? 'model' : 'user', turn.text);
         });
+
+        // The starter buttons only make sense on a genuinely fresh conversation —
+        // once there's saved history, they'd float above old messages out of context.
+        if (history.length) {
+            var initialSuggestions = document.getElementById('gm-initial-suggestions');
+            if (initialSuggestions) initialSuggestions.remove();
+        }
 
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             var text = input.value.trim();
             if (!text) return;
 
+            renderSuggestions(null);
             addMessage('user', text);
             input.value = '';
             input.disabled = true;
@@ -158,6 +209,7 @@
                         return;
                     }
                     addMessage('model', result.data.reply);
+                    renderSuggestions(result.data.suggestions);
                     history.push({ role: 'user', text: text });
                     history.push({ role: 'model', text: result.data.reply });
                     if (history.length > 20) history = history.slice(-20);

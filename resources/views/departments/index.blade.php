@@ -18,9 +18,9 @@
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card glass-dark">
-        <div class="table-wrap">
-            <table>
+    <div class="dx-card">
+        <div class="dx-table-wrap">
+            <table class="dx-table">
                 <thead>
                 <tr>
                     <th>{{ __('agencyos.departments.index.column_name') }}</th>
@@ -32,16 +32,16 @@
                 <tbody>
                 @forelse($departments as $department)
                     <tr>
-                        <td><b>{{ $department->name }}</b></td>
+                        <td><span class="dx-td-main">{{ $department->name }}</span></td>
                         <td>{{ $department->primaryLeader()?->full_name ?? '—' }}</td>
                         <td>
                             @if($department->is_active)
-                                <span class="badge b-approved"><span class="bdot"></span>{{ __('agencyos.departments.status.active') }}</span>
+                                <x-dx-pill :badge="['class' => 'b-approved', 'label' => __('agencyos.departments.status.active')]"/>
                             @else
-                                <span class="badge b-neutral">{{ __('agencyos.departments.status.inactive') }}</span>
+                                <x-dx-pill :badge="['class' => 'b-neutral', 'label' => __('agencyos.departments.status.inactive')]"/>
                             @endif
                         </td>
-                        <td style="text-align:end;white-space:nowrap">
+                        <td class="dx-td-end" style="white-space:nowrap">
                             @can('update', $department)
                                 <a class="btn btn-sm btn-outline" href="{{ route('departments.edit-form', $department) }}">{{ __('agencyos.departments.index.edit') }}</a>
                             @endcan
@@ -51,6 +51,10 @@
                                         @csrf
                                         <button type="submit" class="btn btn-sm btn-danger-outline">{{ __('agencyos.departments.index.deactivate') }}</button>
                                     </form>
+                                @endcan
+                            @elseif($department->primaryLeader() === null)
+                                @can('update', $department)
+                                    <a class="btn btn-sm btn-outline" href="{{ route('departments.assign-leader-form', $department) }}">{{ __('agencyos.departments.index.assign_leader') }}</a>
                                 @endcan
                             @else
                                 @can('reactivate', $department)
@@ -63,7 +67,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" style="text-align:center;padding:34px" class="muted">{{ __('agencyos.departments.index.empty') }}</td></tr>
+                    <tr><td colspan="4" class="dx-empty-cell">{{ __('agencyos.departments.index.empty') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>

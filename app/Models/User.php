@@ -6,11 +6,13 @@ use App\Enums\LeadershipType;
 use App\Enums\RoleCode;
 use App\Enums\UserStatus;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -32,6 +34,14 @@ class User extends Authenticatable
     public function getAuthPassword(): string
     {
         return $this->password_hash;
+    }
+
+    /** Null when no photo was ever uploaded — every avatar-rendering view falls back to initials. */
+    protected function avatarUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->avatar_path ? Storage::disk('public')->url($this->avatar_path) : null,
+        );
     }
 
     /** The EFFECTIVE role — temporarily elevated while a temporary-TL period runs (Q2). */
@@ -232,6 +242,11 @@ class User extends Authenticatable
     public function emailVerificationTokens(): HasMany
     {
         return $this->hasMany(EmailVerificationToken::class);
+    }
+
+    public function passwordResetTokens(): HasMany
+    {
+        return $this->hasMany(PasswordResetToken::class);
     }
 
     // ------------------------------------------------------------------ chat

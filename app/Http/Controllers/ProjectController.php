@@ -38,7 +38,8 @@ class ProjectController extends Controller
             })
             ->with(['client:id,name', 'departments:id,name'])
             ->latest('id')
-            ->get();
+            ->paginate(50)
+            ->withQueryString();
 
         if (! $request->expectsJson()) {
             return view('projects.index', [
@@ -125,13 +126,13 @@ class ProjectController extends Controller
 
     public function update(UpdateProjectRequest $request, Project $project): JsonResponse|RedirectResponse
     {
-        $project->update($request->only(['name', 'description']));
+        $updated = $this->service->update($project, $request->only(['name', 'description']), $request->user());
 
         if (! $request->expectsJson()) {
             return redirect()->route('projects.show', $project)->with('status', __('agencyos.projects.flash.updated'));
         }
 
-        return response()->json(['data' => $project->refresh()]);
+        return response()->json(['data' => $updated]);
     }
 
     public function complete(Request $request, Project $project): JsonResponse|RedirectResponse

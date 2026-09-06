@@ -10,7 +10,7 @@
         <div>
             <div class="small muted mono">{{ $project->project_code }} &middot; {{ $project->client->name }}</div>
             <h1 style="margin:2px 0 6px">{{ $project->name }}</h1>
-            <span class="badge {{ $badge['class'] }}"><span class="bdot"></span>{{ $badge['label'] }}</span>
+            <x-dx-pill :badge="$badge"/>
         </div>
         <div class="page-actions"><a class="small" href="{{ route('projects.index') }}">{{ __('agencyos.projects.show.back_to_projects') }}</a></div>
     </div>
@@ -30,9 +30,9 @@
 
     <div class="grid grid-2" style="align-items:start">
         <div>
-            <div class="card" style="margin-bottom:18px">
-                <div class="card-head"><h2>{{ __('agencyos.projects.show.details') }}</h2></div>
-                <div class="card-body">
+            <div class="dx-card" style="margin-bottom:18px">
+                <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.projects.show.details') }}</h2></div></div>
+                <div class="dx-card-body">
                     <p style="margin:0 0 12px">{{ $project->description ?: '—' }}</p>
 
                     <div class="small muted" style="font-weight:700;margin-bottom:6px">{{ __('agencyos.projects.show.links') }}</div>
@@ -61,39 +61,44 @@
                             @endif
                         </span>
                     @endforeach
-                    @if($canUpdate && ! $closed)
+                    @php
+                        $availableDepartments = \App\Models\Department::where('is_active', true)
+                            ->whereNotIn('id', $project->departments->pluck('id'))
+                            ->orderBy('name')->get();
+                    @endphp
+                    @if($canUpdate && ! $closed && $availableDepartments->isNotEmpty())
                         <form method="POST" action="{{ route('projects.departments.store', $project) }}" class="form-row" style="margin-top:12px;align-items:end">
                             @csrf
                             <div class="field span2">
                                 <label>{{ __('agencyos.projects.show.add_department') }}</label>
                                 <x-form-select name="department_id" required placeholder="—"
-                                    :options="\App\Models\Department::where('is_active', true)->orderBy('name')->get()->pluck('name', 'id')"/>
+                                    :options="$availableDepartments->pluck('name', 'id')"/>
                             </div>
                             <div class="field"><button type="submit" class="btn btn-outline btn-sm">{{ __('agencyos.projects.show.add_department') }}</button></div>
                         </form>
                     @endif
 
                     <div style="margin-top:16px">
-                        <div class="kv-row"><span>{{ __('agencyos.projects.show.started') }}</span><b class="mono">{{ $project->started_at->format('Y-m-d') }}</b></div>
+                        <div class="dx-kv"><span>{{ __('agencyos.projects.show.started') }}</span><b class="mono">{{ $project->started_at->format('Y-m-d') }}</b></div>
                         @if($project->completed_at)
-                            <div class="kv-row"><span>{{ __('agencyos.projects.show.closed_at') }}</span><b class="mono">{{ $project->completed_at->format('Y-m-d') }}</b></div>
-                            <div class="kv-row"><span>{{ __('agencyos.projects.show.completed_by') }}</span><b>{{ $project->completedBy?->full_name }}</b></div>
+                            <div class="dx-kv"><span>{{ __('agencyos.projects.show.closed_at') }}</span><b class="mono">{{ $project->completed_at->format('Y-m-d') }}</b></div>
+                            <div class="dx-kv"><span>{{ __('agencyos.projects.show.completed_by') }}</span><b>{{ $project->completedBy?->full_name }}</b></div>
                         @endif
                         @if($project->cancelled_at)
-                            <div class="kv-row"><span>{{ __('agencyos.projects.show.closed_at') }}</span><b class="mono">{{ $project->cancelled_at->format('Y-m-d') }}</b></div>
-                            <div class="kv-row"><span>{{ __('agencyos.projects.show.cancelled_by') }}</span><b>{{ $project->cancelledBy?->full_name }}</b></div>
-                            <div class="kv-row"><span>{{ __('agencyos.projects.show.reason') }}</span><b>{{ $project->cancelled_reason }}</b></div>
+                            <div class="dx-kv"><span>{{ __('agencyos.projects.show.closed_at') }}</span><b class="mono">{{ $project->cancelled_at->format('Y-m-d') }}</b></div>
+                            <div class="dx-kv"><span>{{ __('agencyos.projects.show.cancelled_by') }}</span><b>{{ $project->cancelledBy?->full_name }}</b></div>
+                            <div class="dx-kv"><span>{{ __('agencyos.projects.show.reason') }}</span><b>{{ $project->cancelled_reason }}</b></div>
                         @endif
-                        <div class="kv-row"><span>{{ __('agencyos.projects.show.created_by') }}</span><b>{{ $project->creator?->full_name }}</b></div>
+                        <div class="dx-kv"><span>{{ __('agencyos.projects.show.created_by') }}</span><b>{{ $project->creator?->full_name }}</b></div>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-head"><h2>{{ __('agencyos.projects.show.members') }} ({{ $members->count() }})</h2></div>
-                <div class="card-body">
+            <div class="dx-card">
+                <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.projects.show.members') }} ({{ $members->count() }})</h2></div></div>
+                <div class="dx-card-body">
                     @forelse($members as $member)
-                        <div class="kv-row"><span>{{ $member['user']->full_name }}</span><span class="small muted">{{ __('agencyos.projects.member_source.'.$member['source']->value) }}</span></div>
+                        <div class="dx-kv"><span>{{ $member['user']->full_name }}</span><span class="small muted">{{ __('agencyos.projects.member_source.'.$member['source']->value) }}</span></div>
                     @empty
                         <span class="muted small">{{ __('agencyos.projects.show.no_members') }}</span>
                     @endforelse
@@ -103,9 +108,9 @@
 
         <div>
             @if(! $closed && ($canComplete || $canCancel || $canHold || $canResume))
-                <div class="card" style="margin-bottom:18px">
-                    <div class="card-head"><h2>{{ __('agencyos.projects.show.actions') }}</h2></div>
-                    <div class="card-body">
+                <div class="dx-card" style="margin-bottom:18px">
+                    <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.projects.show.actions') }}</h2></div></div>
+                    <div class="dx-card-body">
                         @if($canComplete)
                             <form method="POST" action="{{ route('projects.complete', $project) }}" style="margin-bottom:12px">
                                 @csrf
@@ -140,12 +145,12 @@
                 </div>
             @endif
 
-            <div class="card" style="margin-bottom:18px">
-                <div class="card-head"><h2>{{ __('agencyos.projects.show.whatsapp') }}</h2></div>
-                <div class="card-body">
+            <div class="dx-card" style="margin-bottom:18px">
+                <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.projects.show.whatsapp') }}</h2></div></div>
+                <div class="dx-card-body">
                     @if($currentLink && $currentLink->group_url)
-                        <div class="kv-row"><span>{{ __('agencyos.projects.show.current_link') }}</span><b class="mono small" style="word-break:break-all">{{ $currentLink->group_url }}</b></div>
-                        <div class="kv-row"><span>v{{ $currentLink->version_no }}</span><b>{{ $currentLink->group_label }}</b></div>
+                        <div class="dx-kv"><span>{{ __('agencyos.projects.show.current_link') }}</span><b class="mono small" style="word-break:break-all">{{ $currentLink->group_url }}</b></div>
+                        <div class="dx-kv"><span>v{{ $currentLink->version_no }}</span><b>{{ $currentLink->group_label }}</b></div>
                         <a class="btn btn-primary btn-sm" style="margin-top:10px" href="{{ $currentLink->group_url }}" target="_blank" rel="noopener">💬 {{ __('agencyos.projects.show.current_link') }}</a>
                     @else
                         <span class="muted small">{{ __('agencyos.projects.show.no_link') }}</span>
@@ -172,8 +177,8 @@
 
                     <div class="small muted" style="font-weight:700;margin:16px 0 6px">{{ __('agencyos.projects.show.version_history') }}</div>
                     @forelse($linkVersions as $version)
-                        <div class="kv-row">
-                            <span><span class="badge {{ $version->action_type->value === 'removed' ? 'b-cancel' : 'b-approved' }}">v{{ $version->version_no }} &middot; {{ $version->action_type->value }}</span></span>
+                        <div class="dx-kv">
+                            <span><x-dx-pill :badge="['class' => $version->action_type->value === 'removed' ? 'b-cancel' : 'b-approved', 'label' => 'v'.$version->version_no.' · '.$version->action_type->value]"/></span>
                             <span class="small muted">{{ $version->createdBy?->full_name }} &middot; {{ $version->created_at->format('Y-m-d H:i') }}</span>
                         </div>
                     @empty
@@ -182,29 +187,27 @@
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-head"><h2>{{ __('agencyos.projects.show.deliveries') }}</h2></div>
-                <div class="card-body">
-                    <div class="table-wrap">
-                        <table>
-                            <thead><tr>
-                                <th>{{ __('agencyos.projects.show.recipient') }}</th>
-                                <th>{{ __('agencyos.projects.show.channel') }}</th>
-                                <th>{{ __('agencyos.projects.index.column_status') }}</th>
-                            </tr></thead>
-                            <tbody>
-                            @forelse($deliveries as $delivery)
-                                <tr>
-                                    <td>{{ $delivery->user?->full_name }}</td>
-                                    <td>{{ __('agencyos.projects.show.'.$delivery->channel->value) }}</td>
-                                    <td>{{ __('agencyos.projects.delivery_status.'.$delivery->status->value) }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="3" class="muted" style="text-align:center;padding:20px">{{ __('agencyos.projects.show.no_deliveries') }}</td></tr>
-                            @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+            <div class="dx-card">
+                <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.projects.show.deliveries') }}</h2></div></div>
+                <div class="dx-table-wrap">
+                    <table class="dx-table">
+                        <thead><tr>
+                            <th>{{ __('agencyos.projects.show.recipient') }}</th>
+                            <th>{{ __('agencyos.projects.show.channel') }}</th>
+                            <th>{{ __('agencyos.projects.index.column_status') }}</th>
+                        </tr></thead>
+                        <tbody>
+                        @forelse($deliveries as $delivery)
+                            <tr>
+                                <td>{{ $delivery->user?->full_name }}</td>
+                                <td>{{ __('agencyos.projects.show.'.$delivery->channel->value) }}</td>
+                                <td>{{ __('agencyos.projects.delivery_status.'.$delivery->status->value) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="3" class="dx-empty-cell">{{ __('agencyos.projects.show.no_deliveries') }}</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

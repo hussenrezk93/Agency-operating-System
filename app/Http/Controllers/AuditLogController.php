@@ -43,7 +43,12 @@ class AuditLogController extends Controller
         fputcsv($csv, ['Timestamp', 'Actor', 'Action', 'Entity type', 'Entity ID', 'IP address']);
         foreach ($rows as $log) {
             fputcsv($csv, [
-                $log->created_at->toDateTimeString(),
+                // A leading apostrophe forces Excel to keep this as text instead of
+                // auto-parsing it into a date serial — without it, the column shows
+                // "########" until manually widened, since Excel right-pads numeric/
+                // date cells to a column too narrow to show them, but never does that
+                // to text. Excel hides the apostrophe itself in the rendered cell.
+                "'".$log->created_at->format('Y-m-d H:i:s'),
                 $log->actor?->full_name ?? 'system',
                 $log->action,
                 $log->entity_type,

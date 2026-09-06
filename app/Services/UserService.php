@@ -7,7 +7,9 @@ use App\Enums\UserStatus;
 use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -71,11 +73,15 @@ class UserService
     }
 
     /**
-     * BRD §18.1 — a `personal_email` change does NOT take effect immediately. It goes
-     * to `pending_email` and a verification link is sent to the NEW address; the OLD,
-     * already-verified address keeps receiving notifications until that link is
-     * clicked (`EmailVerificationService::consume()` is what promotes it). Every other
-     * attribute (full_name, department_id) still applies immediately.
+     * BRD §18.1 — a SELF-service `personal_email` change does NOT take effect
+     * immediately. It goes to `pending_email` and a verification link is sent to the
+     * NEW address; the OLD, already-verified address keeps receiving notifications
+     * until that link is clicked (`EmailVerificationService::consume()` is what
+     * promotes it). Product decision (2026-08): when an Admin/Manager edits someone
+     * ELSE's email from `UserController` instead, that verification loop can never
+     * complete — the admin doesn't own the new inbox — so the change applies
+     * immediately there. Every other attribute (full_name, department_id) always
+     * applies immediately either way.
      */
     public function updateProfile(User $subject, array $attributes, User $actor): User
     {
@@ -94,15 +100,29 @@ class UserService
         }
 
         $newEmail = $attributes['personal_email'] ?? null;
-        $emailChanged = $newEmail !== null
-            && $newEmail !== $subject->personal_email
-            && $newEmail !== $subject->pending_email;
+        $emailChanged = $newEmail !== null && $newEmail !== $subject->personal_email;
+        $selfEdit = $actor->is($subject);
+        $shouldIssueVerification = false;
 
         unset($attributes['personal_email']);
 
-        if ($emailChanged) {
-            $attributes['pending_email'] = $newEmail;
-            $attributes['pending_email_requested_at'] = now();
+        if ($emailChanged && $selfEdit) {
+            // Dedup only applies here: don't re-queue a fresh token/email for an
+            // address that's already sitting unverified in pending_email (e.g. an
+            // accidental double submit). This must NOT gate the admin branch below —
+            // a stale pending_email left over from an earlier, never-completed
+            // self-service attempt would otherwise silently block an admin's retry
+            // of that same address.
+            if ($newEmail !== $subject->pending_email) {
+                $attributes['pending_email'] = $newEmail;
+                $attributes['pending_email_requested_at'] = now();
+                $shouldIssueVerification = true;
+            }
+        } elseif ($emailChanged) {
+            $attributes['personal_email'] = $newEmail;
+            $attributes['pending_email'] = null;
+            $attributes['pending_email_requested_at'] = null;
+            $attributes['email_verified_at'] = now();
         }
 
         $departmentChanged = array_key_exists('department_id', $attributes)
@@ -118,11 +138,11 @@ class UserService
             entityType: 'user',
             entityId: $subject->id,
             before: $before,
-            after: array_intersect_key($attributes, $before) + ($emailChanged ? ['pending_email' => $newEmail] : []),
+            after: array_intersect_key($attributes, $before) + ($shouldIssueVerification ? ['pending_email' => $newEmail] : []),
             actorId: $actor->id,
         );
 
-        if ($emailChanged) {
+        if ($shouldIssueVerification) {
             $this->emailVerification->issueFor($subject, $newEmail);
         }
 
@@ -140,29 +160,83 @@ class UserService
         return $subject->refresh();
     }
 
+    /** @param  string  $storedPath  Already-stored path on the `public` disk (e.g. from `$file->store('avatars', 'public')`) — this method never touches an UploadedFile directly. */
+    public function updateAvatar(User $subject, string $storedPath, User $actor): User
+    {
+        $previousPath = $subject->avatar_path;
+
+        $subject->forceFill(['avatar_path' => $storedPath])->save();
+
+        $this->audit->log(
+            action: 'user.avatar_updated',
+            entityType: 'user',
+            entityId: $subject->id,
+            before: ['avatar_path' => $previousPath],
+            after: ['avatar_path' => $storedPath],
+            actorId: $actor->id,
+        );
+
+        // Deleted only after the new path is safely saved, so a mid-request failure
+        // never leaves the account pointing at a photo that no longer exists on disk.
+        if ($previousPath !== null) {
+            Storage::disk('public')->delete($previousPath);
+        }
+
+        return $subject->refresh();
+    }
+
+    public function removeAvatar(User $subject, User $actor): User
+    {
+        $previousPath = $subject->avatar_path;
+
+        if ($previousPath === null) {
+            return $subject;
+        }
+
+        $subject->forceFill(['avatar_path' => null])->save();
+
+        $this->audit->log(
+            action: 'user.avatar_removed',
+            entityType: 'user',
+            entityId: $subject->id,
+            before: ['avatar_path' => $previousPath],
+            after: ['avatar_path' => null],
+            actorId: $actor->id,
+        );
+
+        Storage::disk('public')->delete($previousPath);
+
+        return $subject->refresh();
+    }
+
     public function disable(User $subject, User $actor): User
     {
         $department = $subject->department;
 
-        $subject->forceFill(['status' => UserStatus::Inactive->value])->save();
+        // Wrapped in one transaction so a failure partway through (the WhatsApp alert,
+        // or the assignment-release loop) can never leave the account marked Inactive
+        // while it still holds an open task-step assignment nothing else can touch.
+        DB::transaction(function () use ($subject, $actor, $department): void {
+            $subject->forceFill(['status' => UserStatus::Inactive->value])->save();
 
-        $this->audit->log(
-            action: 'user.disabled',
-            entityType: 'user',
-            entityId: $subject->id,
-            before: ['status' => UserStatus::Active->value],
-            after: ['status' => UserStatus::Inactive->value],
-            actorId: $actor->id,
-        );
+            $this->audit->log(
+                action: 'user.disabled',
+                entityType: 'user',
+                entityId: $subject->id,
+                before: ['status' => UserStatus::Active->value],
+                after: ['status' => UserStatus::Inactive->value],
+                actorId: $actor->id,
+            );
 
-        // BRD §7.3 — someone still has to remove them from the WhatsApp groups by hand.
-        if ($department !== null) {
-            $this->whatsapp->alertLeaderToRemoveMember($subject, $department);
-        }
+            // BRD §7.3 — someone still has to remove them from the WhatsApp groups by hand.
+            if ($department !== null) {
+                $this->whatsapp->alertLeaderToRemoveMember($subject, $department);
+            }
 
-        // BRD §6 — a disabled account cannot receive work, so any step it currently
-        // holds is released back to Waiting Assignment for the department to reassign.
-        $this->workflow->releaseAssignmentsForDisabledUser($subject, $actor);
+            // BRD §6 — a disabled account cannot receive work, so any step it currently
+            // holds is released back to Waiting Assignment for the department to reassign.
+            $this->workflow->releaseAssignmentsForDisabledUser($subject, $actor);
+        });
 
         return $subject->refresh();
     }

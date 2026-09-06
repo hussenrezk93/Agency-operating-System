@@ -44,13 +44,14 @@ class PerformanceSnapshotCommandTest extends TestCase
         parent::tearDown();
     }
 
-    private function stepDueOn(string $date, WorkflowStatus $status, ?string $approvedAt, User $assignee): TaskStep
+    private function stepDueOn(string $date, WorkflowStatus $status, ?string $submittedAt, User $assignee): TaskStep
     {
         $step = TaskStep::factory()->create([
             'department_id' => $this->marketing->id,
             'workflow_status' => $status->value,
             'current_due_at' => $date.' 23:59:00',
-            'approved_at' => $approvedAt,
+            'submitted_at' => $submittedAt,
+            'approved_at' => $submittedAt,
         ]);
 
         TaskStepAssignment::create([

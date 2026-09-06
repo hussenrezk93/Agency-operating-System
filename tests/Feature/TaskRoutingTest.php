@@ -130,6 +130,7 @@ class TaskRoutingTest extends TestCase
         $this->workflow()->addOutput($step->refresh(), $this->employee, 'https://drive.example.com/v1');
         $this->workflow()->submit($step->refresh(), $this->employee);
         $this->workflow()->approve($step->refresh(), $this->leader);
+        $this->workflow()->approve($step->refresh(), $this->manager);
 
         $this->assertFalse($this->routing()->canTransferToDepartment($step->refresh(), $this->design));
 
@@ -153,6 +154,7 @@ class TaskRoutingTest extends TestCase
         $this->workflow()->addOutput($step->refresh(), $this->employee, 'https://drive.example.com/v1');
         $this->workflow()->submit($step->refresh(), $this->employee);
         $this->workflow()->approve($step->refresh(), $this->leader);
+        $this->workflow()->approve($step->refresh(), $this->manager);
 
         $next = $this->workflow()->sendToNextDepartment($step->refresh(), $this->leader, $this->design);
 
@@ -198,6 +200,23 @@ class TaskRoutingTest extends TestCase
 
         $this->actingAs($this->leader)
             ->postJson(route('tasks.steps.transfer', $step), [
+                'to_department_id' => $this->design->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('error', 'workflow_violation');
+    }
+
+    /** Product decision 2026-09 — a TL's own approval alone is the same 422 sequencing
+     *  error as any other gate; the step isn't truly Approved until a Manager also
+     *  reviews it. */
+    public function test_transfer_over_http_is_refused_while_only_the_tl_has_approved(): void
+    {
+        $this->allowRoute($this->marketing, $this->design);
+        [, $step] = $this->taskUnderReview($this->marketing, $this->leader, $this->employee);
+        $this->workflow()->approve($step, $this->leader);
+
+        $this->actingAs($this->leader)
+            ->postJson(route('tasks.steps.transfer', $step->refresh()), [
                 'to_department_id' => $this->design->id,
             ])
             ->assertStatus(422)

@@ -16,13 +16,53 @@
 .language-switch .lang-choice{display:block}
 .sidebar-logo{width:38px;height:38px;overflow:hidden;flex:0 0 auto}
 .sidebar-logo img{width:100%;height:100%;object-fit:contain}
+/* Pre-redesign dashboard body (resources/views/dashboard/*.blade.php's
+   .dashboard-legacy block) — restored verbatim from before the .dx- rebuild, kept
+   ONLY for mobile widths; .dashboard-modern is the current dx- design, kept for
+   every width above that. Both render server-side and only one is ever visible. */
+.kpi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+@media(max-width:900px){.kpi-grid{grid-template-columns:1fr}}
+@media (min-width:900px){.dashboard-legacy{display:none}}
+@media (max-width:899px){.dashboard-modern{display:none}}
+/* Small task-urgency tiles inside .dashboard-legacy (ASAP/overdue/due-soon) — always
+   3-up, even on a narrow phone, since .kpi-grid's own single-column mobile override
+   would otherwise stack these tall; each tile stays intentionally small. */
+.mini-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
+.mini-stat{background:#fff;border:1px solid var(--color-border);border-radius:var(--radius);padding:9px 8px;text-align:center}
+.mini-stat-label{display:block;font-size:10px;color:var(--color-text-muted);font-weight:600;margin-bottom:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-stat-value{display:block;font-size:19px;font-weight:800}
+.mini-stat.is-accent{background:var(--color-primary);border-color:var(--color-primary)}
+.mini-stat.is-accent .mini-stat-label,.mini-stat.is-accent .mini-stat-value{color:#fff}
+
+/* The admin legacy view reuses the real .dx-stats/.dx-stat tiles (not the smaller
+   .mini-stat above) — shrunk down here because their normal size (min-height:128px,
+   30px value text) is desktop-card sized. agencyos-dashboard.css also forces
+   .dx-stats to a single column below 759px for its own (desktop-hidden-on-mobile)
+   layout; the extra class here outweighs that rule's specificity and keeps this one
+   a 2x2 grid regardless. Safe to override unconditionally — .dashboard-modern (the
+   only other place .dx-stats appears) is never visible at the same time as this. */
+.dashboard-legacy .dx-stats{grid-template-columns:repeat(2,1fr)}
+.dashboard-legacy .dx-stat{min-height:92px;padding:12px}
+.dashboard-legacy .dx-stat-top{margin-bottom:8px}
+.dashboard-legacy .dx-stat-value{font-size:22px}
+.dashboard-legacy .dx-stat-ic{width:24px;height:24px}
+.dashboard-legacy .dx-stat-ic svg{width:13px;height:13px}
+.dashboard-legacy .dx-stat-foot{font-size:10px;line-height:1.3}
+
+/* Admin's "By department" table on mobile — a light, deliberately subtle orange
+   tint, not a strong wash: the header row carries most of it, the card itself just a
+   hint, so the numbers in the body stay easy to read. */
+.dept-table-card{background:rgba(252,110,32,.04)}
+.dept-table-card table thead th{background:rgba(252,110,32,.1);color:var(--color-primary-text)}
 .nav a.disabled{opacity:.48;cursor:not-allowed}.nav a.disabled:hover{background:transparent}
 .preview-note{margin-bottom:18px}
 .table-scroll{overflow-x:auto}
 .table-scroll table{width:100%;border-collapse:collapse;min-width:720px}.table-scroll th,.table-scroll td{padding:12px 16px;text-align:start;border-bottom:1px solid var(--color-border)}.table-scroll th{background:var(--color-surface);font-size:12px;color:var(--color-text-muted)}
 .logout-form{margin:0}
 .dir-row{border-bottom:1px solid var(--color-border)}.dir-row:last-child{border-bottom:0}
-.dir-row summary{padding:10px 16px;cursor:pointer;font-weight:600;font-size:13.5px;list-style:none}
+.dir-row summary{padding:10px 16px;cursor:pointer;font-weight:600;font-size:13.5px;list-style:none;transition:background-color .12s}
+.dir-row summary:hover{background:var(--color-primary-light)}
 .dir-row summary::-webkit-details-marker{display:none}
 .dir-row summary::before{content:'›';display:inline-block;margin-inline-end:8px;transition:transform .12s}
 .dir-row[open] summary::before{transform:rotate(90deg)}
@@ -30,4 +70,51 @@
 .conv,.conv:hover{text-decoration:none}
 .chat-head .back-link{display:none;margin-inline-end:4px}
 .msg .del{color:var(--color-danger);font-size:11px;font-weight:700;cursor:pointer}
-@media(max-width:900px){.chatpage-thread .chat-list{display:none}.chat-head .back-link.only-mobile{display:inline-flex}}
+@media(max-width:900px){.chatpage-thread .chat-list{display:none}.chatpage:not(.chatpage-thread) .chat-pane{display:none}.chat-head .back-link.only-mobile{display:inline-flex}}
+
+/* ---------- Mobile bottom nav (components/bottom-nav.blade.php) ----------
+   Replaces the burger/drawer trigger as the primary way to move around on mobile —
+   the drawer itself still exists (opened by the "More" tab here) for every nav item
+   that doesn't fit in five slots. Site-brand glass, not the purple/black reference
+   the visual pattern was borrowed from. */
+.bottom-nav{position:fixed;inset-inline:0;bottom:0;z-index:70;display:none;
+  grid-template-columns:repeat(5,1fr);align-items:center;
+  background:var(--sidebar-bg);
+  border-top:1px solid rgba(255,255,255,.1);box-shadow:0 -6px 20px rgba(0,0,0,.2);
+  padding:8px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+.bottom-nav a,.bottom-nav button.nav-toggle{display:flex;flex-direction:column;align-items:center;gap:3px;
+  border:0;background:none;color:rgba(255,255,255,.7);font:inherit;font-size:10.5px;font-weight:600;
+  padding:4px 0;cursor:pointer}
+.bottom-nav a .ic,.bottom-nav button.nav-toggle .ic{width:21px;height:21px}
+.bottom-nav a.active{color:var(--color-primary)}
+.bottom-nav-fab-slot{position:relative;display:flex;justify-content:center}
+.bottom-nav-fab-slot .qa-wrap{display:contents}
+.bottom-nav-fab{position:relative;top:-20px;width:52px;height:52px;border-radius:50%;flex:0 0 auto;
+  background:linear-gradient(135deg,var(--color-primary),var(--color-primary-hover));color:#fff;
+  border:4px solid var(--sidebar-bg);display:grid;place-items:center;box-shadow:var(--shadow-glow);cursor:pointer}
+.bottom-nav-fab .ic{width:22px;height:22px}
+/* The drawer (opened by "More") is a fixed full-height overlay, but .bottom-nav sits
+   at a higher z-index than it — without this, the bar stayed pinned on top of the
+   drawer's own bottom content, hiding Logout with no way to scroll past a completely
+   separate fixed element to reach it. */
+body.nav-open .bottom-nav{display:none}
+.qa-menu-fab{top:auto;bottom:calc(100% + 14px);inset-inline-end:auto;inset-inline-start:50%;transform:translateX(-50%);
+  transform-origin:bottom center}
+[dir=rtl] .qa-menu-fab{transform-origin:bottom center}
+
+@media(max-width:900px){
+  .bottom-nav{display:grid}
+  .burger{display:none}
+  .main{padding-bottom:70px}
+  /* Otherwise sits directly on top of the new bar (both are fixed to the bottom
+     edge) — nudged up by roughly the bar's own height plus breathing room. */
+  .gm-wrap{bottom:82px}
+  /* The panel's own max-height (calc(100vh - 120px)) was written for the DESKTOP
+     bubble at bottom:22px. On mobile the bubble sits 60px higher, and the mascot
+     stands ~80px above the panel on top of that, so the same height ran off the top
+     of a short phone (e.g. 667px tall: 152px offset + 547px panel + mascot). Budget
+     for the real offset here, and prefer dvh so it measures the VISIBLE viewport
+     rather than the collapsed-toolbar one — the same trap the sidebar hit. */
+  .gm-panel{max-height:calc(100vh - 260px)}
+  @supports (height:100dvh){.gm-panel{max-height:calc(100dvh - 260px)}}
+}

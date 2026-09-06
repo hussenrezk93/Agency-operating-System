@@ -12,7 +12,7 @@
 @endsection
 @section('content')
 <main class="page">
-    <form method="POST" action="{{ route('tasks.store') }}" class="card form-card">
+    <form method="POST" action="{{ route('tasks.store') }}" enctype="multipart/form-data" class="dx-card form-card">
         @csrf
         <div class="form-section">
             <div class="form-section-head"><span class="n">1</span><h2>{{ __('agencyos.tasks.fields.title') }}</h2></div>
@@ -60,14 +60,38 @@
             <div class="hint" style="margin:-6px 0 12px">{{ __('agencyos.tasks.fields.reference_links_hint') }}</div>
             @error('reference_links')<div class="alert alert-danger" style="margin-bottom:12px"><div>{{ $message }}</div></div>@enderror
             <div class="form-grid">
-                @for($i = 0; $i < 3; $i++)
-                    <div class="field">
+                @for($i = 0; $i < 2; $i++)
+                    <div class="field @error("reference_links.$i.url") bad @enderror">
                         <label @class(['req' => $i === 0])>{{ __('agencyos.tasks.fields.reference_link_n', ['n' => $i + 1]) }} — {{ __('agencyos.tasks.fields.url') }}</label>
                         <input type="url" name="reference_links[{{ $i }}][url]" value="{{ old("reference_links.$i.url") }}" placeholder="https://">
+                        @error("reference_links.$i.url")<div class="err">{{ $message }}</div>@enderror
                     </div>
                     <div class="field">
                         <label>{{ __('agencyos.tasks.fields.label') }}</label>
                         <input type="text" name="reference_links[{{ $i }}][label]" value="{{ old("reference_links.$i.label") }}" maxlength="255">
+                    </div>
+                    <div class="field span2 @error("reference_links.$i.media") bad @enderror">
+                        <label>{{ __('agencyos.tasks.fields.reference_link_n', ['n' => $i + 1]) }} — {{ __('agencyos.tasks.fields.media') }}</label>
+                        <input type="file" name="reference_links[{{ $i }}][media]" accept="image/*,video/*">
+                        <div class="hint">{{ __('agencyos.tasks.fields.reference_image_hint') }}</div>
+                        @error("reference_links.$i.media")<div class="err">{{ $message }}</div>@enderror
+                    </div>
+                @endfor
+                @for($i = 2; $i < 4; $i++)
+                    <div class="field @error("reference_links.$i.url") bad @enderror">
+                        <label>{{ __('agencyos.tasks.fields.material_link_n', ['n' => $i - 1]) }} — {{ __('agencyos.tasks.fields.url') }}</label>
+                        <input type="url" name="reference_links[{{ $i }}][url]" value="{{ old("reference_links.$i.url") }}" placeholder="https://">
+                        @error("reference_links.$i.url")<div class="err">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="field">
+                        <label>{{ __('agencyos.tasks.fields.label') }}</label>
+                        <input type="text" name="reference_links[{{ $i }}][label]" value="{{ old("reference_links.$i.label") }}" maxlength="255">
+                    </div>
+                    <div class="field span2 @error("reference_links.$i.media") bad @enderror">
+                        <label>{{ __('agencyos.tasks.fields.material_link_n', ['n' => $i - 1]) }} — {{ __('agencyos.tasks.fields.media') }}</label>
+                        <input type="file" name="reference_links[{{ $i }}][media]" accept="image/*,video/*">
+                        <div class="hint">{{ __('agencyos.tasks.fields.reference_image_hint') }}</div>
+                        @error("reference_links.$i.media")<div class="err">{{ $message }}</div>@enderror
                     </div>
                 @endfor
             </div>

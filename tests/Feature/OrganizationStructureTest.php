@@ -127,7 +127,7 @@ class OrganizationStructureTest extends TestCase
         $tl = User::factory()->role(RoleCode::TeamLeader)->create();
 
         $department = app(DepartmentService::class)
-            ->createWithPrimaryLeader('Motion Graphics', $tl, $manager);
+            ->create('Motion Graphics', $tl, $manager);
 
         $this->assertTrue($department->primaryLeader()->is($tl));
         $this->assertTrue($department->effectiveLeader()->is($tl));
@@ -141,9 +141,45 @@ class OrganizationStructureTest extends TestCase
         $employee = User::factory()->role(RoleCode::Employee)->create();
 
         $this->expectException(ValidationException::class);
-        app(DepartmentService::class)->createWithPrimaryLeader('Broken', $employee, $manager);
+        app(DepartmentService::class)->create('Broken', $employee, $manager);
 
         $this->assertDatabaseMissing('departments', ['name' => 'Broken']);
+    }
+
+    public function test_a_department_created_without_a_leader_is_persisted_inactive(): void
+    {
+        $manager = User::factory()->role(RoleCode::Manager)->create();
+
+        $department = app(DepartmentService::class)->create('Uncrewed', null, $manager);
+
+        $this->assertFalse($department->is_active);
+        $this->assertNull($department->primaryLeader());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'department.created']);
+    }
+
+    public function test_assigning_a_primary_leader_activates_a_leaderless_department(): void
+    {
+        $manager = User::factory()->role(RoleCode::Manager)->create();
+        $tl = User::factory()->role(RoleCode::TeamLeader)->create();
+        $department = app(DepartmentService::class)->create('Uncrewed', null, $manager);
+
+        $department = app(DepartmentService::class)->assignPrimaryLeader($department, $tl, $manager);
+
+        $this->assertTrue($department->is_active);
+        $this->assertTrue($department->primaryLeader()->is($tl));
+        $this->assertSame($department->id, $tl->refresh()->department_id);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'department.leader_assigned']);
+    }
+
+    public function test_a_department_that_already_has_a_leader_cannot_get_a_second_one(): void
+    {
+        $manager = User::factory()->role(RoleCode::Manager)->create();
+        $tl = User::factory()->role(RoleCode::TeamLeader)->create();
+        $secondTl = User::factory()->role(RoleCode::TeamLeader)->create();
+        $department = app(DepartmentService::class)->create('Crewed', $tl, $manager);
+
+        $this->expectException(ValidationException::class);
+        app(DepartmentService::class)->assignPrimaryLeader($department, $secondTl, $manager);
     }
 
     public function test_project_status_supports_on_hold_as_an_approved_change_request(): void

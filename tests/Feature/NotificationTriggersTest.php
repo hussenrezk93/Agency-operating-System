@@ -116,11 +116,65 @@ class NotificationTriggersTest extends TestCase
         $this->assertFalse($this->notified($disabledManager, 'task.submitted'));
     }
 
-    public function test_approval_notifies_the_assignee(): void
+    /** Product decision 2026-09 — the TL's own approval doesn't finish anything, so
+     *  there's nothing to tell the assignee yet; it notifies the Manager(s) instead,
+     *  who now must review it too. */
+    public function test_tl_approval_notifies_the_managers(): void
     {
         [, $step] = $this->taskUnderReview($this->marketing, $this->leader, $this->employee);
 
         $this->workflow()->approve($step, $this->leader);
+
+        $this->assertTrue($this->notified($this->manager, 'task.manager_review_needed'));
+        $this->assertFalse($this->notified($this->employee, 'task.approved'));
+    }
+
+    /** A disabled Manager account never receives a review notice — same convention as
+     *  the self-assigned-submission fan-out (NotifyOnTaskStepSubmitted). */
+    public function test_a_disabled_manager_is_excluded_from_the_manager_review_notice(): void
+    {
+        $disabledManager = $this->makeManager();
+        $disabledManager->forceFill(['status' => 'inactive'])->save();
+
+        [, $step] = $this->taskUnderReview($this->marketing, $this->leader, $this->employee);
+        $this->workflow()->approve($step, $this->leader);
+
+        $this->assertTrue($this->notified($this->manager, 'task.manager_review_needed'));
+        $this->assertFalse($this->notified($disabledManager, 'task.manager_review_needed'));
+    }
+
+    /** Product decision 2026-09 — a Graphic TL's approval goes to Content, not to the
+     *  Managers, because Content holds the next turn. */
+    public function test_a_graphic_tl_approval_notifies_the_content_leader_not_the_managers(): void
+    {
+        $graphic = $this->makeDepartment('Graphic');
+        $graphic->forceFill(['special_role' => 'graphic'])->save();
+        $content = $this->makeDepartment('Content');
+        $content->forceFill(['special_role' => 'content'])->save();
+
+        $graphicLeader = $this->makeTeamLeader($graphic);
+        $contentLeader = $this->makeTeamLeader($content);
+        $designer = $this->makeEmployee($graphic);
+
+        [, $step] = $this->taskUnderReview($graphic, $graphicLeader, $designer);
+        $this->workflow()->approve($step, $graphicLeader);
+
+        $this->assertTrue($this->notified($contentLeader, 'task.content_review_needed'));
+        $this->assertFalse($this->notified($this->manager, 'task.manager_review_needed'));
+
+        // Content's own approval is what hands it to the Managers.
+        $this->workflow()->approve($step->refresh(), $contentLeader);
+        $this->assertTrue($this->notified($this->manager, 'task.manager_review_needed'));
+    }
+
+    /** Only the MANAGER's own decision — the true terminal Approved — is worth telling
+     *  the assignee about. */
+    public function test_manager_approval_notifies_the_assignee(): void
+    {
+        [, $step] = $this->taskUnderReview($this->marketing, $this->leader, $this->employee);
+        $this->workflow()->approve($step, $this->leader);
+
+        $this->workflow()->approve($step->refresh(), $this->manager);
 
         $this->assertTrue($this->notified($this->employee, 'task.approved'));
     }

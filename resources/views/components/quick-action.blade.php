@@ -1,3 +1,4 @@
+@props(['variant' => 'topbar'])
 @php
     $role = auth()->user()?->roleCode()->value ?? 'employee';
     $ar = app()->isLocale('ar');
@@ -27,16 +28,30 @@
 @endphp
 @if(count($actions))
     <div class="qa-wrap">
-        <button type="button" class="btn-quick-action" id="{{ $menuId }}-btn" aria-haspopup="true" aria-expanded="false" aria-controls="{{ $menuId }}-menu">
-            <x-icon name="plus" class="ic"/>
-            <span>{{ $ar ? 'إجراء سريع' : 'Quick Action' }}</span>
-            <x-icon name="chevron-down" class="ic"/>
-        </button>
-        <div class="qa-menu hide" id="{{ $menuId }}-menu" role="menu">
-            @foreach($actions as $action)
-                <a class="drop-item" href="{{ $action['route'] }}" role="menuitem"><x-icon :name="$action['icon']"/> <span>{{ $action['label'] }}</span></a>
-            @endforeach
-        </div>
+        @if($variant === 'fab')
+            {{-- The mobile bottom-nav's floating circular trigger — same actions/JS as
+                 the desktop dropdown, just a round "+" button instead of a labeled pill,
+                 with its menu opening upward (.qa-menu-fab) since it sits at screen bottom. --}}
+            <button type="button" class="bottom-nav-fab" id="{{ $menuId }}-btn" aria-haspopup="true" aria-expanded="false" aria-controls="{{ $menuId }}-menu" aria-label="{{ $ar ? 'إجراء سريع' : 'Quick Action' }}">
+                <x-icon name="plus" class="ic"/>
+            </button>
+            <div class="qa-menu qa-menu-fab hide" id="{{ $menuId }}-menu" role="menu">
+                @foreach($actions as $action)
+                    <a class="drop-item" href="{{ $action['route'] }}" role="menuitem"><x-icon :name="$action['icon']"/> <span>{{ $action['label'] }}</span></a>
+                @endforeach
+            </div>
+        @else
+            <button type="button" class="btn-quick-action" id="{{ $menuId }}-btn" aria-haspopup="true" aria-expanded="false" aria-controls="{{ $menuId }}-menu">
+                <x-icon name="plus" class="ic"/>
+                <span>{{ $ar ? 'إجراء سريع' : 'Quick Action' }}</span>
+                <x-icon name="chevron-down" class="ic"/>
+            </button>
+            <div class="qa-menu hide" id="{{ $menuId }}-menu" role="menu">
+                @foreach($actions as $action)
+                    <a class="drop-item" href="{{ $action['route'] }}" role="menuitem"><x-icon :name="$action['icon']"/> <span>{{ $action['label'] }}</span></a>
+                @endforeach
+            </div>
+        @endif
     </div>
     <script>
     (function () {

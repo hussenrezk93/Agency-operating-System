@@ -25,9 +25,9 @@
         </div>
     @endif
 
-    <div class="card glass-dark">
-        <div class="table-wrap">
-            <table>
+    <div class="dx-card">
+        <div class="dx-table-wrap">
+            <table class="dx-table">
                 <thead>
                 <tr>
                     <th>{{ __('agencyos.notifications.index.column_title') }}</th>
@@ -41,13 +41,20 @@
                     <tr style="{{ $notification->is_read ? '' : 'font-weight:700' }}">
                         <td>
                             @unless($notification->is_read)
-                                <span class="badge b-changes" style="margin-inline-end:6px"><span class="bdot"></span>{{ __('agencyos.notifications.index.unread') }}</span>
+                                <x-dx-pill :badge="['class' => 'b-changes', 'label' => __('agencyos.notifications.index.unread')]" style="margin-inline-end:6px"/>
                             @endunless
-                            {{ $notification->title }}
+                            @if($notification->targetUrl($reportDates))
+                                <form method="POST" action="{{ route('notifications.read', $notification) }}" style="display:inline">
+                                    @csrf
+                                    <button type="submit" style="background:none;border:0;padding:0;margin:0;font:inherit;font-weight:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-align:start">{{ $notification->title }}</button>
+                                </form>
+                            @else
+                                {{ $notification->title }}
+                            @endif
                         </td>
-                        <td class="small">{{ $notification->body }}</td>
-                        <td class="mono small">{{ $notification->created_at->format('Y-m-d H:i') }}</td>
-                        <td style="text-align:end">
+                        <td>{{ $notification->body }}</td>
+                        <td class="dx-td-num">{{ $notification->created_at->format('Y-m-d H:i') }}</td>
+                        <td class="dx-td-end">
                             @unless($notification->is_read)
                                 <form method="POST" action="{{ route('notifications.read', $notification) }}">
                                     @csrf
@@ -57,11 +64,14 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" style="text-align:center;padding:34px" class="muted">{{ __('agencyos.notifications.index.empty') }}</td></tr>
+                    <tr><td colspan="4" class="dx-empty-cell">{{ __('agencyos.notifications.index.empty') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>
         </div>
+        @if($notifications->hasPages())
+            <div class="card-foot">{{ $notifications->links() }}</div>
+        @endif
     </div>
 </main>
 @endsection

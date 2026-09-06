@@ -1,6 +1,6 @@
 # Agency OS — Business Requirements Document (BRD)
 
-**Version:** 1.1 — Final, unified after merging Change Request CR-001 (email notifications + project WhatsApp group link)
+**Version:** 1.3 — Final v1.1 (CR-001: email notifications + project WhatsApp group link), plus CR-002 (self-service password reset) and CR-003 (mandatory Manager review stage + Manager task reopen)
 **Status:** Final copy, ready for review and approval
 **Prepared by:** Implementation Team
 **Submitted to:** Agency OS Management
@@ -17,7 +17,9 @@
 |---|---|---|---|
 | 0.1 | 24/07/2026 | Previous draft | Initial idea and inter-department workflow |
 | 0.5 | 24/07/2026 | Previous draft | Locked permissions, Temporary TL, projects, clients, reports |
-| 1.1 | 25/07/2026 | **Current — for review** | Full CR-001 merge: scope, projects, accounts, notifications, audit, NFRs, acceptance criteria, appendices |
+| 1.1 | 25/07/2026 | Previous | Full CR-001 merge: scope, projects, accounts, notifications, audit, NFRs, acceptance criteria, appendices |
+| 1.2 | 02/09/2026 | Previous | CR-002 merge: self-service "forgot password" reset via a 2-hour single-use emailed link, reversing §4.2/§18.1/§21's prior "Manager/Admin-only, no email recovery" rule. The manual Manager/Admin reset stays available alongside it. |
+| 1.3 | 02/09/2026 | **Current — for review** | CR-003 merge: every stage now needs a Manager review IN ADDITION to the TL's, not just self-assigned ones (reversing §22 criterion 3 and Appendix A stage 4B); a Manager may reopen a Completed task with a mandatory reason and a new due date (reversing §22 criterion 6 and §9 step 10's "never reopened"). |
 
 ---
 
@@ -72,7 +74,7 @@ More than one department never works the same stage in parallel within one task.
 - Reopening a task or project after completion.
 - Direct WhatsApp Business API integration, in-system group creation, automatic member add/remove, or reading WhatsApp messages.
 - Payroll or attendance system.
-- Email-based password recovery — password reset stays Manager/Admin-only per approved permissions.
+- ~~Email-based password recovery — password reset stays Manager/Admin-only per approved permissions.~~ **Superseded by CR-002 (v1.2):** a self-service "forgot password" link now sends a 2-hour single-use reset link to the account's verified email; the manual Manager/Admin reset (§18.1) is unchanged and still available.
 
 ## 5. Users & Roles
 
@@ -169,11 +171,11 @@ More than one department never works the same stage in parallel within one task.
 5. The employee adds at least one Output link, then submits the work for review.
 6. The TL reviews the submission and chooses Approve or Request Changes.
 7. On Request Changes, the task returns to the same employee with a mandatory comment.
-8. After Approve, the current TL chooses **Send to Next Department** or **Finish Task**.
+8. **CR-003 (v1.3):** after the TL's Approve, the stage isn't finished yet — it moves to Pending Manager Review, where a Manager reviews it too and independently chooses Approve or Request Changes (same mandatory-comment rule on Request Changes). Only after the MANAGER's Approve does the current TL get to choose **Send to Next Department** or **Finish Task**.
 9. When choosing the next department, only allowed departments are shown.
-10. On Finish Task, the task becomes Completed, read-only, and never reopened.
+10. ~~On Finish Task, the task becomes Completed, read-only, and never reopened.~~ **Superseded by CR-003 (v1.3):** on Finish Task the task becomes Completed and read-only, but a Manager may later reopen it with a mandatory reason and a new due date — see §22 criterion 6.
 
-> **Self-assigned TL case:** if a TL assigns the stage to themself, the Manager is the sole reviewer — a TL can never approve their own work.
+> **Self-assigned TL case:** if a TL assigns the stage to themself, the Manager is the sole reviewer at the TL stage — a TL can never approve their own work. **CR-003 (v1.3):** the Manager then reviews it again at the Pending Manager Review stage too, same as every other stage.
 
 ## 10. Task Statuses & Special Actions
 
@@ -181,14 +183,15 @@ More than one department never works the same stage in parallel within one task.
 |---|---|
 | Waiting Assignment | Reached the department, awaiting employee assignment |
 | In Progress | Employee or TL working the stage |
-| Under Review | Submitted, awaiting review |
-| Changes Requested | Returned to the same employee with a comment |
-| Approved | Stage approved; can be transferred or finished |
+| Under Review | Submitted, awaiting TL (or Manager, if self-assigned) review |
+| Pending Manager Review | **CR-003 (v1.3):** TL approved; awaiting the Manager's independent review before the stage can move on |
+| Changes Requested | Returned to the same employee with a comment — from either the TL's or the Manager's review |
+| Approved | Both the TL and the Manager approved; can be transferred or finished |
 | On Hold | Manager or task creator pauses it temporarily with a mandatory reason |
 | Overdue | Deadline passed without stage completion |
 | Redirected | Manager-only action to correct the route, with a mandatory reason |
 | Cancelled | Manager or task creator cancels with a mandatory reason; never reopened |
-| Completed | Closed read-only, no edits/links/comments |
+| Completed | Closed read-only, no edits/links/comments; **CR-003 (v1.3):** a Manager may reopen it later with a mandatory reason and a new due date, sending the final stage back to Changes Requested |
 
 ## 11. Deadlines & Reminders
 
@@ -326,7 +329,7 @@ Performance Score = (number of stages completed on time ÷ total stages due that
 - Manager enters the email when creating an Employee/TL account; Admin enters it when creating a Manager account.
 - A user can edit their own email from their profile; a Manager can edit it for them; every edit is logged in the Audit Log with old and new value.
 - Every new or changed email goes through verification via a link valid for 24 hours, and no email notifications are received until verification completes.
-- Email is never used for password recovery; password reset stays with Manager and Admin per current permissions.
+- **CR-002 (v1.2):** a user may self-serve a password reset from the login page — entering their username emails a 2-hour, single-use reset link to their verified `personal_email` (no link is sent, and no signal is given either way, if the username doesn't exist, the account is disabled, or its email isn't verified). Manager and Admin retain their existing manual reset path (§9 audit log entry `user.password_reset`) alongside this — self-service does not replace it.
 
 ## 19. Audit Log
 
@@ -366,19 +369,19 @@ Logged events include: user/department creation and disabling, role/leader chang
 - Managing Google Drive files or their permissions from inside the system.
 - WhatsApp Business API integration, in-system group creation, member management, or reading WhatsApp messages.
 - Manual quality scoring or task difficulty points.
-- Reopening completed tasks or projects.
+- ~~Reopening completed tasks or projects.~~ **Partially superseded by CR-003 (v1.3):** a Manager may now reopen a Completed TASK (mandatory reason + new due date) — see §22 criterion 6. Projects remain out of scope — still never reopened.
 - Two departments working the same task stage in parallel.
 - A full external client portal; the database is only prepared for future Client History.
-- Using email for password recovery, or treating it as the official channel instead of in-system notifications.
+- ~~Using email for password recovery~~ — **superseded by CR-002 (v1.2)**, see §18.1; email is still never the official notification channel (in-system notifications remain authoritative per §11.1).
 
 ## 22. Business Acceptance Criteria
 
 1. A task never reaches an employee before passing through the department TL.
 2. No submission is allowed without at least one Output.
-3. A TL can never approve a stage they executed themself; the Manager reviews it.
+3. ~~A TL can never approve a stage they executed themself; the Manager reviews it.~~ **Superseded by CR-003 (v1.3):** a TL still never approves their own self-assigned work (the Manager reviews it at that stage, unchanged) — but now EVERY stage, self-assigned or not, also needs a Manager review after the TL's, before it can route to the next department or finish. See Appendix A.
 4. Only Admin-allowed departments ever appear as the next department.
 5. **On Hold pauses the deadline duration** and extends the end date by the pause duration.
-6. A task and project are read-only after Completed and are never reopened.
+6. ~~A task and project are read-only after Completed and are never reopened.~~ **Superseded by CR-003 (v1.3) for tasks only:** a Manager may reopen a Completed task at any later point with a mandatory written reason and a new due date they set, sending its final step back to Changes Requested. Projects are unaffected — still read-only forever once Completed.
 7. Monthly scoring reflects deadline compliance for stages due in that month.
 8. TL sees the employee's first-open time; the employee never sees the TL's read time.
 9. Only Admin sees the Audit Log.
@@ -431,9 +434,12 @@ By signing this document, the parties acknowledge the items herein represent the
 | 2 | Department TL | Assign an employee or self-assign; set the deadline | In Progress |
 | 3 | Employee / TL | Execute, add Output, submit | Under Review |
 | 4A | TL / Manager (if self-assigned) | Request Changes with a comment | Changes Requested |
-| 4B | TL / Manager (if self-assigned) | Approve | Approved |
+| 4B | TL / Manager (if self-assigned) | Approve | Pending Manager Review **(CR-003, v1.3 — was Approved)** |
+| 4C | Manager **(CR-003, v1.3)** | Request Changes with a comment | Changes Requested |
+| 4D | Manager **(CR-003, v1.3)** | Approve | Approved |
 | 5A | Current TL | Send to an allowed next department | Waiting Assignment (new department) |
 | 5B | Current TL | Finish Task | Completed |
+| 6 | Manager **(CR-003, v1.3)** | Reopen a Completed task with a mandatory reason and a new due date | Active — final stage back to Changes Requested |
 | X | Manager / task creator | Cancel with a reason | Cancelled |
 
 ## Appendix B — Notification Matrix

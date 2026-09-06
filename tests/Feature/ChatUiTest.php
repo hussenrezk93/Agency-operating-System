@@ -134,6 +134,50 @@ class ChatUiTest extends TestCase
         $response->assertJsonPath('data.sender_name', $this->employee->full_name);
         $response->assertJsonPath('data.is_mine', true);
         $response->assertJsonPath('data.is_deleted', false);
+        $response->assertJsonPath('data.sender_avatar_url', null);
+    }
+
+    public function test_a_sent_message_carries_the_senders_uploaded_avatar_url(): void
+    {
+        $this->employee->forceFill(['avatar_path' => 'avatars/test.jpg'])->save();
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+
+        $response = $this->actingAs($this->employee)
+            ->postJson(route('chat.messages.store', $conversation), ['message' => 'Hello with a photo']);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.sender_avatar_url', $this->employee->fresh()->avatar_url);
+    }
+
+    public function test_a_one_on_one_conversations_avatar_shows_the_other_persons_uploaded_photo(): void
+    {
+        $this->leader->forceFill(['avatar_path' => 'avatars/leader.jpg'])->save();
+        $conversation = $this->chat->resolveEmployeeTlConversation($this->employee);
+        $expectedUrl = $this->leader->fresh()->avatar_url;
+
+        // The conversation-list row (chat.index, no conversation opened).
+        $this->actingAs($this->employee)->get(route('chat.index'))
+            ->assertOk()
+            ->assertSee($expectedUrl, false);
+
+        // The open conversation's own header avatar.
+        $this->actingAs($this->employee)->get(route('chat.show', $conversation))
+            ->assertOk()
+            ->assertSee($expectedUrl, false)
+            ->assertSee('data-lightbox', false);
+    }
+
+    public function test_a_group_conversations_avatar_stays_the_type_icon_even_with_photos_uploaded(): void
+    {
+        $this->leader->forceFill(['avatar_path' => 'avatars/leader.jpg'])->save();
+        $this->chat->resolveDepartmentGroupConversation($this->marketing);
+
+        // The leader's OWN photo legitimately still shows in the topbar/sidebar (that's
+        // the unrelated "it's me" avatar, working as intended) — this only checks that
+        // the group conversation's own row keeps the 👥 type icon instead of a photo.
+        $this->actingAs($this->leader)->get(route('chat.index'))
+            ->assertOk()
+            ->assertSee('👥', false);
     }
 
     public function test_polling_returns_only_messages_after_the_given_id(): void

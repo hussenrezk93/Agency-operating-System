@@ -203,8 +203,10 @@ class TaskSeenTest extends TestCase
     {
         [, $step, $assignment] = $this->taskUnderReview($this->marketing, $this->leader, $this->employee);
         $this->workflow()->approve($step, $this->leader);
+        $this->workflow()->approve($step->refresh(), $this->manager);
 
-        // Approval closed the assignment, so there is nothing live left to mark.
+        // The Manager's approval (the true terminal Approved) closed the assignment,
+        // so there is nothing live left to mark.
         $this->assertSame(0, $this->workflow()->markMyTasksSeen($this->employee));
         $this->assertNull($assignment->refresh()->first_seen_at);
     }
@@ -231,9 +233,16 @@ class TaskSeenTest extends TestCase
     /** Q20 — the Team Leader is the one who reads it. */
     public function test_the_team_leader_can_read_the_timestamp_through_its_own_endpoint(): void
     {
+        // Anchored to today, not to a fixed calendar date: setUp() dates the leadership
+        // assignment from the real clock (now minus a month), so an absolute past date
+        // eventually falls before the leader's term began and silently costs them their
+        // authority -- which is what turned this into a test that passed until the
+        // calendar moved on. The exact instant is irrelevant here; only that it is
+        // frozen, and that the leader is in office at it.
+        Carbon::setTestNow(now()->setTime(11, 0));
+
         [, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
 
-        Carbon::setTestNow('2026-08-05 11:00:00');
         $this->workflow()->markSeen($step, $this->employee);
 
         $this->actingAs($this->leader)

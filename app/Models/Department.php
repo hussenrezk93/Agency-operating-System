@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\DepartmentSpecialRole;
 use App\Enums\LeadershipType;
 use Database\Factories\DepartmentFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -18,11 +20,40 @@ class Department extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['is_active' => 'boolean', 'created_at' => 'datetime'];
+    protected $casts = [
+        'is_active' => 'boolean',
+        'created_at' => 'datetime',
+        'special_role' => DepartmentSpecialRole::class,
+    ];
 
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    /**
+     * The one department carrying a given special role. `name` is freely editable by an
+     * Admin, so every rule that singles out a department (Content's review of Graphic's
+     * work, the Moderator's report, ...) resolves it through the stable role instead.
+     */
+    public static function withSpecialRole(DepartmentSpecialRole $role): ?self
+    {
+        return static::where('special_role', $role->value)->first();
+    }
+
+    /**
+     * Active departments, plus ones created without a primary leader yet (product
+     * decision 2026-08) — those are inactive but should still take on staff (employees
+     * or the TL who will later be promoted via assignPrimaryLeader()) while awaiting
+     * one. A department deliberately deactivated by an admin keeps its old leadership
+     * assignment row, so `whereDoesntHave('leadershipAssignments')` alone tells the two
+     * apart without a dedicated flag.
+     */
+    public function scopeAvailableForStaffing(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q): void {
+            $q->where('is_active', true)->orWhereDoesntHave('leadershipAssignments');
+        });
     }
 
     public function leadershipAssignments(): HasMany
@@ -43,6 +74,11 @@ class Department extends Model
     public function taskSteps(): HasMany
     {
         return $this->hasMany(TaskStep::class);
+    }
+
+    public function dailyReports(): HasMany
+    {
+        return $this->hasMany(DepartmentDailyReport::class);
     }
 
     public function outputAccessAsViewer(): HasMany

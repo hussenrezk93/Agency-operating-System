@@ -7,7 +7,7 @@
 @endsection
 @section('content')
 <main class="page">
-    <form method="POST" action="{{ route('clients.update', $client) }}" class="card form-card">
+    <form method="POST" action="{{ route('clients.update', $client) }}" class="dx-card form-card">
         @csrf
         @method('PATCH')
         <div class="form-section">
@@ -19,7 +19,7 @@
                 </div>
                 <div class="field @error('phone') bad @enderror">
                     <label class="req">{{ __('agencyos.clients.fields.phone') }}</label>
-                    <input type="text" name="phone" value="{{ old('phone', $client->phone) }}" maxlength="50" required>
+                    <input type="tel" inputmode="tel" name="phone" value="{{ old('phone', $client->phone) }}" maxlength="50" pattern="(?=(?:.*[0-9]){7,})[0-9\s()+\-]+" oninput="this.value=this.value.replace(/[^0-9+\s()\-]/g,'')" required>
                     @error('phone')<div class="err">{{ $message }}</div>@enderror
                 </div>
                 <div class="field @error('company_email') bad @enderror">

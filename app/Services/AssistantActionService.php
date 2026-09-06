@@ -337,7 +337,7 @@ class AssistantActionService
         }
 
         $leader = User::findOrFail($args['primary_leader_id']);
-        $department = $this->departmentService->createWithPrimaryLeader($args['name'], $leader, $actor);
+        $department = $this->departmentService->create($args['name'], $leader, $actor);
 
         return ['created' => true, 'department' => $department->name];
     }

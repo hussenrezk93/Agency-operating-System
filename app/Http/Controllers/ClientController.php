@@ -20,7 +20,7 @@ class ClientController extends Controller
     {
         $this->authorize('viewAny', Client::class);
 
-        $clients = Client::query()->withCount('projects')->orderBy('name')->get();
+        $clients = Client::query()->withCount('projects')->orderBy('name')->paginate(50)->withQueryString();
 
         if (! $request->expectsJson()) {
             return view('clients.index', [

@@ -7,7 +7,7 @@
 @endsection
 @section('content')
 <main class="page">
-    <form method="POST" action="{{ route('temporary-leadership.store') }}" class="card form-card">
+    <form method="POST" action="{{ route('temporary-leadership.store') }}" class="dx-card form-card">
         @csrf
         <div class="form-section">
             <div class="form-grid">

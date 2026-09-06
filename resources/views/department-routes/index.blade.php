@@ -14,8 +14,8 @@
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card glass-dark">
-        <div class="table-wrap">
+    <div class="dx-card">
+        <div class="dx-table-wrap">
             <table class="matrix">
                 <thead>
                 <tr>

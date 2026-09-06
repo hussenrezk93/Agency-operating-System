@@ -61,6 +61,11 @@ class TemporaryLeadershipService
             ]);
         }
 
+        $this->assertNoActiveLeadershipAssignment($candidate);
+    }
+
+    private function assertNoActiveLeadershipAssignment(User $candidate): void
+    {
         $alreadyCovering = DepartmentLeadershipAssignment::query()
             ->where('user_id', $candidate->id)
             ->where('is_active', true)
@@ -137,6 +142,13 @@ class TemporaryLeadershipService
         return DB::transaction(function () use ($department, $candidate, $start, $end, $reason, $actor) {
             $this->assertNoTemporaryOverlap($department, $start, $end);
 
+            // Re-checked under a row lock: closes the race where the same candidate is
+            // appointed to two different departments at nearly the same moment — the
+            // department-row lock above doesn't cover this, since it's a different
+            // department each time.
+            User::whereKey($candidate->id)->lockForUpdate()->first();
+            $this->assertNoActiveLeadershipAssignment($candidate);
+
             $startsNow = $start->isToday() || $start->isPast();
 
             $assignment = DepartmentLeadershipAssignment::create([
@@ -184,6 +196,18 @@ class TemporaryLeadershipService
         User $actor,
         RoleTransitionReason $reason = RoleTransitionReason::TemporaryTlEarlyEnd,
     ): void {
+        // Guards against a stale/replayed call targeting an assignment that has already
+        // ended (naturally, or via an earlier endEarly()/replace()): without this check,
+        // restoreBaseRole() below only looks at the user's GLOBAL elevation flag, not
+        // whether THIS assignment is the one currently granting it — so ending an old,
+        // already-inactive assignment could silently strip a role the user holds today
+        // through a completely different, still-active assignment.
+        if (! $assignment->is_active || $assignment->activation_state !== ActivationState::Active) {
+            throw ValidationException::withMessages([
+                'assignment' => __('This temporary leadership assignment has already ended.'),
+            ]);
+        }
+
         DB::transaction(function () use ($assignment, $actor, $reason): void {
             $assignment->forceFill([
                 'is_active' => false,

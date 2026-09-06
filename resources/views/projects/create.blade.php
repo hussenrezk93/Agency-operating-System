@@ -12,7 +12,7 @@
 @endsection
 @section('content')
 <main class="page">
-    <form method="POST" action="{{ route('projects.store') }}" class="card form-card">
+    <form method="POST" action="{{ route('projects.store') }}" class="dx-card form-card">
         @csrf
         <div class="form-section">
             <div class="form-section-head"><span class="n">1</span><h2>{{ __('agencyos.projects.fields.name') }}</h2></div>
@@ -72,7 +72,7 @@
                     </div>
                     <div class="field @error('new_client_phone') bad @enderror">
                         <label class="req">{{ __('agencyos.clients.fields.phone') }}</label>
-                        <input type="text" name="new_client_phone" value="{{ old('new_client_phone') }}" maxlength="50">
+                        <input type="tel" inputmode="tel" name="new_client_phone" value="{{ old('new_client_phone') }}" maxlength="50" pattern="(?=(?:.*[0-9]){7,})[0-9\s()+\-]+" oninput="this.value=this.value.replace(/[^0-9+\s()\-]/g,'')">
                         @error('new_client_phone')<div class="err">{{ $message }}</div>@enderror
                     </div>
                     <div class="field span2 @error('new_client_email') bad @enderror">
@@ -88,9 +88,19 @@
         <div class="form-section">
             <div class="form-section-head"><span class="n">3</span><h2>{{ __('agencyos.tasks.fields.reference_links') }}</h2></div>
             <div class="form-grid">
-                @for($i = 0; $i < 3; $i++)
+                @for($i = 0; $i < 2; $i++)
                     <div class="field">
                         <label>{{ __('agencyos.tasks.fields.reference_link_n', ['n' => $i + 1]) }} — {{ __('agencyos.tasks.fields.url') }}</label>
+                        <input type="url" name="links[{{ $i }}][url]" value="{{ old("links.$i.url") }}" placeholder="https://">
+                    </div>
+                    <div class="field">
+                        <label>{{ __('agencyos.tasks.fields.label') }}</label>
+                        <input type="text" name="links[{{ $i }}][label]" value="{{ old("links.$i.label") }}" maxlength="255">
+                    </div>
+                @endfor
+                @for($i = 2; $i < 4; $i++)
+                    <div class="field">
+                        <label>{{ __('agencyos.tasks.fields.material_link_n', ['n' => $i - 1]) }} — {{ __('agencyos.tasks.fields.url') }}</label>
                         <input type="url" name="links[{{ $i }}][url]" value="{{ old("links.$i.url") }}" placeholder="https://">
                     </div>
                     <div class="field">

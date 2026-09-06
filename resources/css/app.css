@@ -8,16 +8,34 @@
 @theme {
     --font-sans: Tahoma, Arial, 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
 
-    /* Agency OS primary identity: orange + white. */
-    --color-primary: #f97316;
-    --color-primary-hover: #ea580c;
-    --color-primary-soft: #fff7ed;
+    /* Agency OS's real brand tokens, matched to agencyos.css's :root (not
+       Tailwind's stock palette) so utilities and the still-active old
+       stylesheet read as one identity on any page that has both. */
+    --color-primary: #FC6E20;
+    --color-primary-hover: #E85F18;
+    --color-primary-soft: #FFF3EA;
     --color-primary-white: #ffffff;
-}
 
-:root {
-    --agencyos-primary-orange: #f97316;
-    --agencyos-primary-white: #ffffff;
+    --color-ink: #1B1B1B;
+    --color-ink-muted: #84796E;
+    --color-surface: #FBF6EF;
+    --color-border: #E8EDF2;
+    --color-navy: #233D4D;
+
+    --color-success: #22C55E;
+    --color-success-soft: #F0FDF4;
+    --color-warning: #F59E0B;
+    --color-warning-soft: #FFFBEB;
+    --color-danger: #EF4444;
+    --color-danger-soft: #FEF2F2;
+    --color-info: #3B82F6;
+    --color-info-soft: #EFF6FF;
+    --color-purple: #8B5CF6;
+    --color-purple-soft: #F5F3FF;
+
+    --radius-card: 20px;
+    --radius-lg: 24px;
+    --radius-pill: 999px;
 }
 
 html[dir='rtl'] body {

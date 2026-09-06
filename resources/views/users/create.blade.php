@@ -7,7 +7,7 @@
 @endsection
 @section('content')
 <main class="page">
-    <form method="POST" action="{{ route('users.store') }}" class="card form-card">
+    <form method="POST" action="{{ route('users.store') }}" class="dx-card form-card">
         @csrf
         <div class="form-section">
             <div class="form-grid">
@@ -29,6 +29,36 @@
 
                 @if($isAdmin)
                     @php($selectedRole = old('role', 'manager'))
+                    @php($roleNeedsDepartment = in_array($selectedRole, ['tl', 'employee'], true))
+                    <div class="field @error('role') bad @enderror">
+                        <label class="req">{{ __('agencyos.users.fields.role') }}</label>
+                        <x-form-select name="role" required onchange="agencyosToggleUserDepartmentField(this.value)"
+                            :options="['admin' => __('agencyos.roles.admin'), 'manager' => __('agencyos.roles.manager'), 'tl' => __('agencyos.roles.tl'), 'employee' => __('agencyos.roles.employee')]"
+                            :selected="$selectedRole"/>
+                        @error('role')<div class="err">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="field @error('department_id') bad @enderror" id="user-department-field" @style(['display:none' => ! $roleNeedsDepartment])>
+                        <label class="req">{{ __('agencyos.users.fields.department') }}</label>
+                        <x-form-select name="department_id" :required="$roleNeedsDepartment"
+                            placeholder="—" :options="$departments->pluck('name', 'id')"
+                            :selected="old('department_id')"/>
+                        @error('department_id')<div class="err">{{ $message }}</div>@enderror
+                    </div>
+                    <script>
+                        function agencyosToggleUserDepartmentField(role) {
+                            var field = document.getElementById('user-department-field');
+                            var select = field.querySelector('select[name="department_id"]');
+                            var needsDepartment = role === 'tl' || role === 'employee';
+                            field.style.display = needsDepartment ? '' : 'none';
+                            select.required = needsDepartment;
+                            if (!needsDepartment) {
+                                select.value = '';
+                                select.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                    </script>
+                @else
+                    @php($selectedRole = old('role', 'employee'))
                     @php($roleNeedsDepartment = in_array($selectedRole, ['tl', 'employee'], true))
                     <div class="field @error('role') bad @enderror">
                         <label class="req">{{ __('agencyos.users.fields.role') }}</label>
@@ -57,21 +87,6 @@
                             }
                         }
                     </script>
-                @else
-                    <div class="field @error('role') bad @enderror">
-                        <label class="req">{{ __('agencyos.users.fields.role') }}</label>
-                        <x-form-select name="role" required
-                            :options="['tl' => __('agencyos.roles.tl'), 'employee' => __('agencyos.roles.employee')]"
-                            :selected="old('role', 'employee')"/>
-                        @error('role')<div class="err">{{ $message }}</div>@enderror
-                    </div>
-                    <div class="field @error('department_id') bad @enderror">
-                        <label class="req">{{ __('agencyos.users.fields.department') }}</label>
-                        <x-form-select name="department_id" required
-                            placeholder="—" :options="$departments->pluck('name', 'id')"
-                            :selected="old('department_id')"/>
-                        @error('department_id')<div class="err">{{ $message }}</div>@enderror
-                    </div>
                 @endif
             </div>
             <p class="small muted" style="margin-top:6px">{{ __('agencyos.users.create.temp_password_note') }}</p>

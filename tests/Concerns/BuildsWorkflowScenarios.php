@@ -149,9 +149,9 @@ trait BuildsWorkflowScenarios
      *
      * @return array{0: Task, 1: TaskStep, 2: TaskStepAssignment}
      */
-    protected function taskInProgress(Department $department, User $leader, User $assignee, ?User $creator = null): array
+    protected function taskInProgress(Department $department, User $leader, User $assignee, ?User $creator = null, array $overrides = []): array
     {
-        $task = $this->newTask($department, $creator ?? $leader);
+        $task = $this->newTask($department, $creator ?? $leader, $overrides);
         $step = $task->currentStep;
 
         $assignment = $this->workflow()->assign(
@@ -170,9 +170,9 @@ trait BuildsWorkflowScenarios
      *
      * @return array{0: Task, 1: TaskStep, 2: TaskStepAssignment}
      */
-    protected function taskUnderReview(Department $department, User $leader, User $assignee, ?User $creator = null): array
+    protected function taskUnderReview(Department $department, User $leader, User $assignee, ?User $creator = null, array $overrides = []): array
     {
-        [$task, $step, $assignment] = $this->taskInProgress($department, $leader, $assignee, $creator);
+        [$task, $step, $assignment] = $this->taskInProgress($department, $leader, $assignee, $creator, $overrides);
 
         $this->workflow()->addOutput($step, $assignee, 'https://drive.example.com/teaser-v1');
         $this->workflow()->submit($step, $assignee);
@@ -185,11 +185,16 @@ trait BuildsWorkflowScenarios
      *
      * @return array{0: Task, 1: TaskStep}
      */
-    protected function taskApproved(Department $department, User $leader, User $assignee, ?User $creator = null): array
+    protected function taskApproved(Department $department, User $leader, User $assignee, ?User $creator = null, array $overrides = []): array
     {
-        [$task, $step] = $this->taskUnderReview($department, $leader, $assignee, $creator);
+        [$task, $step] = $this->taskUnderReview($department, $leader, $assignee, $creator, $overrides);
 
-        $this->workflow()->approve($step, $leader);
+        // Product decision 2026-09 — a step needs BOTH a TL-stage AND a Manager-stage
+        // approval to truly reach Approved. Q12 still applies at the TL stage: a
+        // self-assigned step is reviewed by the Manager there too, same as always.
+        $tlReviewer = $step->fresh()->isSelfAssigned() ? $this->systemManager() : $leader;
+        $this->workflow()->approve($step, $tlReviewer);
+        $this->workflow()->approve($step->refresh(), $this->systemManager());
 
         return [$task->refresh(), $step->refresh()];
     }

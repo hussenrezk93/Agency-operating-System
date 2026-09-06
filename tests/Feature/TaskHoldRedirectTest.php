@@ -7,6 +7,7 @@ use App\Enums\TaskLifecycle;
 use App\Enums\WorkflowStatus;
 use App\Exceptions\IllegalTransitionException;
 use App\Models\Department;
+use App\Models\DepartmentLeadershipAssignment;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -127,6 +128,12 @@ class TaskHoldRedirectTest extends TestCase
     public function test_resuming_extends_the_due_date_by_exactly_the_paused_duration(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-08-01 09:00:00', config('app.timezone')));
+
+        // makeTeamLeader() (setUp(), before this freeze) backdated the leadership
+        // assignment's start_date to the REAL now()->subMonth() — once real time passes
+        // 2026-09-01 that lands AFTER the frozen date above, making canActAsLeaderOf()
+        // false. Pin it safely in the past so this test stays correct on any real date.
+        DepartmentLeadershipAssignment::where('user_id', $this->leader->id)->update(['start_date' => '2026-01-01']);
 
         [$task, $step, $assignment] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
         $originalDueAt = $step->current_due_at->clone();

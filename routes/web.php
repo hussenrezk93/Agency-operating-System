@@ -5,16 +5,20 @@ use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\ForcedPasswordController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DepartmentOutputAccessController;
+use App\Http\Controllers\DepartmentReportController;
 use App\Http\Controllers\DepartmentRoutingController;
 use App\Http\Controllers\EmailVerificationController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MyTasksController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PayrollController;
+use App\Http\Controllers\PerformanceAdjustmentController;
 use App\Http\Controllers\PerformanceController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
@@ -54,9 +58,27 @@ Route::get('/email/verify/{user}/{token}', [EmailVerificationController::class, 
     ->middleware('throttle:10,1')
     ->name('email.verify');
 
+// CR-002 — same reasoning as /email/verify above: unauthenticated on purpose, the token
+// proves the click. ->missing() collapses a nonexistent {user} id into the exact same
+// generic redirect a bad/expired token produces, so the two failure modes are never
+// distinguishable from the response alone.
+Route::get('/password/reset/{user}/{token}', [PasswordResetController::class, 'show'])
+    ->middleware('throttle:10,1')
+    ->missing(fn () => redirect()->route('login')->withErrors(['token' => __('agencyos.password_reset.invalid_or_expired')]))
+    ->name('password.reset.show');
+Route::post('/password/reset/{user}/{token}', [PasswordResetController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->missing(fn () => redirect()->route('login')->withErrors(['token' => __('agencyos.password_reset.invalid_or_expired')]))
+    ->name('password.reset.store');
+
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
     Route::post('/login', [LoginController::class, 'store'])->name('login.store');
+
+    Route::get('/password/forgot', [PasswordResetController::class, 'requestForm'])->name('password.forgot');
+    Route::post('/password/forgot', [PasswordResetController::class, 'requestStore'])
+        ->middleware('throttle:5,1')
+        ->name('password.forgot.store');
 });
 
 Route::middleware(['auth', 'account.active'])->group(function (): void {
@@ -68,10 +90,14 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
     Route::middleware('password.changed')->group(function (): void {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
-        // BRD §18.1 — every role edits their own personal email here; no {user} route
-        // parameter, so there is nothing to authorize beyond "is authenticated."
-        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+        // BRD §18.1 — every role edits their own personal email here. The optional
+        // {user?} (same pattern as performance.show) opens the Activity tab to viewing
+        // someone else's task history, gated in the controller by
+        // UserPolicy::viewPerformance(); self-view stays open to "is authenticated" alone.
+        Route::get('/profile/{user?}', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
+        Route::delete('/profile/avatar', [ProfileController::class, 'destroyAvatar'])->name('profile.avatar.destroy');
 
         // Approved 51-screen UI, now protected by Laravel auth and server-side role checks.
         Route::get('/app/{screen?}', ApprovedUiController::class)
@@ -130,6 +156,12 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
                 ->name('departments.deactivate');
             Route::post('/{department}/reactivate', [DepartmentController::class, 'reactivate'])
                 ->name('departments.reactivate');
+            // Gives a leaderless department (created via store() with no primary_leader_id)
+            // its first Team Leader, which also activates it — see DepartmentService::assignPrimaryLeader().
+            Route::get('/{department}/assign-leader', [DepartmentController::class, 'assignLeaderForm'])
+                ->name('departments.assign-leader-form');
+            Route::post('/{department}/assign-leader', [DepartmentController::class, 'assignLeader'])
+                ->name('departments.assign-leader');
         });
 
         // Admin-only (BRD §15): the routing matrix TaskRoutingService reads from.
@@ -265,13 +297,17 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
             // excludes the Manager.
             Route::middleware('role:manager')->group(function (): void {
                 Route::post('/{task}/redirect', [TaskController::class, 'redirect'])->name('tasks.redirect');
+                // Product decision 2026-09 — Manager-only, mirrors redirect's own
+                // Manager-only placement above (a TL's tools stop at cancel/hold/resume).
+                Route::post('/{task}/reopen', [TaskController::class, 'reopen'])->name('tasks.reopen');
             });
         });
 
         Route::prefix('task-steps')->group(function (): void {
             // A Team Leader appears here too — comments are a private thread between
-            // the assignee and the department's effective Team Leader (BRD §13).
-            Route::middleware('role:employee,tl')->group(function (): void {
+            // the assignee and the department's effective Team Leader (BRD §13),
+            // widened 2026-08 to also include the Manager (TaskStepPolicy::viewComments()).
+            Route::middleware('role:employee,tl,manager')->group(function (): void {
                 Route::post('/{step}/comments', [TaskStepController::class, 'addComment'])
                     ->name('tasks.steps.comments.store');
             });
@@ -295,6 +331,8 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
             Route::middleware('role:employee,tl')->group(function (): void {
                 Route::post('/{step}/outputs', [TaskStepController::class, 'addOutput'])
                     ->name('tasks.steps.outputs.store');
+                Route::delete('/{step}/outputs/{output}', [TaskStepController::class, 'removeOutput'])
+                    ->name('tasks.steps.outputs.destroy');
                 Route::post('/{step}/submit', [TaskStepController::class, 'submit'])
                     ->name('tasks.steps.submit');
             });
@@ -310,6 +348,7 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
 
         Route::prefix('notifications')->group(function (): void {
             Route::get('/', [NotificationController::class, 'index'])->name('notifications.index');
+            Route::get('/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
             Route::post('/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
             Route::post('/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
         });
@@ -336,6 +375,7 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
             Route::get('/{conversation}/poll', [ChatController::class, 'poll'])
                 ->middleware('throttle:30,1')->name('chat.poll');
             Route::post('/{conversation}/messages', [ChatController::class, 'store'])->name('chat.messages.store');
+            Route::post('/{conversation}/read', [ChatController::class, 'markRead'])->name('chat.read');
             Route::post('/messages/{message}/delete', [ChatController::class, 'destroy'])->name('chat.messages.destroy');
             Route::post('/direct', [ChatController::class, 'startDirect'])->name('chat.direct');
             Route::post('/direct-message', [ChatController::class, 'startDirectMessage'])->name('chat.direct-message');
@@ -347,6 +387,53 @@ Route::middleware(['auth', 'account.active'])->group(function (): void {
         Route::middleware('role:manager,tl,employee')->group(function (): void {
             Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
             Route::get('/performance/{user?}', [PerformanceController::class, 'show'])->name('performance.show');
+        });
+
+        // Bonuses/deductions on the reports page — Manager only, enforced again by
+        // PerformanceAdjustmentPolicy so the middleware is a first gate, not the only one.
+        Route::middleware('role:manager')->group(function (): void {
+            Route::post('/reports/adjustments', [PerformanceAdjustmentController::class, 'store'])->name('reports.adjustments.store');
+            Route::delete('/reports/adjustments/{adjustment}', [PerformanceAdjustmentController::class, 'destroy'])->name('reports.adjustments.destroy');
+        });
+
+        // Payroll and company spending (product decision 2026-09) — salaries, the pay
+        // window opened per person per month, and everything the company spent. Manager
+        // only, and PayrollPolicy says so again on every action: this is the one screen
+        // in the app where money is visible, so the middleware is never the only gate.
+        Route::middleware('role:manager')->prefix('payroll')->group(function (): void {
+            Route::get('/', [PayrollController::class, 'index'])->name('payroll.index');
+            Route::post('/salaries', [PayrollController::class, 'storeSalary'])->name('payroll.salaries.store');
+            Route::post('/periods', [PayrollController::class, 'openPeriod'])->name('payroll.periods.open');
+            Route::patch('/periods/{period}', [PayrollController::class, 'updatePeriod'])->name('payroll.periods.update');
+            Route::post('/periods/{period}/close', [PayrollController::class, 'closePeriod'])->name('payroll.periods.close');
+            Route::post('/periods/{period}/reopen', [PayrollController::class, 'reopenPeriod'])->name('payroll.periods.reopen');
+            Route::get('/expenses', [PayrollController::class, 'expenses'])->name('payroll.expenses.index');
+            Route::post('/expenses', [PayrollController::class, 'storeExpense'])->name('payroll.expenses.store');
+            Route::delete('/expenses/{expense}', [PayrollController::class, 'destroyExpense'])->name('payroll.expenses.destroy');
+        });
+
+        // Daily Department Reports — the Manager reads submitted reports, a Team Leader
+        // reads and submits their own department's (Content's TL owns both of Content's
+        // rows; Moderator's TL reads Content's handoff once submitted, via
+        // DepartmentDailyReport::scopeVisibleTo()). Employees stay out, same boundary as
+        // every other report surface in this app.
+        // Product decision 2026-09 — Sales writes its daily report collectively, so an
+        // Employee needs a way in. Deliberately its OWN pair of routes rather than
+        // widening the group below: an Employee reaches their own contribution and
+        // nothing else on this feature.
+        Route::middleware('role:manager,tl,employee')->prefix('department-reports')->group(function (): void {
+            Route::get('/my/today', [DepartmentReportController::class, 'contribute'])->name('department-reports.contribute');
+            Route::post('/{report}/contribute', [DepartmentReportController::class, 'storeContribution'])->name('department-reports.contributions.store');
+        });
+
+        Route::middleware('role:manager,tl')->prefix('department-reports')->group(function (): void {
+            Route::get('/', [DepartmentReportController::class, 'index'])->name('department-reports.index');
+            Route::get('/{date}', [DepartmentReportController::class, 'show'])
+                ->where('date', '\d{4}-\d{2}-\d{2}')
+                ->name('department-reports.show');
+            Route::post('/{report}/submit', [DepartmentReportController::class, 'submit'])->name('department-reports.submit');
+            Route::patch('/{report}', [DepartmentReportController::class, 'update'])->name('department-reports.update');
+            Route::post('/{report}/approve', [DepartmentReportController::class, 'approve'])->name('department-reports.approve');
         });
 
         // Admin gets search too, but SearchController scopes it to Users/Departments —

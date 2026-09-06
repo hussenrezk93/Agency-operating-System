@@ -2,18 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\DepartmentSpecialRole;
 use App\Enums\RoleCode;
 use App\Enums\TaskLifecycle;
 use App\Enums\UserStatus;
+use App\Enums\WorkflowStatus;
 use App\Http\Requests\CancelTaskRequest;
 use App\Http\Requests\HoldTaskRequest;
 use App\Http\Requests\PublishDraftTaskRequest;
 use App\Http\Requests\RedirectTaskRequest;
+use App\Http\Requests\ReopenTaskRequest;
 use App\Http\Requests\StoreTaskRequest;
 use App\Http\Requests\UpdateTaskRequest;
 use App\Models\Department;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\TaskStep;
 use App\Models\User;
 use App\Services\TaskRoutingService;
 use App\Services\TaskWorkflowService;
@@ -25,6 +29,9 @@ use Illuminate\View\View;
 
 class TaskController extends Controller
 {
+    /** The synthetic `status` filter value behind every "Awaiting my review" link. */
+    public const AWAITING_MY_REVIEW = 'awaiting_me';
+
     public function __construct(
         private readonly TaskWorkflowService $workflow,
         private readonly TaskRoutingService $routing,
@@ -55,7 +62,21 @@ class TaskController extends Controller
                 $isOwnList = true;
                 $query->whereHas('steps.assignments', fn (Builder $q) => $q->where('assignee_id', $actor->id));
             } else {
-                $query->whereHas('steps', fn (Builder $q) => $q->where('department_id', $actor->department_id));
+                // Content also reviews Graphic's steps (product decision 2026-09), which
+                // belong to another department — same widening TaskPolicy::view() makes,
+                // so a task the leader may open is also a task they can find.
+                $content = Department::withSpecialRole(DepartmentSpecialRole::Content);
+                $reviewsForContent = $content !== null && $actor->canActAsLeaderOf($content->id);
+
+                $query->where(function (Builder $q) use ($actor, $reviewsForContent): void {
+                    $q->whereHas('steps', fn (Builder $s) => $s->where('department_id', $actor->department_id));
+
+                    if ($reviewsForContent) {
+                        $q->orWhereHas('currentStep', fn (Builder $s) => $s->where(
+                            'workflow_status', WorkflowStatus::PendingContentReview->value,
+                        ));
+                    }
+                });
             }
         }
 
@@ -68,7 +89,7 @@ class TaskController extends Controller
         }
 
         if ($status = $request->query('status')) {
-            $query->whereHas('currentStep', fn (Builder $q) => $q->where('workflow_status', $status));
+            $query->whereHas('currentStep', fn (Builder $q) => $this->scopeToReviewStage($q, $status, $actor));
         }
         if ($priority = $request->query('priority')) {
             $query->where('priority', $priority);
@@ -78,7 +99,7 @@ class TaskController extends Controller
         }
 
         return view('tasks.index', [
-            'tasks' => $query->limit(200)->get(),
+            'tasks' => $query->paginate(50)->withQueryString(),
             'departments' => Department::where('is_active', true)->orderBy('name')->get(),
             'canCreate' => $actor->can('create', Task::class),
         ]);
@@ -108,7 +129,20 @@ class TaskController extends Controller
 
     public function store(StoreTaskRequest $request): JsonResponse|RedirectResponse
     {
-        $task = $this->workflow->createTask($request->user(), $request->validated())
+        $data = $request->validated();
+
+        // The service never touches an UploadedFile directly (same convention as
+        // avatar uploads) — each slot's media is stored here first, and the resulting
+        // path takes the URL's place with is_upload set, exactly like TaskStepOutput.
+        foreach ($data['reference_links'] ?? [] as $i => $link) {
+            if (isset($link['media'])) {
+                $data['reference_links'][$i]['url'] = $link['media']->store('task-references', 'public');
+                $data['reference_links'][$i]['is_upload'] = true;
+                unset($data['reference_links'][$i]['media']);
+            }
+        }
+
+        $task = $this->workflow->createTask($request->user(), $data)
             ->load(['currentStep.department', 'referenceLinks']);
 
         if (! $request->expectsJson()) {
@@ -197,14 +231,103 @@ class TaskController extends Controller
     }
 
     /**
+     * The status filter has to match the badge the row actually shows, not just the
+     * stored column. A self-assigned step sitting at Under Review is labelled "awaiting
+     * MANAGER review" (Q12 — a Team Leader never reviews work they did themselves), so
+     * filtering by "awaiting Team Leader review" must leave those out, and filtering by
+     * "awaiting Manager review" must include them alongside the real
+     * PendingManagerReview rows. Anything else is an exact match on the column.
+     */
+    private function scopeToReviewStage(Builder $query, string $status, User $actor): Builder
+    {
+        if ($status === self::AWAITING_MY_REVIEW) {
+            return $this->scopeToMyReviewQueue($query, $actor);
+        }
+
+        $selfAssigned = fn (Builder $q) => $q->whereHas(
+            'activeAssignment',
+            fn (Builder $assignment) => $assignment->where('is_self_assigned', true),
+        );
+
+        if ($status === WorkflowStatus::UnderReview->value) {
+            return $query->where('workflow_status', $status)
+                ->whereDoesntHave('activeAssignment', fn (Builder $a) => $a->where('is_self_assigned', true));
+        }
+
+        if ($status === WorkflowStatus::PendingManagerReview->value) {
+            return $query->where(fn (Builder $q) => $q
+                ->where('workflow_status', $status)
+                ->orWhere(fn (Builder $q2) => $selfAssigned(
+                    $q2->where('workflow_status', WorkflowStatus::UnderReview->value)
+                )));
+        }
+
+        return $query->where('workflow_status', $status);
+    }
+
+    /**
+     * "Awaiting my review" — the one list every reviewer actually wants, and the only
+     * honest destination for the dashboards' own review links: a Content leader's queue
+     * lives at pending_content_review and a Manager's at pending_manager_review, so no
+     * single stored status could stand in for it. Deliberately NOT a WorkflowStatus
+     * case: it's a question about the VIEWER, not about the step.
+     */
+    private function scopeToMyReviewQueue(Builder $query, User $actor): Builder
+    {
+        if ($actor->hasRole(RoleCode::Manager)) {
+            // Q12 — a self-assigned step still at Under Review is the Manager's too.
+            return $query->where(fn (Builder $q) => $q
+                ->where('workflow_status', WorkflowStatus::PendingManagerReview->value)
+                ->orWhere(fn (Builder $q2) => $q2
+                    ->where('workflow_status', WorkflowStatus::UnderReview->value)
+                    ->whereHas('activeAssignment', fn (Builder $a) => $a->where('is_self_assigned', true))));
+        }
+
+        if (! $actor->hasRole(RoleCode::TeamLeader)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $content = Department::withSpecialRole(DepartmentSpecialRole::Content);
+        $reviewsForContent = $content !== null && $actor->canActAsLeaderOf($content->id);
+
+        return $query->where(function (Builder $q) use ($actor, $reviewsForContent): void {
+            // Their own department's submissions — minus the ones they did themselves,
+            // which Q12 hands to the Manager instead.
+            $q->where(fn (Builder $own) => $own
+                ->where('department_id', $actor->department_id)
+                ->where('workflow_status', WorkflowStatus::UnderReview->value)
+                ->whereDoesntHave('activeAssignment', fn (Builder $a) => $a->where('is_self_assigned', true)));
+
+            if ($reviewsForContent) {
+                $q->orWhere('workflow_status', WorkflowStatus::PendingContentReview->value);
+            }
+        });
+    }
+
+    /**
      * BRD §15 — a Team Leader only sees an earlier step's output if their department has
      * Admin-granted access to that step's department (their own department always does).
-     * Manager keeps the unrestricted visibility they have everywhere else in the app;
-     * the assignee's Q26 right to their own task's immediately-prior work is unaffected.
+     * Manager keeps the unrestricted visibility they have everywhere else in the app.
+     *
+     * The assignee is the exception, and it is Q26's whole point: whoever is holding the
+     * step right now reads the final approved work of the steps before it, because they
+     * cannot continue from material they are not allowed to open. That right follows the
+     * SEAT, not the role — BRD §15's matrix governs a Team Leader BROWSING another
+     * department's outputs, not the person actually doing the work.
+     *
+     * Reported from production 2026-09-05 (TSK-2026-00026): a task was reopened and
+     * redirected to the Moderator, whose Team Leader took the step herself. Her own
+     * department has no granted access to Graphic, so the filter below stripped the two
+     * Drive links the step exists to act on — and it read as though the outputs had been
+     * deleted. An Employee in the same seat would have seen them the whole time.
      */
-    private function visiblePreviousOutputs(User $actor, Task $task, int $sequenceNo)
+    private function visiblePreviousOutputs(User $actor, Task $task, TaskStep $step)
     {
-        $outputs = $task->approvedOutputsBefore($sequenceNo);
+        $outputs = $task->approvedOutputsBefore($step->sequence_no);
+
+        if ($step->activeAssignment?->assignee_id === $actor->id) {
+            return $outputs;
+        }
 
         if (! $actor->hasRole(RoleCode::TeamLeader) || $actor->department === null) {
             return $outputs;
@@ -224,7 +347,7 @@ class TaskController extends Controller
             'step' => $step,
             'outputs' => $step?->outputsForCurrentSubmission() ?? collect(),
             'previousOutputs' => $step !== null
-                ? $this->visiblePreviousOutputs($actor, $task, $step->sequence_no)
+                ? $this->visiblePreviousOutputs($actor, $task, $step)
                 : collect(),
             'comments' => ($step !== null && $actor->can('viewComments', $step))
                 ? $step->comments()->with('author:id,full_name')->get()
@@ -237,6 +360,7 @@ class TaskController extends Controller
             'canTransfer' => $step !== null && $actor->can('transfer', $step),
             'canEdit' => $actor->can('update', $task),
             'canComplete' => $actor->can('complete', $task),
+            'canReopen' => $actor->can('reopen', $task),
             'canCancel' => $actor->can('cancel', $task),
             'canHold' => $actor->can('hold', $task),
             'canResume' => $actor->can('resume', $task),
@@ -282,6 +406,22 @@ class TaskController extends Controller
         }
 
         return response()->json(['data' => $cancelled]);
+    }
+
+    public function reopen(ReopenTaskRequest $request, Task $task): JsonResponse|RedirectResponse
+    {
+        $reopened = $this->workflow->reopen(
+            $task,
+            $request->user(),
+            $request->string('reason')->toString(),
+            $request->string('due_date')->toString(),
+        );
+
+        if (! $request->expectsJson()) {
+            return redirect()->route('tasks.show', $reopened)->with('status', __('agencyos.tasks.flash.reopened'));
+        }
+
+        return response()->json(['data' => $reopened]);
     }
 
     public function hold(HoldTaskRequest $request, Task $task): JsonResponse|RedirectResponse

@@ -74,6 +74,17 @@ class ProjectLifecycleTest extends TestCase
         $this->assertSame($client->id, $response->json('data.client_id'));
     }
 
+    public function test_creating_a_project_with_a_new_clients_phone_containing_letters_is_rejected(): void
+    {
+        $this->actingAs($this->manager)->postJson('/projects', [
+            'client_source' => 'new',
+            'new_client_name' => 'Horizon Retail',
+            'new_client_phone' => 'zero one zero',
+            'name' => 'Horizon Launch',
+            'department_ids' => [$this->marketing->id],
+        ])->assertStatus(422)->assertJsonValidationErrors('new_client_phone');
+    }
+
     public function test_creating_a_project_with_a_new_client_but_no_name_is_rejected(): void
     {
         $this->actingAs($this->manager)->postJson('/projects', [

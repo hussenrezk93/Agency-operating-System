@@ -4,6 +4,7 @@ namespace Tests;
 
 use App\Events\ChatMessageBroadcast;
 use App\Events\ChatMessageDeletedBroadcast;
+use App\Events\ChatReadReceiptBroadcast;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Event;
 
@@ -21,6 +22,6 @@ abstract class TestCase extends BaseTestCase
         // requests — channel authorization is a local HMAC signing check, no network call,
         // so tests that hit that endpoint directly still exercise the real authorization
         // rule in routes/channels.php.
-        Event::fake([ChatMessageBroadcast::class, ChatMessageDeletedBroadcast::class]);
+        Event::fake([ChatMessageBroadcast::class, ChatMessageDeletedBroadcast::class, ChatReadReceiptBroadcast::class]);
     }
 }

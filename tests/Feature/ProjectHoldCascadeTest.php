@@ -118,6 +118,7 @@ class ProjectHoldCascadeTest extends TestCase
         $this->workflow()->addOutput($step, $employee, 'https://drive.example.com/final');
         $this->workflow()->submit($step, $employee);
         $this->workflow()->approve($step, $leader);
+        $this->workflow()->approve($step->refresh(), $this->manager);
         $this->workflow()->completeTask($step->fresh(), $leader);
 
         $this->projects()->cancel($this->project, 'Wrapping up', $this->manager);

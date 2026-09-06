@@ -28,6 +28,7 @@ final class ChatPresenter
             'sender_id' => $message->sender_id,
             'sender_name' => $message->sender->full_name,
             'sender_initials' => self::initials($message->sender->full_name),
+            'sender_avatar_url' => $message->sender->avatar_url,
             'is_mine' => $message->sender_id === $actorId,
             'is_deleted' => $message->isDeleted(),
             'deletable' => ! $message->isDeleted() && $message->sender_id === $actorId,

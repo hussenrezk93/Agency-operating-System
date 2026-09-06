@@ -19,9 +19,9 @@
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card glass-dark">
-        <div class="table-wrap">
-            <table>
+    <div class="dx-card">
+        <div class="dx-table-wrap">
+            <table class="dx-table">
                 <thead>
                 <tr>
                     <th>{{ __('agencyos.temporary_leadership.index.column_department') }}</th>
@@ -34,17 +34,17 @@
                 <tbody>
                 @forelse($assignments as $assignment)
                     <tr>
-                        <td><b>{{ $assignment->department->name }}</b></td>
+                        <td><span class="dx-td-main">{{ $assignment->department->name }}</span></td>
                         <td>{{ $assignment->user->full_name }}</td>
-                        <td class="mono small">{{ $assignment->start_date }} &rarr; {{ $assignment->end_date }}</td>
+                        <td class="dx-td-num">{{ $assignment->start_date }} &rarr; {{ $assignment->end_date }}</td>
                         <td>
                             @if($assignment->is_active)
-                                <span class="badge b-approved"><span class="bdot"></span>{{ __('agencyos.temporary_leadership.index.active') }}</span>
+                                <x-dx-pill :badge="['class' => 'b-approved', 'label' => __('agencyos.temporary_leadership.index.active')]"/>
                             @else
-                                <span class="badge b-neutral">{{ __('agencyos.temporary_leadership.index.ended') }}</span>
+                                <x-dx-pill :badge="['class' => 'b-neutral', 'label' => __('agencyos.temporary_leadership.index.ended')]"/>
                             @endif
                         </td>
-                        <td style="text-align:end">
+                        <td class="dx-td-end">
                             @if($assignment->is_active)
                                 <form method="POST" action="{{ route('temporary-leadership.end', $assignment) }}" style="display:inline">
                                     @csrf
@@ -54,7 +54,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" style="text-align:center;padding:34px" class="muted">{{ __('agencyos.temporary_leadership.index.empty') }}</td></tr>
+                    <tr><td colspan="5" class="dx-empty-cell">{{ __('agencyos.temporary_leadership.index.empty') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>

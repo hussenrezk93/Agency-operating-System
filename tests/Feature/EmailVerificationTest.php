@@ -81,13 +81,17 @@ class EmailVerificationTest extends TestCase
         $this->assertNotNull($employee->fresh()->email_verified_at);
     }
 
-    public function test_changing_a_verified_users_email_populates_pending_email_without_touching_the_current_one(): void
+    /**
+     * Self-service change (BRD §18.1): the account owner can complete the
+     * verification loop themselves, so it stays pending until they click the link.
+     */
+    public function test_changing_your_own_email_populates_pending_email_without_touching_the_current_one(): void
     {
         $employee = User::factory()->role(RoleCode::Employee)->inDepartment($this->marketing)->create();
         $originalEmail = $employee->personal_email;
 
         $token = $this->captureVerifyToken(function () use ($employee) {
-            $this->actingAs($this->manager)->patchJson("/users/{$employee->id}", [
+            $this->actingAs($employee)->patchJson('/profile', [
                 'personal_email' => 'brand.new@dev.local',
             ])->assertOk();
         });
@@ -102,6 +106,50 @@ class EmailVerificationTest extends TestCase
         $promoted = $employee->fresh();
         $this->assertSame('brand.new@dev.local', $promoted->personal_email);
         $this->assertNull($promoted->pending_email);
+    }
+
+    /**
+     * Product decision (2026-08): an Admin/Manager editing someone ELSE's email
+     * (via UserController, not their own /profile) can never click a verification
+     * link sent to that other person's inbox, so the change applies immediately.
+     */
+    public function test_a_manager_changing_someone_elses_email_applies_it_immediately(): void
+    {
+        Queue::fake();
+        $employee = User::factory()->role(RoleCode::Employee)->inDepartment($this->marketing)->create();
+
+        $this->actingAs($this->manager)->patchJson("/users/{$employee->id}", [
+            'personal_email' => 'brand.new@dev.local',
+        ])->assertOk();
+
+        $fresh = $employee->fresh();
+        $this->assertSame('brand.new@dev.local', $fresh->personal_email);
+        $this->assertNull($fresh->pending_email);
+        $this->assertNotNull($fresh->email_verified_at);
+        Queue::assertNotPushed(SendEmailVerificationJob::class);
+    }
+
+    /**
+     * Regression: a stale `pending_email` left over from an earlier, never-verified
+     * self-service attempt must not block an Admin/Manager's immediate-apply retry
+     * of that exact same address.
+     */
+    public function test_a_managers_immediate_change_is_not_blocked_by_a_stale_pending_email(): void
+    {
+        $employee = User::factory()->role(RoleCode::Employee)->inDepartment($this->marketing)->create();
+        $employee->forceFill([
+            'pending_email' => 'brand.new@dev.local',
+            'pending_email_requested_at' => now()->subDay(),
+        ])->save();
+
+        $this->actingAs($this->manager)->patchJson("/users/{$employee->id}", [
+            'personal_email' => 'brand.new@dev.local',
+        ])->assertOk();
+
+        $fresh = $employee->fresh();
+        $this->assertSame('brand.new@dev.local', $fresh->personal_email);
+        $this->assertNull($fresh->pending_email);
+        $this->assertNotNull($fresh->email_verified_at);
     }
 
     public function test_an_expired_token_is_rejected(): void

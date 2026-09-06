@@ -7,7 +7,9 @@ use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Session\TokenMismatchException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -38,4 +40,19 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsurePasswordChanged::class);
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsureRole::class);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {})->create();
+    ->withExceptions(function (Exceptions $exceptions): void {
+        // A stale form submitted after the session's CSRF token has rotated (mostly
+        // just SESSION_LIFETIME idle timeout — 2 hours here) otherwise shows Laravel's
+        // bare, unbranded "419 | Page Expired" page, which reads as a crash rather than
+        // "sign in again and retry." Back to wherever they were instead, with a plain
+        // explanation — same UX as every other validation bounce-back in this app.
+        $exceptions->render(function (TokenMismatchException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return null;
+            }
+
+            return redirect()->back()
+                ->withInput($request->except(['password', 'password_confirmation', 'current_password']))
+                ->with('status', __('agencyos.common.session_expired'));
+        });
+    })->create();

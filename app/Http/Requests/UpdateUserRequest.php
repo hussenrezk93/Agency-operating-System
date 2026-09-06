@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,9 +24,16 @@ class UpdateUserRequest extends FormRequest
                 'sometimes', 'email', 'max:255',
                 Rule::unique('users', 'personal_email')->ignore($subject?->id),
             ],
+            // Mirrors Department::scopeAvailableForStaffing() — see StoreUserRequest.
             'department_id' => [
                 'sometimes', 'nullable', 'integer',
-                Rule::exists('departments', 'id')->where('is_active', true),
+                Rule::exists('departments', 'id')->where(function (Builder $query): void {
+                    $query->where('is_active', true)->orWhereNotExists(function (Builder $sub): void {
+                        $sub->selectRaw('1')
+                            ->from('department_leadership_assignments')
+                            ->whereColumn('department_leadership_assignments.department_id', 'departments.id');
+                    });
+                }),
             ],
         ];
     }

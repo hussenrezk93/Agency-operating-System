@@ -109,4 +109,30 @@ class DeadlineServiceTest extends TestCase
         $this->assertTrue($this->deadline->recomputeStep($step->fresh(), $pastDue));
         $this->assertSame(DeadlineStatus::Overdue, $step->fresh()->deadline_status);
     }
+
+    // ------------------------------------------------------------- sweepLiveSteps()
+
+    /** Product decision 2026-09 — once submitted, the clock is frozen: a reviewer
+     *  sitting on an UnderReview step must never turn it Overdue against the assignee,
+     *  even though the exact same due date on an InProgress step still would. */
+    public function test_sweep_freezes_an_under_review_steps_deadline_status(): void
+    {
+        [, $step] = $this->taskUnderReview($this->marketing, $this->leader, $this->employee);
+        $this->assertSame(DeadlineStatus::OnTime, $step->fresh()->deadline_status);
+
+        $farPastDue = $step->current_due_at->clone()->addWeek();
+        $this->deadline->sweepLiveSteps($farPastDue);
+
+        $this->assertSame(DeadlineStatus::OnTime, $step->fresh()->deadline_status);
+    }
+
+    public function test_sweep_still_reclassifies_an_in_progress_step_past_the_same_due_date(): void
+    {
+        [, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+
+        $farPastDue = $step->current_due_at->clone()->addWeek();
+        $this->deadline->sweepLiveSteps($farPastDue);
+
+        $this->assertSame(DeadlineStatus::Overdue, $step->fresh()->deadline_status);
+    }
 }

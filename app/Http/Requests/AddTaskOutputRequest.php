@@ -18,7 +18,8 @@ class AddTaskOutputRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'url' => ['required', 'url', 'max:2048'],
+            'url' => ['required_without:media', 'prohibits:media', 'nullable', 'url', 'max:2048'],
+            'media' => ['required_without:url', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,mp4,mov,webm,m4v', 'max:51200'],
             'label' => ['nullable', 'string', 'max:255'],
         ];
     }

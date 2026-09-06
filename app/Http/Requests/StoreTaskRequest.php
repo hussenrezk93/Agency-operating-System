@@ -14,18 +14,29 @@ class StoreTaskRequest extends FormRequest
         return $this->user()?->can('create', Task::class) ?? false;
     }
 
-    /** The Blade create form always posts a few static link rows; blank ones are not links. */
+    /**
+     * The Blade create form always posts a few static link rows; a row is only real
+     * once it carries a URL or an uploaded file. Original array keys are kept
+     * (no array_values() reindex) — reindexing here would desync this merged `input()`
+     * array from the untouched `$this->files` bag, which is still keyed by the
+     * original slot index, breaking every `reference_links.N.media` file lookup
+     * downstream (this request's own wildcard rules, and the controller's upload loop).
+     */
     protected function prepareForValidation(): void
     {
-        if (! is_array($this->input('reference_links'))) {
+        $links = $this->input('reference_links');
+
+        if (! is_array($links)) {
             return;
         }
 
         $this->merge([
-            'reference_links' => array_values(array_filter(
-                $this->input('reference_links'),
-                fn ($link) => is_array($link) && trim((string) ($link['url'] ?? '')) !== '',
-            )),
+            'reference_links' => array_filter(
+                $links,
+                fn ($link, $key) => is_array($link)
+                    && (trim((string) ($link['url'] ?? '')) !== '' || $this->hasFile("reference_links.$key.media")),
+                ARRAY_FILTER_USE_BOTH,
+            ),
         ]);
     }
 
@@ -51,7 +62,8 @@ class StoreTaskRequest extends FormRequest
                 Rule::exists('departments', 'id')->where('is_active', true),
             ],
             'reference_links' => ['nullable', 'array', 'min:0', 'max:20'],
-            'reference_links.*.url' => ['required', 'url', 'max:2048'],
+            'reference_links.*.url' => ['required_without:reference_links.*.media', 'prohibits:reference_links.*.media', 'nullable', 'url', 'max:2048'],
+            'reference_links.*.media' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,mp4,mov,webm,m4v', 'max:51200'],
             'reference_links.*.label' => ['nullable', 'string', 'max:255'],
         ];
     }

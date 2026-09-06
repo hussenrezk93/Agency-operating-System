@@ -373,11 +373,56 @@ class TaskAuthorizationTest extends TestCase
             ])
             ->assertCreated();
 
+        // Product decision 2026-09 — the TL's approval alone only reaches
+        // PendingManagerReview; the Manager still has to sign off before Finish works.
+        $this->actingAs($this->manager)
+            ->postJson(route('tasks.steps.review', $step), [
+                'decision' => ReviewDecision::Approved->value,
+            ])
+            ->assertCreated();
+
         $this->actingAs($this->leader)
             ->postJson(route('tasks.steps.complete', $step))
             ->assertOk();
 
         $this->assertTrue($task->refresh()->isClosed());
+    }
+
+    /** Product decision 2026-09 — once the TL has approved, only a Manager may reach
+     *  the SAME review endpoint (unified, no new route) for the mandatory second stage —
+     *  not the TL who just approved, not some other, unrelated Team Leader. */
+    public function test_the_review_endpoint_at_pending_manager_review_is_refused_to_everyone_but_a_manager(): void
+    {
+        [, $step] = $this->taskUnderReview($this->marketing, $this->leader, $this->employee);
+        $this->workflow()->approve($step, $this->leader);
+        $step->refresh();
+
+        $this->actingAs($this->leader)
+            ->postJson(route('tasks.steps.review', $step), ['decision' => 'approved'])
+            ->assertForbidden();
+
+        $this->actingAs($this->otherLeader)
+            ->postJson(route('tasks.steps.review', $step), ['decision' => 'approved'])
+            ->assertForbidden();
+
+        $this->actingAs($this->manager)
+            ->postJson(route('tasks.steps.review', $step), ['decision' => 'approved'])
+            ->assertCreated();
+    }
+
+    /** Same authority as adding an output — only the current assignee, not their department's TL. */
+    public function test_the_remove_output_endpoint_is_refused_to_everyone_but_the_assignee(): void
+    {
+        [, $step] = $this->taskInProgress($this->marketing, $this->leader, $this->employee);
+        $output = $this->workflow()->addOutput($step, $this->employee, 'https://drive.example.com/v1');
+
+        $this->actingAs($this->leader)
+            ->deleteJson(route('tasks.steps.outputs.destroy', [$step, $output]))
+            ->assertForbidden();
+
+        $this->actingAs($this->employee)
+            ->deleteJson(route('tasks.steps.outputs.destroy', [$step, $output]))
+            ->assertOk();
     }
 
     /** A broken workflow rule is a 422 sequencing error, not a 403 permission error. */

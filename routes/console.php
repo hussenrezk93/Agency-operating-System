@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\DepartmentReportService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -72,4 +73,15 @@ Schedule::command('agencyos:performance-snapshot')
 
 Schedule::command('agencyos:performance-refresh')
     ->dailyAt('01:00')
+    ->withoutOverlapping();
+
+/*
+ | Daily Department Reports (product decision 2026-08) — one auto-filled report per
+ | active department, plus a second blank one for whichever department has
+ | special_role=content, addressed to special_role=moderator. Runs on Africa/Cairo time;
+ | DepartmentReportService::generateForToday() is idempotent (unique index on
+ | department_id/report_date/type, firstOrCreate + wasRecentlyCreated skip re-notifying).
+ */
+Schedule::command('agencyos:generate-daily-department-reports')
+    ->dailyAt(DepartmentReportService::GENERATION_TIME)
     ->withoutOverlapping();

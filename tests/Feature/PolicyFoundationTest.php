@@ -32,7 +32,8 @@ class PolicyFoundationTest extends TestCase
         $this->assertTrue($admin->can('manage', $employee));
     }
 
-    public function test_manager_manages_team_leaders_and_employees_but_not_managers(): void
+    /** Widened by product decision (2026-09) — Manager got the same peer-management as Admin. */
+    public function test_manager_manages_team_leaders_employees_and_other_managers(): void
     {
         $manager = User::factory()->role(RoleCode::Manager)->create();
         $otherManager = User::factory()->role(RoleCode::Manager)->create();
@@ -41,7 +42,8 @@ class PolicyFoundationTest extends TestCase
 
         $this->assertTrue($manager->can('manage', $tl));
         $this->assertTrue($manager->can('manage', $employee));
-        $this->assertFalse($manager->can('manage', $otherManager));
+        $this->assertTrue($manager->can('manage', $otherManager));
+        $this->assertFalse($manager->can('manage', $manager), 'self-lockout — a Manager can never manage its own account');
     }
 
     public function test_team_leaders_and_employees_manage_nobody(): void

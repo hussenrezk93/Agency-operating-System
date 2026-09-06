@@ -25,6 +25,6 @@ class AssistantController extends Controller
             return response()->json(['error' => __('agencyos.assistant.error')], 502);
         }
 
-        return response()->json(['reply' => $reply]);
+        return response()->json(['reply' => $reply['text'], 'suggestions' => $reply['suggestions']]);
     }
 }

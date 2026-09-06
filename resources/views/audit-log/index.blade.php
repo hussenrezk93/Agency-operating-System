@@ -19,7 +19,7 @@
         $actorOptions = collect($actors)->mapWithKeys(fn ($a) => [(string) $a->id => $a->full_name]);
         $actionOptions = collect($actions)->mapWithKeys(fn ($a) => [$a => $a]);
     @endphp
-    <form method="GET" action="{{ route('audit-log.index') }}" class="card glass-dark" style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <form method="GET" action="{{ route('audit-log.index') }}" class="dx-card" style="padding:12px 14px;display:flex;flex-direction:row;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         @if(request('actor_id'))<input type="hidden" name="actor_id" value="{{ request('actor_id') }}">@endif
         @if(request('action'))<input type="hidden" name="action" value="{{ request('action') }}">@endif
         <x-filter-select name="actor_id" :options="$actorOptions" :selected="request('actor_id')" :placeholder="__('agencyos.audit_log.filter_actor')"/>
@@ -32,9 +32,9 @@
         @endif
     </form>
 
-    <div class="card glass-dark">
-        <div class="table-wrap">
-            <table>
+    <div class="dx-card">
+        <div class="dx-table-wrap">
+            <table class="dx-table">
                 <thead>
                 <tr>
                     <th>{{ __('agencyos.audit_log.column_timestamp') }}</th>
@@ -47,11 +47,11 @@
                 <tbody>
                 @forelse($logs as $log)
                     <tr>
-                        <td class="mono small" dir="ltr">{{ $log->created_at->format('Y-m-d H:i:s') }}</td>
+                        <td class="dx-td-num" dir="ltr">{{ $log->created_at->format('Y-m-d H:i:s') }}</td>
                         <td>{{ $log->actor?->full_name ?? __('agencyos.audit_log.system_actor') }}</td>
                         <td><span class="mono small">{{ $log->action }}</span></td>
                         <td>{{ $log->entity_type }}{{ $log->entity_id ? ' #'.$log->entity_id : '' }}</td>
-                        <td style="text-align:end">
+                        <td class="dx-td-end">
                             <details>
                                 <summary class="small" style="cursor:pointer;color:var(--color-primary-text)">{{ __('agencyos.audit_log.details') }}</summary>
                                 <div class="small muted" style="text-align:start;margin-top:8px;min-width:260px">
@@ -64,7 +64,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" style="text-align:center;padding:34px" class="muted">{{ __('agencyos.audit_log.empty') }}</td></tr>
+                    <tr><td colspan="5" class="dx-empty-cell">{{ __('agencyos.audit_log.empty') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>

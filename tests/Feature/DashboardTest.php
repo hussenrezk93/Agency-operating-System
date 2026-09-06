@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\DeadlineStatus;
 use App\Models\Department;
+use App\Models\Project;
 use App\Models\Task;
 use App\Models\TaskStatusHistory;
 use App\Models\User;
@@ -144,6 +145,31 @@ class DashboardTest extends TestCase
         $response->assertViewHas('totals', fn ($totals) => $totals['waitingAssignment'] === 1
             && $totals['inProgress'] === 1
             && $totals['underReview'] === 1);
+    }
+
+    /**
+     * A project can be linked to several departments at once — the org-wide headline
+     * total must count it once, not once per department it happens to touch.
+     */
+    public function test_the_admin_dashboard_active_projects_total_does_not_double_count_a_multi_department_project(): void
+    {
+        $admin = $this->makeAdmin();
+        $project = Project::factory()->create(['status' => 'active']);
+        $this->addDepartmentToProject($project, $this->marketing);
+        $this->addDepartmentToProject($project, $this->design);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertViewHas('totals', fn ($totals) => $totals['activeProjects'] === 1);
+        $response->assertViewHas('departmentSummaries', function ($summaries) {
+            $marketing = collect($summaries)->firstWhere('name', 'Marketing');
+            $design = collect($summaries)->firstWhere('name', 'Design');
+
+            // The per-department breakdown legitimately counts it in both rows —
+            // only the summed org-wide total must not add those two together.
+            return $marketing['activeProjects'] === 1 && $design['activeProjects'] === 1;
+        });
     }
 
     /** Open-but-not-overdue only → nothing overdue yet, score reads a clean 100 / healthy. */

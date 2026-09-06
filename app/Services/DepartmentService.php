@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ActivationState;
+use App\Enums\DepartmentSpecialRole;
 use App\Enums\LeadershipType;
 use App\Enums\RoleCode;
 use App\Enums\UserStatus;
@@ -15,9 +16,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * BRD §6 — a department cannot exist without a primary Team Leader, so creation and
- * the primary appointment happen in ONE transaction: a half-created department with no
- * leader can never be persisted.
+ * BRD §6 — a department cannot be ACTIVE without a primary Team Leader. Product
+ * decision (2026-08): creation itself no longer requires one — Admin/Manager may
+ * create a leaderless department, but it is persisted inactive (`is_active` false)
+ * and stays unusable everywhere `is_active` is checked (task routing, project
+ * assignment, user assignment, etc.) until assignPrimaryLeader() gives it one.
  */
 class DepartmentService
 {
@@ -26,17 +29,63 @@ class DepartmentService
         private readonly NotificationService $notifications,
     ) {}
 
-    public function createWithPrimaryLeader(string $name, User $primaryLeader, User $actor): Department
+    public function create(string $name, ?User $primaryLeader, User $actor): Department
     {
-        if ($primaryLeader->substantiveRoleCode() !== RoleCode::TeamLeader) {
+        if ($primaryLeader !== null && $primaryLeader->substantiveRoleCode() !== RoleCode::TeamLeader) {
             throw ValidationException::withMessages([
                 'primary_leader_id' => __('The primary leader must be a Team Leader.'),
             ]);
         }
 
         return DB::transaction(function () use ($name, $primaryLeader, $actor) {
-            $department = Department::create(['name' => $name, 'is_active' => true]);
+            $department = Department::create(['name' => $name, 'is_active' => $primaryLeader !== null]);
 
+            if ($primaryLeader !== null) {
+                $department->leadershipAssignments()->create([
+                    'user_id' => $primaryLeader->id,
+                    'assignment_type' => LeadershipType::Primary->value,
+                    'start_date' => now()->toDateString(),
+                    'is_active' => true,
+                    'activation_state' => ActivationState::Active->value,
+                    'assigned_by' => $actor->id,
+                ]);
+
+                // A TL leads exactly one department (BRD §6).
+                $primaryLeader->forceFill(['department_id' => $department->id])->save();
+            }
+
+            $this->audit->log(
+                action: 'department.created',
+                entityType: 'department',
+                entityId: $department->id,
+                after: ['name' => $name, 'primary_leader_id' => $primaryLeader?->id],
+                actorId: $actor->id,
+            );
+
+            return $department->refresh();
+        });
+    }
+
+    /**
+     * Gives a leaderless department its primary Team Leader and, as a direct
+     * consequence, activates it — this is the only way a department created via
+     * create() with no leader ever becomes usable.
+     */
+    public function assignPrimaryLeader(Department $department, User $primaryLeader, User $actor): Department
+    {
+        if ($department->primaryLeader() !== null) {
+            throw ValidationException::withMessages([
+                'primary_leader_id' => __('This department already has a primary leader.'),
+            ]);
+        }
+
+        if ($primaryLeader->substantiveRoleCode() !== RoleCode::TeamLeader) {
+            throw ValidationException::withMessages([
+                'primary_leader_id' => __('The primary leader must be a Team Leader.'),
+            ]);
+        }
+
+        return DB::transaction(function () use ($department, $primaryLeader, $actor) {
             $department->leadershipAssignments()->create([
                 'user_id' => $primaryLeader->id,
                 'assignment_type' => LeadershipType::Primary->value,
@@ -46,14 +95,15 @@ class DepartmentService
                 'assigned_by' => $actor->id,
             ]);
 
-            // A TL leads exactly one department (BRD §6).
             $primaryLeader->forceFill(['department_id' => $department->id])->save();
+            $department->update(['is_active' => true]);
 
             $this->audit->log(
-                action: 'department.created',
+                action: 'department.leader_assigned',
                 entityType: 'department',
                 entityId: $department->id,
-                after: ['name' => $name, 'primary_leader_id' => $primaryLeader->id],
+                before: ['primary_leader_id' => null, 'is_active' => false],
+                after: ['primary_leader_id' => $primaryLeader->id, 'is_active' => true],
                 actorId: $actor->id,
             );
 
@@ -125,6 +175,27 @@ class DepartmentService
             entityId: $department->id,
             before: ['name' => $before],
             after: ['name' => $name],
+            actorId: $actor->id,
+        );
+
+        return $department;
+    }
+
+    /** Daily Department Reports needs a stable identifier for Content/Moderator/
+     *  Photography-Videography, independent of the freely-editable name (see
+     *  DepartmentReportService's own doc comment). Admin sets it here, once. */
+    public function updateSpecialRole(Department $department, ?DepartmentSpecialRole $specialRole, User $actor): Department
+    {
+        $before = $department->special_role;
+
+        $department->update(['special_role' => $specialRole]);
+
+        $this->audit->log(
+            action: 'department.special_role_updated',
+            entityType: 'department',
+            entityId: $department->id,
+            before: ['special_role' => $before?->value],
+            after: ['special_role' => $specialRole?->value],
             actorId: $actor->id,
         );
 

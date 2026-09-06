@@ -21,9 +21,9 @@
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card glass-dark">
-        <div class="table-wrap">
-            <table>
+    <div class="dx-card">
+        <div class="dx-table-wrap">
+            <table class="dx-table">
                 <thead>
                 <tr>
                     <th>{{ __('agencyos.projects.index.column_name') }}</th>
@@ -37,8 +37,8 @@
                 @forelse($projects as $project)
                     <tr>
                         <td>
-                            <a href="{{ route('projects.show', $project) }}" style="font-weight:700;color:inherit">{{ $project->name }}</a>
-                            <div class="small muted mono">{{ $project->project_code }}</div>
+                            <a class="dx-td-main" href="{{ route('projects.show', $project) }}">{{ $project->name }}</a>
+                            <span class="dx-td-sub">{{ $project->project_code }}</span>
                         </td>
                         <td>{{ $project->client->name }}</td>
                         <td>
@@ -48,18 +48,18 @@
                                 @endforeach
                             </span>
                         </td>
-                        <td>
-                            @php($badge = \App\Support\ProjectPresenter::statusBadge($project->status))
-                            <span class="badge {{ $badge['class'] }}"><span class="bdot"></span>{{ $badge['label'] }}</span>
-                        </td>
-                        <td style="text-align:end"><a class="btn btn-sm btn-outline" href="{{ route('projects.show', $project) }}"><x-icon name="eye"/> {{ __('agencyos.projects.index.open') }}</a></td>
+                        <td><x-dx-pill :badge="\App\Support\ProjectPresenter::statusBadge($project->status)"/></td>
+                        <td class="dx-td-end"><a class="btn btn-sm btn-outline" href="{{ route('projects.show', $project) }}"><x-icon name="eye"/> {{ __('agencyos.projects.index.open') }}</a></td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" style="text-align:center;padding:34px" class="muted">{{ __('agencyos.projects.index.empty') }}</td></tr>
+                    <tr><td colspan="5" class="dx-empty-cell">{{ __('agencyos.projects.index.empty') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>
         </div>
+        @if($projects->hasPages())
+            <div class="card-foot">{{ $projects->links() }}</div>
+        @endif
     </div>
 </main>
 @endsection

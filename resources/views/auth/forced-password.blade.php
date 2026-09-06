@@ -15,14 +15,15 @@
             ['id'=>'password','label'=>__('agencyos.password.new'),'autocomplete'=>'new-password'],
             ['id'=>'password_confirmation','label'=>__('agencyos.password.confirm'),'autocomplete'=>'new-password'],
         ] as $field)
-            <div class="field">
-                <label for="{{ $field['id'] }}">{{ $field['label'] }}</label>
-                <div class="password-wrap">
-                    <input class="input" id="{{ $field['id'] }}" name="{{ $field['id'] }}" type="password" autocomplete="{{ $field['autocomplete'] }}" required>
-                    <button type="button" class="password-toggle" data-password-toggle="{{ $field['id'] }}" data-show-label="{{ __('agencyos.auth.show_password') }}" data-hide-label="{{ __('agencyos.auth.hide_password') }}">{{ __('agencyos.auth.show_password') }}</button>
-                </div>
+            <div class="auth-field">
+                <x-icon name="lock" class="ic"/>
+                <input id="{{ $field['id'] }}" name="{{ $field['id'] }}" type="password" placeholder="{{ $field['label'] }}" aria-label="{{ $field['label'] }}" autocomplete="{{ $field['autocomplete'] }}" required>
+                <button type="button" class="password-toggle" data-password-toggle="{{ $field['id'] }}" data-show-label="{{ __('agencyos.auth.show_password') }}" data-hide-label="{{ __('agencyos.auth.hide_password') }}" aria-label="{{ __('agencyos.auth.show_password') }}">
+                    <x-icon name="eye" class="ic-show"/>
+                    <x-icon name="eye-off" class="ic-hide"/>
+                </button>
             </div>
         @endforeach
-        <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">{{ __('agencyos.common.save') }}</button>
+        <button class="btn btn-primary auth-submit" type="submit">{{ __('agencyos.common.save') }}</button>
     </form>
 @endsection

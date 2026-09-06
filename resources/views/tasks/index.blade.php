@@ -24,22 +24,31 @@
     @endif
 
     @if($actor->roleCode()->value === 'tl')
-        <div class="card glass-dark" style="padding:10px 14px;margin-bottom:14px;display:flex;gap:8px">
+        <div class="dx-card" style="padding:10px 14px;margin-bottom:14px;display:flex;flex-direction:row;gap:8px">
             <a class="btn btn-sm {{ request('view') === 'my' ? 'btn-outline' : 'btn-primary' }}" href="{{ route('tasks.index') }}">{{ __('agencyos.tasks.nav.all') }}</a>
             <a class="btn btn-sm {{ request('view') === 'my' ? 'btn-primary' : 'btn-outline' }}" href="{{ route('tasks.index', ['view' => 'my']) }}">{{ __('agencyos.tasks.nav.my') }}</a>
         </div>
     @endif
 
     @php
+        // "Awaiting my review" is a question about the VIEWER, not a stored status, so it
+        // is not a WorkflowStatus case — it heads the list because it is what a reviewer
+        // opens this page for. Employees have no review turn, so they never see it.
         $statusOptions = collect(\App\Enums\WorkflowStatus::cases())
             ->mapWithKeys(fn ($status) => [$status->value => \App\Support\TaskPresenter::workflowBadge($status)['label']]);
+
+        if (in_array($actor->roleCode()->value, ['manager', 'tl'], true)) {
+            $statusOptions = collect([
+                \App\Http\Controllers\TaskController::AWAITING_MY_REVIEW => __('agencyos.tasks.index.filter_awaiting_me'),
+            ])->union($statusOptions);
+        }
         $priorityOptions = collect(\App\Enums\Priority::cases())
             ->mapWithKeys(fn ($priority) => [$priority->value => \App\Support\TaskPresenter::priorityTag($priority)['label']]);
         $departmentOptions = ($actor->roleCode()->value === 'manager')
             ? collect($departments)->mapWithKeys(fn ($department) => [(string) $department->id => $department->name])
             : collect();
     @endphp
-    <div class="card glass-dark" style="padding:12px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <div class="dx-card" style="padding:12px 14px;display:flex;flex-direction:row;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
         <x-filter-select name="status" :options="$statusOptions" :selected="request('status')" :placeholder="__('agencyos.tasks.index.filter_status')"/>
         <x-filter-select name="priority" :options="$priorityOptions" :selected="request('priority')" :placeholder="__('agencyos.tasks.index.filter_priority')"/>
         @if($actor->roleCode()->value === 'manager')
@@ -50,9 +59,9 @@
         @endif
     </div>
 
-    <div class="card glass-dark">
-        <div class="table-wrap">
-            <table>
+    <div class="dx-card">
+        <div class="dx-table-wrap">
+            <table class="dx-table">
                 <thead>
                 <tr>
                     <th>{{ __('agencyos.tasks.index.column_title') }}</th>
@@ -68,38 +77,37 @@
                     @php($step = $task->currentStep)
                     <tr>
                         <td>
-                            <a href="{{ route('tasks.show', $task) }}" style="font-weight:700;color:inherit">{{ $task->title }}</a>
-                            <div class="small muted mono">{{ $task->task_code }}@if($task->project) &middot; {{ $task->project->name }}@endif</div>
+                            <a class="dx-td-main" href="{{ route('tasks.show', $task) }}">{{ $task->title }}</a>
+                            <span class="dx-td-sub">{{ $task->task_code }}@if($task->project) &middot; {{ $task->project->name }}@endif</span>
                         </td>
                         <td>{{ $step?->department?->name ?? '—' }}</td>
                         <td>{{ $step?->activeAssignment?->assignee?->full_name ?? '—' }}</td>
                         <td>
                             @if($task->isOnHold())
-                                @php($badge = \App\Support\TaskPresenter::lifecycleBadge($task->lifecycle_status))
-                                <span class="badge {{ $badge['class'] }}"><span class="bdot"></span>{{ $badge['label'] }}</span>
+                                <x-dx-pill :badge="\App\Support\TaskPresenter::lifecycleBadge($task->lifecycle_status)"/>
                             @elseif($step)
-                                @php($badge = \App\Support\TaskPresenter::workflowBadge($step->workflow_status))
-                                <span class="badge {{ $badge['class'] }}"><span class="bdot"></span>{{ $badge['label'] }}</span>
+                                <x-dx-pill :badge="\App\Support\TaskPresenter::workflowBadge($step->workflow_status, $step->activeAssignment?->is_self_assigned)"/>
                             @else
-                                @php($badge = \App\Support\TaskPresenter::lifecycleBadge($task->lifecycle_status))
-                                <span class="badge {{ $badge['class'] }}"><span class="bdot"></span>{{ $badge['label'] }}</span>
+                                <x-dx-pill :badge="\App\Support\TaskPresenter::lifecycleBadge($task->lifecycle_status)"/>
                             @endif
                         </td>
-                        <td class="mono small">
+                        <td class="dx-td-num">
                             {{ $step?->current_due_at?->format('Y-m-d') ?? '—' }}
                             @if($step && ! $task->isOnHold() && in_array($step->deadline_status->value, ['due_soon', 'overdue'], true))
-                                @php($deadlineBadge = \App\Support\TaskPresenter::deadlineBadge($step->deadline_status))
-                                <span class="badge {{ $deadlineBadge['class'] }}" style="margin-inline-start:6px">{{ $deadlineBadge['label'] }}</span>
+                                <x-dx-pill :badge="\App\Support\TaskPresenter::deadlineBadge($step->deadline_status)" style="margin-inline-start:6px"/>
                             @endif
                         </td>
-                        <td style="text-align:end"><a class="btn btn-sm btn-outline" href="{{ route('tasks.show', $task) }}"><x-icon name="eye"/> {{ __('agencyos.tasks.index.open') }}</a></td>
+                        <td class="dx-td-end"><a class="btn btn-sm btn-outline" href="{{ route('tasks.show', $task) }}"><x-icon name="eye"/> {{ __('agencyos.tasks.index.open') }}</a></td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" style="text-align:center;padding:34px" class="muted">{{ __('agencyos.tasks.index.empty') }}</td></tr>
+                    <tr><td colspan="6" class="dx-empty-cell">{{ __('agencyos.tasks.index.empty') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>
         </div>
+        @if($tasks->hasPages())
+            <div class="card-foot">{{ $tasks->links() }}</div>
+        @endif
     </div>
 </main>
 @endsection

@@ -6,7 +6,7 @@
         <div>
             <div class="small muted mono">{{ $task->task_code }}</div>
             <h1 style="margin:2px 0 6px">{{ $task->title }}</h1>
-            <span class="badge b-neutral"><span class="bdot"></span>{{ __('agencyos.tasks.draft.badge') }}</span>
+            <x-dx-pill :badge="['class' => 'b-neutral', 'label' => __('agencyos.tasks.draft.badge')]"/>
         </div>
         <div class="page-actions">
             @if($canPublish || $canDelete)
@@ -28,24 +28,24 @@
 
     <div class="alert alert-brand" style="margin-bottom:18px"><div>{{ __('agencyos.tasks.draft.notice') }}</div></div>
 
-    <div class="card" style="margin-bottom:18px">
-        <div class="card-head"><h2>{{ __('agencyos.tasks.show.details') }}</h2></div>
-        <div class="card-body">
-            <div class="kv-row"><span>{{ __('agencyos.tasks.fields.brief') }}</span><b>{{ $task->brief }}</b></div>
+    <div class="dx-card" style="margin-bottom:18px">
+        <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.tasks.show.details') }}</h2></div></div>
+        <div class="dx-card-body">
+            <div class="dx-kv"><span>{{ __('agencyos.tasks.fields.brief') }}</span><b>{{ $task->brief }}</b></div>
             @if($task->notes)
-                <div class="kv-row"><span>{{ __('agencyos.tasks.fields.notes') }}</span><b>{{ $task->notes }}</b></div>
+                <div class="dx-kv"><span>{{ __('agencyos.tasks.fields.notes') }}</span><b>{{ $task->notes }}</b></div>
             @endif
-            <div class="kv-row"><span>{{ __('agencyos.tasks.fields.priority') }}</span><b>{{ \App\Support\TaskPresenter::priorityTag($task->priority)['label'] }}</b></div>
+            <div class="dx-kv"><span>{{ __('agencyos.tasks.fields.priority') }}</span><b>{{ \App\Support\TaskPresenter::priorityTag($task->priority)['label'] }}</b></div>
             @if($task->project)
-                <div class="kv-row"><span>{{ __('agencyos.tasks.fields.project') }}</span><b>{{ $task->project->name }}</b></div>
+                <div class="dx-kv"><span>{{ __('agencyos.tasks.fields.project') }}</span><b>{{ $task->project->name }}</b></div>
             @endif
         </div>
     </div>
 
     @if($canPublish)
-        <div class="card" style="margin-bottom:18px">
-            <div class="card-head"><h2>{{ __('agencyos.tasks.draft.publish_title') }}</h2></div>
-            <div class="card-body">
+        <div class="dx-card" style="margin-bottom:18px">
+            <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.tasks.draft.publish_title') }}</h2></div></div>
+            <div class="dx-card-body">
                 <form method="POST" action="{{ route('tasks.publish', $task) }}">
                     @csrf
                     <div class="field @error('first_department_id') bad @enderror">

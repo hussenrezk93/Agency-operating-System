@@ -13,9 +13,9 @@
 @endsection
 @section('content')
 <main class="page">
-    <div class="card">
-        <div class="card-head"><h2>{{ __('agencyos.tasks.show.timeline') }}</h2></div>
-        <div class="card-body">
+    <div class="dx-card">
+        <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.tasks.show.timeline') }}</h2></div></div>
+        <div class="dx-card-body">
             <div class="timeline">
                 @foreach($history->reverse() as $event)
                     <div class="t-item">

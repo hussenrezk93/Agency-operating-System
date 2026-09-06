@@ -37,10 +37,25 @@ class ChatController extends Controller
         $this->authorize('view', $conversation);
         $actor = $request->user();
 
+        // Opening the conversation IS reading it — done before sidebarPayload() so the
+        // just-opened conversation's own unread badge is already gone in this same render.
+        $this->chat->markRead($conversation, $actor);
+
         return view('chat.index', $this->sidebarPayload($actor) + [
             'conversation' => $conversation,
-            'messages' => $conversation->messages()->with('sender:id,full_name')->orderBy('created_at')->get(),
+            'messages' => $conversation->messages()->with('sender:id,full_name,avatar_path')->orderBy('created_at')->get(),
+            'readState' => $this->chat->otherMembersReadState($conversation, $actor->id),
         ]);
+    }
+
+    /** "Seen" — called by the client once the conversation is actually on screen. */
+    public function markRead(Request $request, ChatConversation $conversation): JsonResponse
+    {
+        $this->authorize('view', $conversation);
+
+        $this->chat->markRead($conversation, $request->user());
+
+        return response()->json(['status' => 'ok']);
     }
 
     /** The sidebar (conversation list + directory) is identical on both index() and show(). */
@@ -49,10 +64,11 @@ class ChatController extends Controller
         $canStartDirect = $actor->can('startDirect', ChatConversation::class);
 
         $conversations = EloquentCollection::make($this->chat->conversationsFor($actor)->all())
-            ->loadMissing(['members.user:id,full_name', 'latestMessage.sender:id,full_name']);
+            ->loadMissing(['members.user:id,full_name,avatar_path', 'latestMessage.sender:id,full_name']);
 
         return [
             'conversations' => $conversations,
+            'unreadCounts' => $this->chat->unreadCountsFor($actor, $conversations),
             'canStartDirect' => $canStartDirect,
             'directCandidates' => $canStartDirect ? $this->chat->directConversationCandidates($actor) : collect(),
             'directory' => $this->chat->directory($actor),
@@ -62,7 +78,7 @@ class ChatController extends Controller
     public function store(StoreChatMessageRequest $request, ChatConversation $conversation): JsonResponse|RedirectResponse
     {
         $message = $this->chat->sendMessage($conversation, $request->user(), $request->string('message')->toString())
-            ->load('sender:id,full_name');
+            ->load('sender:id,full_name,avatar_path');
 
         if ($request->expectsJson()) {
             return response()->json(['data' => ChatPresenter::messagePayload($message, $request->user()->id)], 201);
@@ -87,7 +103,7 @@ class ChatController extends Controller
         $actor = $request->user();
 
         $messages = $conversation->messages()
-            ->with('sender:id,full_name')
+            ->with('sender:id,full_name,avatar_path')
             ->where('id', '>', $request->integer('after'))
             ->orderBy('created_at')
             ->get();

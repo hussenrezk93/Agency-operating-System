@@ -8,11 +8,17 @@ use App\Enums\UserStatus;
 use App\Events\ChatMessageBroadcast;
 use App\Events\ChatMessageDeletedBroadcast;
 use App\Events\ChatMessageSent;
+use App\Events\ChatReadReceiptBroadcast;
 use App\Models\ChatConversation;
+use App\Models\ChatMember;
 use App\Models\ChatMessage;
 use App\Models\Department;
+use App\Models\Notification;
 use App\Models\User;
+use Closure;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -81,7 +87,7 @@ class ChatService
     /** BRD §14 — the employee and their department's current effective TL. */
     public function resolveEmployeeTlConversation(User $employee): ChatConversation
     {
-        return DB::transaction(function () use ($employee): ChatConversation {
+        return $this->withConversationLock("employee-tl:{$employee->id}", fn () => DB::transaction(function () use ($employee): ChatConversation {
             $conversation = ChatConversation::ofType(ConversationType::EmployeeTl)
                 ->whereHas('members', fn ($q) => $q->where('user_id', $employee->id))
                 ->first();
@@ -97,13 +103,13 @@ class ChatService
             ]));
 
             return $conversation;
-        });
+        }));
     }
 
     /** BRD §14 — the department's active users plus its current effective leader. */
     public function resolveDepartmentGroupConversation(Department $department): ChatConversation
     {
-        return DB::transaction(function () use ($department): ChatConversation {
+        return $this->withConversationLock("department-group:{$department->id}", fn () => DB::transaction(function () use ($department): ChatConversation {
             $conversation = ChatConversation::ofType(ConversationType::DepartmentGroup)
                 ->where('department_id', $department->id)
                 ->first();
@@ -121,13 +127,13 @@ class ChatService
             $this->syncMembers($conversation, $leader !== null ? $members->push($leader) : $members);
 
             return $conversation;
-        });
+        }));
     }
 
     /** BRD §14 — every department's current effective Team Leader, one singleton conversation. */
     public function resolveAllTlsConversation(): ChatConversation
     {
-        return DB::transaction(function (): ChatConversation {
+        return $this->withConversationLock('all-tls', fn () => DB::transaction(function (): ChatConversation {
             $conversation = ChatConversation::ofType(ConversationType::AllTls)->first();
 
             $conversation ??= ChatConversation::create([
@@ -138,13 +144,13 @@ class ChatService
             $this->syncMembers($conversation, $this->currentEffectiveTeamLeaders());
 
             return $conversation;
-        });
+        }));
     }
 
     /** BRD §14 — every active Manager plus every department's current effective Team Leader. */
     public function resolveManagerTlsConversation(): ChatConversation
     {
-        return DB::transaction(function (): ChatConversation {
+        return $this->withConversationLock('manager-tls', fn () => DB::transaction(function (): ChatConversation {
             $conversation = ChatConversation::ofType(ConversationType::ManagerTls)->first();
 
             $conversation ??= ChatConversation::create([
@@ -159,7 +165,7 @@ class ChatService
             $this->syncMembers($conversation, $managers->merge($this->currentEffectiveTeamLeaders()));
 
             return $conversation;
-        });
+        }));
     }
 
     /** BRD §14 — a private conversation between two named Team Leaders. Fixed membership, no sync. */
@@ -179,7 +185,7 @@ class ChatService
             ]);
         }
 
-        return DB::transaction(function () use ($actor, $otherLeader): ChatConversation {
+        return $this->withConversationLock('direct-tl:'.$this->pairKey($actor, $otherLeader), fn () => DB::transaction(function () use ($actor, $otherLeader): ChatConversation {
             $conversation = ChatConversation::ofType(ConversationType::DirectTl)
                 ->whereHas('members', fn ($q) => $q->where('user_id', $actor->id))
                 ->whereHas('members', fn ($q) => $q->where('user_id', $otherLeader->id))
@@ -199,7 +205,7 @@ class ChatService
             }
 
             return $conversation;
-        });
+        }));
     }
 
     /** Every other active Team Leader — who a TL may start a Direct TL conversation with. */
@@ -279,7 +285,7 @@ class ChatService
             ]);
         }
 
-        return DB::transaction(function () use ($actor, $other): ChatConversation {
+        return $this->withConversationLock('direct:'.$this->pairKey($actor, $other), fn () => DB::transaction(function () use ($actor, $other): ChatConversation {
             $conversation = ChatConversation::ofType(ConversationType::Direct)
                 ->whereHas('members', fn ($q) => $q->where('user_id', $actor->id))
                 ->whereHas('members', fn ($q) => $q->where('user_id', $other->id))
@@ -299,7 +305,7 @@ class ChatService
             }
 
             return $conversation;
-        });
+        }));
     }
 
     // --------------------------------------------------------------- messages
@@ -318,7 +324,7 @@ class ChatService
 
         $isLink = (bool) preg_match(self::URL_PATTERN, $message);
 
-        return DB::transaction(function () use ($conversation, $actor, $message, $isLink): ChatMessage {
+        $chatMessage = DB::transaction(function () use ($conversation, $actor, $message, $isLink): ChatMessage {
             $chatMessage = $conversation->messages()->create([
                 'sender_id' => $actor->id,
                 'body' => $isLink ? null : $message,
@@ -334,12 +340,17 @@ class ChatService
                 actorId: $actor->id,
             );
 
-            $chatMessage->refresh();
-            ChatMessageSent::dispatch($chatMessage);
-            ChatMessageBroadcast::dispatch($chatMessage);
-
-            return $chatMessage;
+            return $chatMessage->refresh();
         });
+
+        // Dispatched only after the transaction above has committed: ChatMessageSent's
+        // listener can send a real, blocking email for a Direct message
+        // (NotifyOnChatMessageSent::sendInstantly()), which must never run while this
+        // message's own row is still inside an open transaction.
+        ChatMessageSent::dispatch($chatMessage);
+        ChatMessageBroadcast::dispatch($chatMessage);
+
+        return $chatMessage;
     }
 
     /** BRD §14 — only the sender, and it disappears for everyone permanently. */
@@ -361,7 +372,108 @@ class ChatService
         );
     }
 
+    /**
+     * "Seen" — advances the actor's read watermark to the conversation's latest message
+     * and, if that actually moved it forward, broadcasts the new watermark (so the
+     * sender's open tab can flip their sent messages to double-tick) and silently marks
+     * this actor's own `chat.message` notifications for the conversation as read (BRD: no
+     * separate "read" click — opening the conversation IS reading it, in-app and in chat
+     * alike).
+     */
+    public function markRead(ChatConversation $conversation, User $actor): void
+    {
+        $member = $conversation->activeMembers()->where('user_id', $actor->id)->first();
+
+        if ($member === null) {
+            return;
+        }
+
+        $latestId = (int) $conversation->messages()->max('id');
+
+        if ($latestId === 0 || ($member->last_read_message_id !== null && $member->last_read_message_id >= $latestId)) {
+            return;
+        }
+
+        $readAt = now();
+
+        $member->forceFill([
+            'last_read_message_id' => $latestId,
+            'last_read_at' => $readAt,
+        ])->save();
+
+        Notification::where('user_id', $actor->id)
+            ->where('type', 'chat.message')
+            ->where('entity_type', 'chat_conversation')
+            ->where('entity_id', $conversation->id)
+            ->where('is_read', false)
+            ->update(['is_read' => true, 'read_at' => $readAt]);
+
+        ChatReadReceiptBroadcast::dispatch($conversation, $actor->id, $latestId, $readAt);
+    }
+
+    /**
+     * Every other active member's read watermark, for the view to render initial
+     * seen/double-tick state on the actor's own messages without waiting on a broadcast.
+     *
+     * @return Collection<int, array{user_id: int, last_read_message_id: ?int, last_read_at: ?Carbon}>
+     */
+    public function otherMembersReadState(ChatConversation $conversation, int $excludeUserId): Collection
+    {
+        return $conversation->activeMembers()
+            ->where('user_id', '!=', $excludeUserId)
+            ->get(['user_id', 'last_read_message_id', 'last_read_at'])
+            ->map(fn (ChatMember $m) => [
+                'user_id' => $m->user_id,
+                'last_read_message_id' => $m->last_read_message_id,
+                'last_read_at' => $m->last_read_at,
+            ]);
+    }
+
+    /**
+     * Unread count per conversation, for the sidebar's WhatsApp-style badge — someone
+     * else's message past the actor's own read watermark. Takes the actor's already-
+     * resolved conversation list (conversationsFor()) rather than re-resolving it.
+     *
+     * @param  Collection<int, ChatConversation>  $conversations
+     * @return array<int, int>
+     */
+    public function unreadCountsFor(User $actor, Collection $conversations): array
+    {
+        $watermarks = ChatMember::where('user_id', $actor->id)
+            ->whereIn('conversation_id', $conversations->pluck('id'))
+            ->pluck('last_read_message_id', 'conversation_id');
+
+        return $conversations->mapWithKeys(fn (ChatConversation $c) => [
+            $c->id => $c->messages()
+                ->where('id', '>', $watermarks->get($c->id) ?? 0)
+                ->where('sender_id', '!=', $actor->id)
+                ->count(),
+        ])->all();
+    }
+
     // ------------------------------------------------------------- helpers
+
+    /**
+     * Serializes concurrent find-or-create calls for the same conversation "slot".
+     * Without this, two requests resolving the same singleton/department/pair
+     * conversation for the first time at nearly the same moment could each see "none
+     * yet" and each create one: chat_conversations has no DB-level uniqueness for any
+     * of these shapes — EmployeeTl/DirectTl/Direct don't even have a column to
+     * constrain on, since their identity lives in chat_members, not chat_conversations.
+     * A named cache lock (backed by the `cache_locks` table) closes the window the same
+     * way TemporaryLeadershipService::assertNoTemporaryOverlap() closes its own race
+     * with a row lock — this just has no row to lock, so it locks a name instead.
+     */
+    private function withConversationLock(string $key, Closure $callback): mixed
+    {
+        return Cache::lock("chat-conversation:{$key}", 10)->block(5, $callback);
+    }
+
+    /** Order-independent key for a two-user conversation, so either caller order locks the same name. */
+    private function pairKey(User $a, User $b): string
+    {
+        return implode('-', [min($a->id, $b->id), max($a->id, $b->id)]);
+    }
 
     /** @param  iterable<int, User>  $eligible */
     private function syncMembers(ChatConversation $conversation, iterable $eligible): void

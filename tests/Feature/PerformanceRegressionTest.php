@@ -117,6 +117,7 @@ class PerformanceRegressionTest extends TestCase
         $this->workflow()->addOutput($next->refresh(), $employee2, 'https://drive.example.com/design-out');
         $this->workflow()->submit($next->refresh(), $employee2);
         $this->workflow()->approve($next->refresh(), $leader2);
+        $this->workflow()->approve($next->refresh(), $manager);
 
         $large = $this->queryCountFor(fn () => $this->get("/tasks/{$largeTask->id}")->assertOk());
 

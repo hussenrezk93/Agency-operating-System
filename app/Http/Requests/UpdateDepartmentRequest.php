@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\DepartmentSpecialRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,6 +20,7 @@ class UpdateDepartmentRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('departments', 'name')->ignore($department?->id)],
+            'special_role' => ['nullable', Rule::enum(DepartmentSpecialRole::class)],
         ];
     }
 }

@@ -48,7 +48,7 @@ class ProjectWhatsappService
         $this->assertActive($project);
         $this->assertValidUrl($url);
 
-        return DB::transaction(function () use ($project, $url, $label, $actor): ProjectWhatsappLinkVersion {
+        [$version, $pendingEmailDeliveries] = DB::transaction(function () use ($project, $url, $label, $actor): array {
             $current = $project->currentWhatsappLinkVersion;
             $actionType = $current === null ? WhatsappLinkAction::Created : WhatsappLinkAction::Updated;
             $nextVersionNo = ((int) $project->whatsappLinkVersions()->max('version_no')) + 1;
@@ -81,10 +81,17 @@ class ProjectWhatsappService
                 actorId: $actor->id,
             );
 
-            $this->fanOutForVersion($project, $version, $this->resolveMembers($project));
+            $pendingEmailDeliveries = $this->fanOutForVersion($project, $version, $this->resolveMembers($project));
 
-            return $version;
+            return [$version, $pendingEmailDeliveries];
         });
+
+        // Dispatched only after the transaction above has committed — SendProjectInviteEmailJob
+        // sends real, blocking mail; running it while the transaction is still open would hold
+        // DB locks for every send and could invite people to a link change that later rolled back.
+        $this->dispatchPendingEmailInvites($pendingEmailDeliveries);
+
+        return $version;
     }
 
     public function removeLink(Project $project, User $actor): ProjectWhatsappLinkVersion
@@ -136,7 +143,9 @@ class ProjectWhatsappService
             return;
         }
 
-        $this->fanOutForVersion($project, $version, $this->membersForDepartments(collect([$department])));
+        $this->dispatchPendingEmailInvites(
+            $this->fanOutForVersion($project, $version, $this->membersForDepartments(collect([$department])))
+        );
     }
 
     /**
@@ -157,9 +166,9 @@ class ProjectWhatsappService
                 continue;
             }
 
-            $this->fanOutForVersion($project, $version, collect([[
+            $this->dispatchPendingEmailInvites($this->fanOutForVersion($project, $version, collect([[
                 'user' => $user, 'source' => InviteRecipientSource::Department, 'department_id' => $department->id,
-            ]]));
+            ]])));
         }
     }
 
@@ -294,9 +303,15 @@ class ProjectWhatsappService
      * idempotent: firstOrCreate never produces a second row for the same version.
      *
      * @param  Collection<int, array{user: User, source: InviteRecipientSource, department_id: ?int}>  $members
+     * @return Collection<int, ProjectInviteDelivery> the Email-channel deliveries that still need
+     *                                                SendProjectInviteEmailJob dispatched for them —
+     *                                                left to the caller so it can defer that dispatch
+     *                                                until any enclosing transaction has committed.
      */
-    private function fanOutForVersion(Project $project, ProjectWhatsappLinkVersion $version, Collection $members): void
+    private function fanOutForVersion(Project $project, ProjectWhatsappLinkVersion $version, Collection $members): Collection
     {
+        $pendingEmailDeliveries = collect();
+
         foreach ($members as $member) {
             $notification = null;
 
@@ -334,9 +349,19 @@ class ProjectWhatsappService
                 if ($channel === NotificationChannel::InApp) {
                     $delivery->markSent();
                 } elseif ($member['user']->canReceiveEmail()) {
-                    SendProjectInviteEmailJob::dispatch($delivery);
+                    $pendingEmailDeliveries->push($delivery);
                 }
             }
+        }
+
+        return $pendingEmailDeliveries;
+    }
+
+    /** @param  Collection<int, ProjectInviteDelivery>  $deliveries */
+    private function dispatchPendingEmailInvites(Collection $deliveries): void
+    {
+        foreach ($deliveries as $delivery) {
+            SendProjectInviteEmailJob::dispatch($delivery);
         }
     }
 

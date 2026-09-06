@@ -89,6 +89,41 @@ class ProjectUiTest extends TestCase
         $this->assertTrue($project->departments()->where('departments.id', $this->marketing->id)->exists());
     }
 
+    public function test_the_create_form_offers_two_reference_and_two_material_link_slots(): void
+    {
+        $response = $this->actingAs($this->manager)->get(route('projects.create-form'));
+
+        $response->assertOk();
+        $response->assertSee(__('agencyos.tasks.fields.reference_link_n', ['n' => 1]));
+        $response->assertSee(__('agencyos.tasks.fields.reference_link_n', ['n' => 2]));
+        $response->assertDontSee(__('agencyos.tasks.fields.reference_link_n', ['n' => 3]));
+        $response->assertSee(__('agencyos.tasks.fields.material_link_n', ['n' => 1]));
+        $response->assertSee(__('agencyos.tasks.fields.material_link_n', ['n' => 2]));
+    }
+
+    public function test_a_classic_form_post_saves_both_reference_and_material_links(): void
+    {
+        $response = $this->actingAs($this->manager)->post('/projects', [
+            'client_id' => $this->client->id,
+            'name' => 'Project With Material Links',
+            'description' => 'Created through the real Blade form.',
+            'department_ids' => [$this->marketing->id],
+            'links' => [
+                ['url' => 'https://example.test/reference-1', 'label' => 'Reference 1'],
+                ['url' => 'https://example.test/reference-2', 'label' => 'Reference 2'],
+                ['url' => 'https://example.test/material-1', 'label' => 'Material 1'],
+                ['url' => 'https://example.test/material-2', 'label' => 'Material 2'],
+            ],
+        ]);
+
+        $project = Project::where('name', 'Project With Material Links')->firstOrFail();
+
+        $response->assertRedirect(route('projects.show', $project));
+        $this->assertDatabaseHas('project_links', ['project_id' => $project->id, 'url' => 'https://example.test/material-1']);
+        $this->assertDatabaseHas('project_links', ['project_id' => $project->id, 'url' => 'https://example.test/material-2']);
+        $this->assertSame(4, $project->links()->count());
+    }
+
     public function test_a_team_leader_cannot_create_a_project_outside_their_allowed_departments(): void
     {
         $disallowed = Department::factory()->create();
@@ -164,6 +199,40 @@ class ProjectUiTest extends TestCase
             ->post(route('projects.links.store', $project), ['url' => 'https://example.test/brief'])
             ->assertRedirect(route('projects.show', $project));
         $this->assertDatabaseHas('project_links', ['project_id' => $project->id, 'url' => 'https://example.test/brief']);
+    }
+
+    /** The "Add department" dropdown must offer departments to ADD — not ones already on the project. */
+    public function test_the_add_department_dropdown_excludes_departments_already_on_the_project(): void
+    {
+        $project = $this->activeProject();
+        $design = Department::factory()->create();
+
+        $response = $this->actingAs($this->manager)->get(route('projects.show', $project));
+
+        $response->assertOk();
+        $response->assertSee('name="department_id"', false);
+        $response->assertSee($design->name);
+        // $this->marketing is already attached via activeProject() — its name must not
+        // reach the dropdown a second time even though it still appears elsewhere on
+        // the page (the "current departments" tag list right above the form).
+        $optionsHtml = str($response->getContent())
+            ->after('name="department_id"')
+            ->before('</select>')
+            ->toString();
+        $this->assertStringNotContainsString($this->marketing->name, $optionsHtml);
+        $this->assertStringContainsString($design->name, $optionsHtml);
+    }
+
+    /** No departments left to add → the form itself should not render at all. */
+    public function test_the_add_department_form_is_hidden_once_every_active_department_is_already_attached(): void
+    {
+        $project = $this->activeProject();
+        // marketing is the ONLY active department in this test's world (setUp creates
+        // just one), and activeProject() already attaches it — nothing left to offer.
+        $response = $this->actingAs($this->manager)->get(route('projects.show', $project));
+
+        $response->assertOk();
+        $response->assertDontSee('name="department_id"', false);
     }
 
     public function test_classic_whatsapp_set_and_remove_redirect_to_the_show_page(): void

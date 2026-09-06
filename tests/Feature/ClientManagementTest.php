@@ -66,6 +66,27 @@ class ClientManagementTest extends TestCase
             ->assertStatus(422)->assertJsonValidationErrors('phone');
     }
 
+    public function test_a_phone_number_containing_letters_is_rejected(): void
+    {
+        $this->actingAs($this->manager)->postJson('/clients', [
+            'name' => 'Letters Co',
+            'phone' => '0100abc1234',
+        ])->assertStatus(422)->assertJsonValidationErrors('phone');
+
+        $this->assertDatabaseMissing('clients', ['name' => 'Letters Co']);
+    }
+
+    /** Common real-world formats — spaces, hyphens, parentheses — must keep working. */
+    public function test_a_formatted_phone_number_is_accepted(): void
+    {
+        $this->actingAs($this->manager)->postJson('/clients', [
+            'name' => 'Formatted Co',
+            'phone' => '(010) 123-4567',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('clients', ['name' => 'Formatted Co']);
+    }
+
     public function test_manager_updates_and_deactivates_a_client(): void
     {
         $client = Client::factory()->create(['created_by' => $this->manager->id]);
@@ -80,6 +101,15 @@ class ClientManagementTest extends TestCase
 
         $this->actingAs($this->manager)->postJson("/clients/{$client->id}/reactivate")->assertOk();
         $this->assertSame('active', $client->fresh()->status->value);
+    }
+
+    public function test_updating_a_clients_phone_to_contain_letters_is_rejected(): void
+    {
+        $client = Client::factory()->create(['created_by' => $this->manager->id]);
+
+        $this->actingAs($this->manager)
+            ->patchJson("/clients/{$client->id}", ['phone' => 'call-me-maybe'])
+            ->assertStatus(422)->assertJsonValidationErrors('phone');
     }
 
     public function test_team_leader_cannot_edit_or_deactivate_a_client(): void

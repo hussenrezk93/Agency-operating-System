@@ -55,6 +55,26 @@ class AssistantToolService
     }
 
     /**
+     * The plain company-directory-level list — every department, active or not,
+     * with its current effective leader. Not scoped to $actor: department names
+     * and who leads them aren't sensitive (already visible in dropdowns/directories
+     * throughout the app), unlike get_allowed_departments_for_task, which is
+     * deliberately narrower (only what a TL specifically can route a NEW task to
+     * right now, so it excludes inactive departments and isn't offered to
+     * Admin/Manager at all).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function allDepartments(User $actor): array
+    {
+        return Department::orderBy('name')->get()->map(fn (Department $d) => [
+            'name' => $d->name,
+            'is_active' => $d->is_active,
+            'leader' => $d->effectiveLeader()?->full_name,
+        ])->all();
+    }
+
+    /**
      * Manager: any named department. Team Leader: always their OWN department,
      * regardless of what name was asked for — this tool is only ever offered to
      * Manager/TL (see GroqService::toolDefinitions), so any other role never reaches
@@ -124,6 +144,32 @@ class AssistantToolService
             ->get()
             ->map(fn (Task $task) => $this->summarize($task))
             ->all();
+    }
+
+    /**
+     * Which departments this actor could pick as a new task's FIRST department right
+     * now — the exact same restriction TaskController::create() applies (a Team
+     * Leader is limited to their own department plus any department their own has an
+     * active routing permission toward; anyone else sees every active department).
+     * Without this, the model had no real data for "which department can I route
+     * to" and would guess — this is what propose_create_task's confirm step actually
+     * checks, so a name returned here is guaranteed to be accepted.
+     *
+     * @return array<int, string>
+     */
+    public function allowedDepartmentsForTask(User $actor): array
+    {
+        $departments = Department::where('is_active', true)->orderBy('name')->get();
+
+        if ($actor->hasRole(RoleCode::TeamLeader)) {
+            $allowed = array_merge(
+                [$actor->department_id],
+                $actor->department?->allowedNextDepartmentIds() ?? [],
+            );
+            $departments = $departments->whereIn('id', $allowed)->values();
+        }
+
+        return $departments->pluck('name')->all();
     }
 
     /**
@@ -212,7 +258,7 @@ class AssistantToolService
             'priority' => TaskPresenter::priorityTag($task->priority)['label'],
             'current_step' => $step === null ? null : [
                 'department' => $step->department?->name,
-                'workflow_status' => TaskPresenter::workflowBadge($step->workflow_status)['label'],
+                'workflow_status' => TaskPresenter::workflowBadge($step->workflow_status, $step->activeAssignment?->is_self_assigned)['label'],
                 'deadline_status' => TaskPresenter::deadlineBadge($step->deadline_status)['label'],
                 'assignee' => $step->assignee()?->full_name,
                 'due_at' => $step->current_due_at?->toDateString(),

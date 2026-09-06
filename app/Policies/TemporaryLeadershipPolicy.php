@@ -33,12 +33,12 @@ class TemporaryLeadershipPolicy
 
     public function replace(User $actor, DepartmentLeadershipAssignment $assignment): bool
     {
-        return $actor->hasRole(RoleCode::Manager) && $assignment->isTemporary();
+        return $actor->hasRole(RoleCode::Manager) && $assignment->isTemporary() && $assignment->is_active;
     }
 
     public function endEarly(User $actor, DepartmentLeadershipAssignment $assignment): bool
     {
-        return $actor->hasRole(RoleCode::Manager) && $assignment->isTemporary();
+        return $actor->hasRole(RoleCode::Manager) && $assignment->isTemporary() && $assignment->is_active;
     }
 
     /** Q18 — department membership changes stay Manager-only, never temporary TL. */

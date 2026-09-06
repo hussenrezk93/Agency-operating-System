@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\DeadlineStatus;
+use App\Enums\DepartmentSpecialRole;
 use App\Enums\LeadershipType;
 use App\Enums\ProjectStatus;
 use App\Enums\RoleCode;
@@ -20,6 +21,7 @@ use App\Models\TaskRedirect;
 use App\Models\TaskStep;
 use App\Models\TaskStepAssignment;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -88,14 +90,35 @@ class DashboardController extends Controller
             ->groupBy('workflow_status')
             ->pluck('total', 'workflow_status');
 
+        // Product decision 2026-09 — Content's leader also reviews Graphic's steps, which
+        // sit in another department, so their review queue is not a plain department
+        // scope like every other number on this dashboard.
+        $content = Department::withSpecialRole(DepartmentSpecialRole::Content);
+        $reviewsForContent = $content !== null && $user->canActAsLeaderOf($content->id);
+
+        $reviewQueue = fn (): Builder => TaskStep::query()
+            ->where(function (Builder $q) use ($departmentId, $reviewsForContent): void {
+                // Q12 — a step the leader assigned to themself is the Manager's to
+                // review, so it is not a review awaiting THEM. Matches the same rule in
+                // TaskController's "awaiting my review" filter, which this card links to.
+                $q->where(fn (Builder $own) => $own
+                    ->where('department_id', $departmentId)
+                    ->where('workflow_status', WorkflowStatus::UnderReview->value)
+                    ->whereDoesntHave('activeAssignment', fn (Builder $a) => $a->where('is_self_assigned', true)));
+
+                if ($reviewsForContent) {
+                    $q->orWhere('workflow_status', WorkflowStatus::PendingContentReview->value);
+                }
+            });
+
         return view('dashboard.tl', [
             'waitingAssignment' => (clone $deptSteps)->where('workflow_status', WorkflowStatus::WaitingAssignment->value)->count(),
             'inProgress' => (clone $deptSteps)->where('workflow_status', WorkflowStatus::InProgress->value)->count(),
-            'awaitingReview' => (clone $deptSteps)->where('workflow_status', WorkflowStatus::UnderReview->value)->count(),
+            'awaitingReview' => $reviewQueue()->count(),
             'overdue' => (clone $deptSteps)->where('deadline_status', DeadlineStatus::Overdue->value)->count(),
             'waitingAssignmentSteps' => (clone $deptSteps)->where('workflow_status', WorkflowStatus::WaitingAssignment->value)
                 ->with('task:id,title,task_code')->limit(10)->get(),
-            'submissionsAwaitingReview' => (clone $deptSteps)->where('workflow_status', WorkflowStatus::UnderReview->value)
+            'submissionsAwaitingReview' => $reviewQueue()
                 ->with(['task:id,title,task_code', 'activeAssignment.assignee:id,full_name'])->limit(10)->get(),
             'tasksByEmployee' => $tasksByEmployee,
             'myTasks' => $user->openStepAssignments()->where('is_self_assigned', true)->with('step.task:id,title,task_code')->get(),
@@ -137,8 +160,11 @@ class DashboardController extends Controller
                 ->with(['task:id,title,task_code', 'department:id,name'])->limit(10)->get(),
             'onHoldTasks' => Task::where('lifecycle_status', TaskLifecycle::OnHold->value)
                 ->with('currentStep.department:id,name')->limit(10)->get(),
-            'awaitingManagerReview' => TaskStep::where('workflow_status', WorkflowStatus::UnderReview->value)
-                ->whereHas('activeAssignment', fn ($q) => $q->where('is_self_assigned', true))
+            // Product decision 2026-09 — every step a TL approved now waits on a
+            // mandatory Manager review before it can route/finish; this is the real
+            // "awaiting Manager review" pool (previously just self-assigned steps
+            // stuck at UnderReview per the narrower Q12 carve-out).
+            'awaitingManagerReview' => TaskStep::where('workflow_status', WorkflowStatus::PendingManagerReview->value)
                 ->with(['task:id,title,task_code', 'department:id,name'])->limit(10)->get(),
             // BRD §16.3 — a step a Manager's Redirect sent somewhere new, still waiting
             // for that department's TL to pick it up.
@@ -234,12 +260,18 @@ class DashboardController extends Controller
 
         // The headline row above the table is just this same data summed across
         // departments — one query result, two views of it, so the two can never drift.
+        // activeProjects is the one exception: a project can be linked to several
+        // departments at once (project_departments is many-to-many), so summing the
+        // per-department distinct counts double-counts any project that spans more
+        // than one — a single 6-department project would read as "6 active projects"
+        // org-wide. Counted directly here instead, the same distinct-project query
+        // the TL/Manager dashboards already use.
         $totals = [
             'waitingAssignment' => $departmentSummaries->sum('waitingAssignment'),
             'inProgress' => $departmentSummaries->sum('inProgress'),
             'underReview' => $departmentSummaries->sum('underReview'),
             'overdue' => $departmentSummaries->sum('overdue'),
-            'activeProjects' => $departmentSummaries->sum('activeProjects'),
+            'activeProjects' => Project::where('status', ProjectStatus::Active->value)->count(),
         ];
 
         // A live snapshot, not the BRD §17 monthly Performance Score (which judges

@@ -28,19 +28,36 @@ class UserController extends Controller
         $this->authorize('viewAny', User::class);
         $actor = $request->user();
 
-        $query = User::query()->with(['role:id,code', 'department:id,name'])->orderBy('full_name');
+        // Grouped by department (each department's users listed together) rather than
+        // a flat alphabetical list, for every viewing role. Within a department, its
+        // Team Leader sorts first and everyone else follows by name. Admin/Manager
+        // accounts carry no department (BRD §6) and sort after every departmental group.
+        $query = User::query()
+            ->select('users.*')
+            ->leftJoin('departments', 'users.department_id', '=', 'departments.id')
+            ->leftJoin('roles', 'users.role_id', '=', 'roles.id')
+            ->with(['role:id,code', 'department:id,name'])
+            ->orderByRaw('departments.name IS NULL')
+            ->orderBy('departments.name')
+            ->orderByRaw("roles.code = 'tl' desc")
+            ->orderBy('users.full_name');
 
-        // Account list is scoped to the roles the actor can manage — the same boundary
-        // UserPolicy::manage() enforces per-row (Admin: Manager/TL/Employee, Manager: TL/Employee).
+        // An Admin sees every account including other Admins (visible since 2026-08, once
+        // Admin-creates-Admin shipped). A Manager sees every account down to their own
+        // range including other Managers (2026-09, the same widening) — either way
+        // UserPolicy::manage() still refuses to manage the actor's own row, so the Blade
+        // view hides Edit/Disable/Reset-password there regardless of role.
         if ($actor->hasRole(RoleCode::Admin)) {
+            $query->whereHas('role', fn ($q) => $q->whereIn('code', [
+                RoleCode::Admin->value, RoleCode::Manager->value, RoleCode::TeamLeader->value, RoleCode::Employee->value,
+            ]));
+        } else {
             $query->whereHas('role', fn ($q) => $q->whereIn('code', [
                 RoleCode::Manager->value, RoleCode::TeamLeader->value, RoleCode::Employee->value,
             ]));
-        } else {
-            $query->whereHas('role', fn ($q) => $q->whereIn('code', [RoleCode::TeamLeader->value, RoleCode::Employee->value]));
         }
 
-        $users = $query->get();
+        $users = $query->paginate(50)->withQueryString();
 
         if (! $request->expectsJson()) {
             return view('users.index', [
@@ -59,7 +76,7 @@ class UserController extends Controller
         $this->authorize('viewAny', User::class);
 
         return view('users.create', [
-            'departments' => Department::where('is_active', true)->orderBy('name')->get(),
+            'departments' => Department::availableForStaffing()->orderBy('name')->get(),
             'isAdmin' => $actor->hasRole(RoleCode::Admin),
         ]);
     }
@@ -71,7 +88,7 @@ class UserController extends Controller
 
         return view('users.edit', [
             'user' => $user,
-            'departments' => Department::where('is_active', true)->orderBy('name')->get(),
+            'departments' => Department::availableForStaffing()->orderBy('name')->get(),
         ]);
     }
 

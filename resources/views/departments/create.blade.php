@@ -7,7 +7,7 @@
 @endsection
 @section('content')
 <main class="page">
-    <form method="POST" action="{{ route('departments.store') }}" class="card form-card">
+    <form method="POST" action="{{ route('departments.store') }}" class="dx-card form-card">
         @csrf
         <div class="form-section">
             <div class="form-grid">
@@ -17,12 +17,20 @@
                     @error('name')<div class="err">{{ $message }}</div>@enderror
                 </div>
                 <div class="field @error('primary_leader_id') bad @enderror">
-                    <label class="req">{{ __('agencyos.departments.fields.primary_leader') }}</label>
-                    <x-form-select name="primary_leader_id" required
+                    <label>{{ __('agencyos.departments.fields.primary_leader') }}</label>
+                    <x-form-select name="primary_leader_id"
                         placeholder="—" :options="$leaders->pluck('full_name', 'id')"
                         :selected="old('primary_leader_id')"/>
                     @error('primary_leader_id')<div class="err">{{ $message }}</div>@enderror
                     <div class="hint">{{ __('agencyos.departments.create.leader_hint') }}</div>
+                </div>
+                <div class="field @error('special_role') bad @enderror">
+                    <label>{{ __('agencyos.departments.fields.special_role') }}</label>
+                    <x-form-select name="special_role"
+                        placeholder="—" :options="collect(\App\Enums\DepartmentSpecialRole::cases())->mapWithKeys(fn ($role) => [$role->value => $role->label()])"
+                        :selected="old('special_role')"/>
+                    @error('special_role')<div class="err">{{ $message }}</div>@enderror
+                    <div class="hint">{{ __('agencyos.departments.fields.special_role_hint') }}</div>
                 </div>
             </div>
         </div>

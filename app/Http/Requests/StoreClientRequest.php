@@ -18,7 +18,7 @@ class StoreClientRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'short_description' => ['nullable', 'string'],
-            'phone' => ['required', 'string', 'max:50'],
+            'phone' => ['required', 'string', 'max:50', 'regex:/^(?=(?:.*[0-9]){7,})[0-9\s()+\-]+$/'],
             'company_email' => ['nullable', 'email', 'max:255'],
             'website_url' => ['nullable', 'url', 'max:2048'],
         ];

@@ -24,6 +24,7 @@ class ChatMember extends Model
     protected $casts = [
         'joined_at' => 'datetime',
         'left_at' => 'datetime',
+        'last_read_at' => 'datetime',
     ];
 
     public function conversation(): BelongsTo
@@ -34,6 +35,11 @@ class ChatMember extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function lastReadMessage(): BelongsTo
+    {
+        return $this->belongsTo(ChatMessage::class, 'last_read_message_id');
     }
 
     public function isActive(): bool

@@ -31,9 +31,9 @@
         </div>
     @endif
 
-    <div class="card glass-dark">
-        <div class="table-wrap">
-            <table>
+    <div class="dx-card">
+        <div class="dx-table-wrap">
+            <table class="dx-table">
                 <thead>
                 <tr>
                     <th>{{ __('agencyos.users.index.column_name') }}</th>
@@ -48,49 +48,57 @@
                 @forelse($users as $user)
                     <tr>
                         <td>
-                            <b>{{ $user->full_name }}</b>
+                            <span class="dx-td-main">{{ $user->full_name }}</span>
                         </td>
                         <td>{{ __('agencyos.roles.'.$user->role->code) }}</td>
                         <td>{{ $user->department->name ?? '—' }}</td>
-                        <td class="mono small">
+                        <td>
                             {{ $user->personal_email }}
                             @if($user->email_verified_at)
-                                <span class="badge b-approved">✓</span>
+                                <x-dx-pill :badge="['class' => 'b-approved', 'label' => '✓']"/>
                             @else
-                                <span class="badge b-changes">✉</span>
+                                <x-dx-pill :badge="['class' => 'b-changes', 'label' => '✉']"/>
                             @endif
                         </td>
                         <td>
                             @php($status = $user->status->value)
-                            <span class="badge {{ $status === 'active' ? 'b-approved' : ($status === 'on_leave' ? 'b-hold' : 'b-cancel') }}">
-                                <span class="bdot"></span>{{ __('agencyos.users.status.'.$status) }}
-                            </span>
+                            <x-dx-pill :badge="['class' => $status === 'active' ? 'b-approved' : ($status === 'on_leave' ? 'b-hold' : 'b-cancel'), 'label' => __('agencyos.users.status.'.$status)]"/>
                         </td>
-                        <td style="text-align:end;white-space:nowrap">
-                            <a class="btn btn-sm btn-outline" href="{{ route('users.edit-form', $user) }}"><x-icon name="edit"/> {{ __('agencyos.users.index.edit') }}</a>
-                            <form method="POST" action="{{ route('users.reset-password', $user) }}" style="display:inline">
-                                @csrf
-                                <button type="submit" class="btn btn-sm btn-outline">🔑</button>
-                            </form>
-                            @if($status !== 'inactive')
-                                <form method="POST" action="{{ route('users.disable', $user) }}" style="display:inline">
+                        <td class="dx-td-end" style="white-space:nowrap">
+                            @can('viewPerformance', $user)
+                                <a class="dx-icon-btn" href="{{ route('profile.edit', $user) }}" aria-label="{{ __('agencyos.users.index.activity') }}" title="{{ __('agencyos.users.index.activity') }}"><x-icon name="bar-chart-3"/></a>
+                            @endcan
+                            @can('manage', $user)
+                                <a class="dx-icon-btn" href="{{ route('users.edit-form', $user) }}" aria-label="{{ __('agencyos.users.index.edit') }}" title="{{ __('agencyos.users.index.edit') }}"><x-icon name="edit"/></a>
+                                <form method="POST" action="{{ route('users.reset-password', $user) }}" style="display:inline">
                                     @csrf
-                                    <button type="submit" class="btn btn-sm btn-danger-outline">{{ __('agencyos.users.index.disable') }}</button>
+                                    <button type="submit" class="dx-icon-btn" aria-label="{{ __('agencyos.users.index.reset_password') }}" title="{{ __('agencyos.users.index.reset_password') }}"><x-icon name="key"/></button>
                                 </form>
+                                @if($status !== 'inactive')
+                                    <form method="POST" action="{{ route('users.disable', $user) }}" style="display:inline">
+                                        @csrf
+                                        <button type="submit" class="dx-icon-btn" style="color:#DC2626;border-color:var(--color-danger-border)" aria-label="{{ __('agencyos.users.index.disable') }}" title="{{ __('agencyos.users.index.disable') }}"><x-icon name="x"/></button>
+                                    </form>
+                                @else
+                                    <form method="POST" action="{{ route('users.reactivate', $user) }}" style="display:inline">
+                                        @csrf
+                                        <button type="submit" class="dx-icon-btn" aria-label="{{ __('agencyos.users.index.enable') }}" title="{{ __('agencyos.users.index.enable') }}"><x-icon name="check-circle"/></button>
+                                    </form>
+                                @endif
                             @else
-                                <form method="POST" action="{{ route('users.reactivate', $user) }}" style="display:inline">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-outline">{{ __('agencyos.users.index.enable') }}</button>
-                                </form>
-                            @endif
+                                <span class="small muted">—</span>
+                            @endcan
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" style="text-align:center;padding:34px" class="muted">{{ __('agencyos.users.index.empty') }}</td></tr>
+                    <tr><td colspan="6" class="dx-empty-cell">{{ __('agencyos.users.index.empty') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>
         </div>
+        @if($users->hasPages())
+            <div class="card-foot">{{ $users->links() }}</div>
+        @endif
     </div>
 </main>
 @endsection

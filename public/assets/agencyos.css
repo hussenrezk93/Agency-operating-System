@@ -70,7 +70,12 @@
   --surface-dark-line:rgba(255,255,255,.10);
 
   /* Layout */
-  --sidebar-w:264px; --topbar-h:68px; --page-pad:38px;
+  /* page-pad scales smoothly with viewport width instead of jumping between the
+     1080px/759px breakpoints below — the same 38px this always was on a wide screen,
+     shrinking gradually toward 20px as a laptop's viewport narrows, rather than the
+     desktop layout looking identically padded on every width from 1080px to 4K and
+     then snapping to a completely different mobile layout below that. */
+  --sidebar-w:264px; --topbar-h:68px; --page-pad:clamp(20px, 2vw, 38px);
 
   /* Sidebar — the one part of the shell that stays dark regardless of the rest of the
      app's light theme. Scoped entirely under .sidebar below; nothing else reads these. */
@@ -122,12 +127,14 @@ img{max-width:100%}
   display:flex;flex-direction:column;position:sticky;top:14px;height:calc(100vh - 28px);z-index:40;
   margin:14px 0 14px 14px;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);overflow:hidden}
 [dir=rtl] .sidebar{margin:14px 14px 14px 0}
-.brand{display:flex;align-items:center;gap:10px;padding:22px 20px 14px}
+/* The logo PNG itself has a visible transparent margin around the glyph (baked into
+   the asset, not something CSS can trim) — a small gap here already reads as a much
+   bigger one next to the text once that built-in padding is added on top of it. */
+.brand{display:flex;align-items:center;gap:2px;padding:22px 20px 14px}
 .brand-mark{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--color-primary),var(--color-primary-hover));
   color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;letter-spacing:.5px;box-shadow:var(--shadow-glow)}
 .brand-name{font-weight:800;font-size:17px;letter-spacing:.2px;color:#fff}
 .brand-name b{color:var(--color-primary)}
-.brand .small.muted{color:rgba(255,255,255,.5)}
 
 /* User identity block, near the sidebar top (Reference 1) — a quiet card, not a
    button; the avatar/name/role are informational here, not another nav trigger
@@ -161,6 +168,14 @@ img{max-width:100%}
 .nav .count{margin-inline-start:auto;background:var(--color-primary);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px}
 .nav a.active .count{background:rgba(255,255,255,.28)}
 
+/* Daily Department Report nav link — orange once today's report is generated (ready to
+   open/write), dim while it's still pending, independent of the usual .active (current
+   page) highlight so both states can be told apart even on the page itself. */
+.nav a.nav-ready:not(.active){color:var(--color-primary)}
+.nav a.nav-ready:not(.active) .ic{color:var(--color-primary)}
+.nav a.nav-pending:not(.active){color:rgba(255,255,255,.4)}
+.nav a.nav-pending:not(.active) .ic{color:rgba(255,255,255,.4)}
+
 .sidebar-foot{padding:14px 16px;border-top:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;gap:10px}
 .sidebar-logout{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;border:0;background:transparent;
   border-radius:var(--radius-full);color:#FCA5A5;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;
@@ -168,6 +183,36 @@ img{max-width:100%}
 .sidebar-logout svg{width:18px;height:18px}
 .sidebar-logout:hover{background:rgba(239,68,68,.18)}
 .sidebar-version{font-size:11px;color:rgba(255,255,255,.35);padding:0 14px}
+
+/* ---------- Sidebar collapse (desktop only — the <900px breakpoint already turns the
+   sidebar into an off-canvas drawer, where "collapsed" has no meaning). Toggled by
+   .sidebar-collapsed on body, persisted client-side (see layouts/app.blade.php); the
+   collapsed rail shows icons only, never a hidden-but-still-occupying-space label. ---------- */
+.sidebar{transition:width var(--dur) var(--ease)}
+.sidebar-collapse-row{display:flex;justify-content:flex-end;padding:0 14px 6px}
+.sidebar-collapse-btn{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;flex:0 0 auto;
+  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:rgba(255,255,255,.75);
+  cursor:pointer;transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
+.sidebar-collapse-btn:hover{background:rgba(255,255,255,.14);color:#fff}
+.sidebar-collapse-btn svg{width:14px;height:14px;transform:rotate(180deg);transition:transform var(--dur) var(--ease)}
+body.sidebar-collapsed .sidebar-collapse-btn svg{transform:rotate(0deg)}
+[dir=rtl] .sidebar-collapse-btn svg{transform:rotate(0deg)}
+[dir=rtl] body.sidebar-collapsed .sidebar-collapse-btn svg{transform:rotate(180deg)}
+
+@media (min-width:901px){
+  body.sidebar-collapsed .sidebar{width:76px}
+  body.sidebar-collapsed .brand{justify-content:center;padding-inline:8px}
+  body.sidebar-collapsed .sidebar-collapse-row{justify-content:center}
+  body.sidebar-collapsed .sidebar-user{justify-content:center;padding-inline:8px}
+  body.sidebar-collapsed .nav a{justify-content:center;padding-inline:10px}
+  body.sidebar-collapsed .sidebar-logout{justify-content:center;padding-inline:10px}
+  body.sidebar-collapsed .brand-name,
+  body.sidebar-collapsed .su-info,
+  body.sidebar-collapsed .nav-label,
+  body.sidebar-collapsed .nav a span:not(.ic),
+  body.sidebar-collapsed .sidebar-logout span:not(svg),
+  body.sidebar-collapsed .sidebar-version{display:none}
+}
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{height:var(--topbar-h);background:var(--glass-bg);backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);
@@ -193,13 +238,31 @@ img{max-width:100%}
   border-radius:999px;background:var(--color-primary);color:#fff;font-size:10.5px;font-weight:700;
   line-height:18px;text-align:center;border:2px solid #fff}
 .dot{position:absolute;top:7px;inset-inline-end:7px;width:8px;height:8px;border-radius:50%;background:var(--color-danger);border:2px solid #fff}
-.avatar{width:36px;height:36px;border-radius:50%;background:var(--color-primary-100);color:var(--color-primary-text);display:grid;place-items:center;font-weight:700;font-size:13px;flex:0 0 auto}
+.avatar{position:relative;width:36px;height:36px;border-radius:50%;background:var(--color-primary-100);color:var(--color-primary-text);display:grid;place-items:center;font-weight:700;font-size:13px;flex:0 0 auto;overflow:hidden}
 .avatar.sm{width:28px;height:28px;font-size:11px}
+.avatar.lg{width:72px;height:72px;font-size:22px}
+.profile-avatar-row{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.profile-avatar-row .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.profile-avatar-row form{display:inline-block}
 .avatar.grey{background:var(--color-surface);color:var(--color-text-muted)}
 .topbar-avatar{position:relative;width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--color-primary),var(--color-primary-hover));
   color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex:0 0 auto;box-shadow:var(--shadow-glow);
-  transition:transform var(--dur-fast) var(--ease)}
+  transition:transform var(--dur-fast) var(--ease);overflow:hidden}
 .topbar-avatar:hover{transform:translateY(-1px)}
+/* Absolutely positioned (not a percentage-sized grid child of the place-items:center
+   parent above) — a stretched grid item was the exact bug that shrank the password-
+   eye icon earlier; this sidesteps that class of bug entirely instead of repeating it. */
+.avatar-img{position:absolute;inset:0;width:100%;height:100%;border-radius:inherit;object-fit:cover}
+.avatar-img[data-lightbox]{cursor:pointer}
+
+.avatar-lightbox{position:fixed;inset:0;z-index:200;display:none;place-items:center;padding:24px;
+  background:rgba(15,15,20,.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.avatar-lightbox.open{display:grid}
+.avatar-lightbox img{max-width:min(90vw,480px);max-height:80vh;border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);object-fit:contain}
+.avatar-lightbox-close{position:absolute;top:20px;inset-inline-end:20px;width:40px;height:40px;border-radius:50%;
+  border:0;background:rgba(255,255,255,.14);color:#fff;display:grid;place-items:center;cursor:pointer}
+.avatar-lightbox-close:hover{background:rgba(255,255,255,.24)}
+.avatar-lightbox-close .ic{width:20px;height:20px}
 /* Decorative only — marks "you, right now, actively viewing this page"; not a tracked
    online/presence system, so it's always on rather than reflecting real state for
    anyone but the current viewer. */
@@ -230,6 +293,39 @@ img{max-width:100%}
 .qa-menu .drop-item:hover{background:var(--color-primary-light)}
 .qa-menu .drop-item svg{width:16px;height:16px;color:var(--color-text-muted);flex:0 0 auto}
 @media (max-width:900px){.qa-menu{inset-inline-end:0;width:min(240px,calc(100vw - 24px))}}
+
+/* ---------- Notifications dropdown — a quick-glance preview off the bell icon,
+   reusing .qa-menu for positioning and the .drop-head/.drop-item/.drop-foot content
+   classes already in this file (see the .qa-menu comment above) instead of adding a
+   second, parallel dropdown shell just for this one. ---------- */
+.notif-menu{width:340px;max-width:calc(100vw - 24px)}
+.notif-menu .drop-head{font-weight:700;font-size:13.5px}
+.notif-menu .drop-head button{font:inherit;font-size:12px;font-weight:600;color:var(--color-primary-text);
+  background:none;border:0;cursor:pointer;padding:0}
+.notif-menu .drop-head button:hover{text-decoration:underline}
+.notif-list{max-height:340px;overflow-y:auto}
+.notif-menu.closing{animation:dropOut .16s ease forwards}
+@keyframes dropOut{
+  from{opacity:1;transform:scale(1) translateY(0)}
+  to{opacity:0;transform:scale(.96) translateY(-6px)}
+}
+@media(max-width:900px){
+  /* Anchored to its trigger (the bell) via .qa-menu's inset-inline-end:0, so any gap
+     between the bell and the true screen edge became a gap on the WRONG side once the
+     menu's own width didn't leave room to correct for it on a narrow phone — pinning
+     to the viewport itself removes that dependency entirely. top clears the tallest
+     header this app has (a wrapped .page-header-row), not just the plain 68px .topbar —
+     64px genuinely landed inside the topbar's own height, reading as "on top of" it. */
+  .notif-menu{position:fixed;top:80px;inset-inline-end:12px;inset-inline-start:12px;width:auto;max-width:none}
+  .notif-list{max-height:38vh}
+}
+.notif-menu .drop-item{flex-direction:column;align-items:stretch;gap:2px;cursor:pointer}
+.notif-menu .drop-item.is-unread{background:var(--color-primary-light)}
+.notif-item-title{font-weight:600;color:var(--color-text);font-size:13px}
+.notif-item-time{font-size:11.5px;color:var(--color-text-muted)}
+.drop-foot{color:var(--color-primary-text);font-weight:600;font-size:12.5px;display:block;
+  border-top:1px solid var(--color-border);transition:background var(--dur-fast) var(--ease)}
+.drop-foot:hover{background:var(--color-primary-light);text-decoration:none}
 
 /* ---------- Custom filter dropdown (<x-filter-select>) — replaces a native <select>
    with the same look/behaviour as Quick Action's menu, since the native option list is
@@ -271,7 +367,7 @@ img{max-width:100%}
   0%,100%{transform:translate(6%,-6%) rotate(0deg) scale(1.15)}
   50%{transform:translate(-8%,8%) rotate(-160deg) scale(.9)}
 }
-.gm-star{position:relative;z-index:2;width:27px;height:27px;
+.gm-star{position:relative;z-index:2;width:27px;height:27px;color:#fff;
   filter:drop-shadow(0 0 6px rgba(255,255,255,.9)) drop-shadow(0 1px 2px rgba(110,36,0,.4))}
 /* .gm-panel is positioning/animation ONLY (no background/overflow) so .gm-mascot,
    a child of it, can stand above .gm-panel-body's top edge without being clipped —
@@ -381,17 +477,56 @@ img{max-width:100%}
 
 .page{padding:var(--page-pad);max-width:1360px;width:100%;margin:0 auto}
 .page-head{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:30px}
-/* Nested inside the transparent merged header row, .page-header-row already supplies
+/* Nested inside the glass merged header row, .page-header-row already supplies
    the gap before the content grid — .page-head's own margin would double it up. */
 .page-header-row .page-head{margin-bottom:0}
 .page-head h1{margin:0}
 .page-sub{width:100%;color:var(--color-text-muted);font-size:13px;margin-top:2px}
-/* Merged header row (pages that @section('page_header')) — transparent, no bar, no
-   sticky/shadow/border; the greeting and the topbar controls share one row instead of
-   stacking as two separate blocks. */
+/* Merged header row (pages that @section('page_header')) — the greeting and the topbar
+   controls share one row instead of stacking as two separate blocks. Sticky like
+   .topbar (same z-index, same glass treatment) so it and the sidebar both stay put
+   while a page's content scrolls underneath, instead of only the sidebar staying
+   fixed. The blur is what keeps this from being a plain "content shows through and
+   collides with the icons" transparency — scrolled content is still visible behind it,
+   just frosted, so it never reads as sharp overlap. The leading corner gets the
+   sidebar's own radius so the glass panel curves away from it instead of butting a
+   square corner up against the sidebar's rounded one. */
 .page-header-row{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;
-  gap:16px;padding:26px var(--page-pad) 0;margin-bottom:24px}
+  gap:16px;padding:26px var(--page-pad) 20px;margin-bottom:4px;
+  position:sticky;top:0;z-index:30;background:var(--glass-bg);
+  backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);
+  border-start-start-radius:var(--radius-lg)}
+/* This row keeps the greeting, page-specific actions (.page-actions — "+ New user" and
+   the like are a real, needed shortcut, not clutter), locale switcher, notifications
+   and profile. Only the tab strip, search and Quick Action are hidden here — they're
+   reachable another way (sidebar nav) and crowded this one line. Every page uses
+   @section('page_header') — none fall back to the plain .topbar in
+   layouts/app.blade.php's @else branch — so this reaches every page, not just the
+   dashboards. */
+.page-header-row .dx-seg,
+.page-header-row .searchbox,
+.page-header-row .btn-quick-action{display:none}
+/* The one-line description under every page's title (.page-sub on ordinary pages,
+   .dx-greet p on the 4 dashboards) — dropped everywhere so the header stays to just
+   the title itself. */
+.page-header-row .page-sub,
+.page-header-row .dx-greet p{display:none}
 .page-greet h1{margin:0;font-size:22px}
+/* Pins the locale switcher/notifications/avatar to the row's true end edge regardless
+   of how much (or how little — search/Quick Action are hidden here) sits before them,
+   so their position stays put across every page instead of drifting with each page's
+   own title length or page-actions. .topbar-actions's own auto-margin is zeroed and
+   replaced by justify-content here, since letting both push at once double-counts the
+   gap this specific layout (space-between + a flex:1 .topbar-controls) already creates. */
+/* flex:1;min-width:0 (the plain .topbar-controls default, sized for a growing search
+   box that no longer renders here) let this shrink past its own content's real width
+   instead of wrapping to a new row — the locale pill/bell/avatar would then overflow
+   backward, overlapping .page-actions next to it rather than moving under it. Natural
+   size here means the row wraps properly instead. Once it wraps onto its own line,
+   .page-header-row's space-between has nothing left on that line to space it FROM, so
+   a lone wrapped item settles at the line's start — margin-inline-start:auto pushes it
+   to the end (the screen's right edge) regardless of whether it shares a line or not. */
+.page-header-row .topbar-controls{flex:0 0 auto;min-width:auto;margin-inline-start:auto;justify-content:flex-end}
 .page-header-row .topbar-actions{margin-inline-start:0}
 .page-actions{margin-inline-start:auto;display:flex;gap:9px;flex-wrap:wrap}
 .crumbs{font-size:12.5px;color:var(--color-text-muted);margin-bottom:8px}
@@ -425,6 +560,13 @@ img{max-width:100%}
    filter/add-rule bar) then paints over it even though the menu's own z-index is high.
    Lifting the whole card while it holds an open menu keeps it above later siblings. */
 .card:has(.qa-menu:not(.hide)){position:relative;z-index:5}
+/* .dx-card (the newer dashboard/report/profile card) additionally clips with
+   overflow:hidden by default — needed so its own rounded corners crop child content
+   cleanly, but it also crops an open .qa-menu popping out past the card's own bottom
+   edge (e.g. the reports page's month filter), making the dropdown look like it opens
+   BEHIND the card instead of over it. Same lift as .card above, plus the overflow
+   override this one additionally needs. */
+.dx-card:has(.qa-menu:not(.hide)){overflow:visible;position:relative;z-index:5}
 .card-pad{padding:24px 28px}
 .card-head{display:flex;align-items:center;gap:10px;padding:20px 24px;border-bottom:1px solid var(--color-border)}
 .card-head h2{margin:0;font-size:15px}
@@ -815,7 +957,16 @@ textarea.input{resize:vertical;min-height:92px}
 
 /* ---------- Chat ---------- */
 .chat-layout{display:grid;grid-template-columns:300px 1fr;border:1px solid var(--color-border);border-radius:var(--radius);overflow:hidden;background:#fff;min-height:560px}
-.chat-list{border-inline-end:1px solid var(--color-border);overflow-y:auto;background:#fff}
+.chat-list{border-inline-end:1px solid var(--color-border);overflow-y:auto;background:#fff;display:flex;flex-direction:column}
+/* Filters the conversation/directory list below as you type (see chat/index.blade.php's
+   inline script) — same visual language as .searchbox, just anchored to this panel
+   instead of the topbar. */
+.chat-search-wrap{position:relative;padding:14px 16px;border-bottom:1px solid var(--color-border);flex:0 0 auto}
+.chat-search-wrap .ic{position:absolute;inset-inline-start:28px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--color-text-muted)}
+.chat-search{width:100%;padding:9px 14px 9px 36px;border:1px solid var(--color-border);border-radius:var(--radius-full);
+  background:var(--color-surface);font:inherit;font-size:13.5px;transition:box-shadow var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)}
+.chat-search:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 4px var(--color-primary-soft);background:#fff}
+[dir=rtl] .chat-search{padding:9px 36px 9px 14px}
 .conv{display:flex;gap:11px;padding:13px 16px;border-bottom:1px solid var(--color-border);cursor:pointer;align-items:center}
 .conv:hover{background:var(--color-primary-light)}
 .conv.on{background:var(--color-primary-soft);border-inline-start:3px solid var(--color-primary)}
@@ -859,13 +1010,83 @@ textarea.input{resize:vertical;min-height:92px}
 .tick{color:var(--color-success);font-weight:800}
 .cross{color:var(--color-danger);font-weight:800}
 
-/* login */
-.auth{min-height:100vh;display:grid;place-items:center;background:
-  radial-gradient(700px 340px at 85% -10%,var(--color-primary-soft),transparent),
-  radial-gradient(600px 300px at -10% 110%,var(--color-primary-soft),transparent),var(--color-surface);padding:20px}
-.auth-card{width:100%;max-width:410px}
-.auth-brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:22px;text-align:center}
-.auth-brand .brand-mark{width:52px;height:52px;font-size:22px;border-radius:14px}
+/* ---------- Login / forced-password-change (layouts/auth.blade.php) ----------
+   Split panel: a solid-orange left band (angled trailing edge via clip-path, a ring
+   pattern behind it) meeting a plain white right panel that holds the actual form.
+   [dir=rtl] mirrors both the clip-path and which side is which. */
+.auth{min-height:100vh;display:grid;place-items:center;padding:24px;
+  background:
+    radial-gradient(1100px 560px at 15% -10%,rgba(252,110,32,.20),transparent 60%),
+    radial-gradient(900px 520px at 100% 110%,rgba(252,110,32,.16),transparent 60%),
+    #FFF7F0}
+.auth-shell{position:relative;display:flex;width:100%;max-width:900px;min-height:560px;
+  border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);overflow:hidden;
+  background:var(--glass-bg);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
+  border:1px solid var(--glass-border)}
+
+.auth-shell-left{position:relative;flex:0 0 42%;overflow:hidden;
+  background:linear-gradient(135deg,var(--color-primary-hover),var(--color-primary));
+  clip-path:polygon(0 0,100% 0,calc(100% - 56px) 100%,0 100%)}
+[dir=rtl] .auth-shell-left{clip-path:polygon(56px 0,100% 0,100% 100%,0 100%)}
+.auth-shell-left::before{
+  content:"";position:absolute;inset:-20px;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Ccircle cx='40' cy='40' r='38' fill='none' stroke='white' stroke-opacity='.14' stroke-width='2'/%3E%3Ccircle cx='115' cy='110' r='46' fill='none' stroke='white' stroke-opacity='.14' stroke-width='2'/%3E%3C/svg%3E");
+  background-size:150px 150px}
+.auth-shell-right{position:relative;flex:1;margin-inline-start:-56px;
+  padding:48px 56px 40px calc(56px + 56px);display:flex;flex-direction:column;justify-content:center}
+/* The outer edge (away from the orange panel) gets a bit more room in RTL than its
+   LTR mirror would strictly need — 56px reads as flush against the card's rounded
+   corner once the form column's own inline padding/underlines are factored in. */
+[dir=rtl] .auth-shell-right{margin-inline-start:0;margin-inline-end:-56px;padding:48px calc(56px + 56px) 40px 70px}
+
+/* A static label, not a real tab switcher — Agency OS has no self-service sign-up (BRD
+   §18: accounts are admin-created only), so there is only ever one mode here to show. */
+.auth-shell-tab{position:absolute;top:64px;inset-inline-start:28px;background:#fff;color:var(--color-primary-text);
+  font-weight:800;font-size:14px;padding:11px 22px;border-radius:var(--radius-full);box-shadow:var(--shadow-md)}
+
+.auth-brand{display:flex;justify-content:center;margin-bottom:22px}
+.auth-logo{width:76px;height:76px}
+.auth-logo img{width:100%;height:100%;object-fit:contain}
+.auth-title{margin:0 0 6px;font-size:21px;font-weight:800;letter-spacing:-.01em;color:var(--color-primary-dark);text-align:center}
+.auth-sub{text-align:center;margin:0 0 26px}
+.auth-errors{margin-bottom:16px}
+
+/* Icon-prefixed, underline-only fields (no boxed .input here) — placeholder stands in
+   for a visible label, with aria-label carrying the accessible name instead. */
+.auth-field{position:relative;margin-bottom:22px}
+/* inset-inline-start already flips to the right side under [dir=rtl] on its own — no
+   override needed (one existed briefly and just fought this, landing the icon on the
+   same side as .password-toggle). padding below is physical, not logical, so THAT one
+   genuinely needs the [dir=rtl] swap. */
+.auth-field .ic{position:absolute;top:50%;inset-inline-start:2px;transform:translateY(-50%);
+  width:17px;height:17px;color:var(--color-text-muted)}
+.auth-field input{width:100%;border:0;border-bottom:1.5px solid var(--color-border);background:transparent;
+  padding:8px 30px;font:inherit;font-size:14px;color:var(--color-text);border-radius:0}
+.auth-field:not(:has(.password-toggle)) input{padding-inline-end:2px}
+.auth-field input:focus{outline:none;border-bottom-color:var(--color-primary)}
+.password-toggle{position:absolute;top:50%;inset-inline-end:0;transform:translateY(-50%);
+  width:20px;height:20px;display:inline-grid;place-items:center;
+  border:0;background:none;padding:0;color:var(--color-text-muted);cursor:pointer}
+.password-toggle:hover{color:var(--color-primary)}
+.password-toggle svg{grid-area:1/1;width:100%;height:100%}
+.password-toggle .ic-hide{display:none}
+.password-toggle.is-visible .ic-show{display:none}
+.password-toggle.is-visible .ic-hide{display:block}
+.auth-submit{width:100%;justify-content:center;margin-top:8px;border-radius:var(--radius-full)}
+.auth-meta{margin-top:24px;display:flex;justify-content:center}
+
+@media (max-width:760px){
+  .auth-shell{flex-direction:column;min-height:0}
+  .auth-shell-left{flex:0 0 auto;clip-path:none;padding:28px 0}
+  [dir=rtl] .auth-shell-left{clip-path:none}
+  .auth-shell-tab{position:static;display:inline-block;margin:0 0 0 28px}
+  [dir=rtl] .auth-shell-tab{margin:0 28px 0 0}
+  .auth-shell-right{margin-inline:0;padding:36px 28px}
+  /* A small deliberate rightward nudge for Arabic specifically — less start-side
+     padding (right, under RTL) and more end-side (left) shifts the whole form column
+     — fields, button, language switch, greeting — a bit closer to the right edge. */
+  [dir=rtl] .auth-shell-right{padding-inline-start:18px;padding-inline-end:46px}
+}
 
 /* prototype switcher */
 .proto{position:fixed;bottom:16px;inset-inline-end:16px;z-index:80;background:#111827;color:#fff;border-radius:12px;
@@ -888,7 +1109,15 @@ textarea.input{resize:vertical;min-height:92px}
   /* The floating desktop treatment (margin/rounded corners/short height) doesn't fit an
      edge-to-edge mobile drawer — reset those specifically so translateX(-100%) hides it
      completely instead of leaving a sliver, and it fills the full viewport height. */
-  .sidebar{position:fixed;inset-inline-start:0;top:0;margin:0;height:100vh;border-radius:0;
+  /* An explicit height:100vh is measured once against the browser's collapsed-toolbar
+     viewport, not the currently visible one — on phones where the address/tab bar (or
+     an in-app browser's own chrome, e.g. opening the link from WhatsApp/Instagram)
+     takes real space, the drawer comes up short and the page underneath (bottom-nav
+     included) shows through in the gap. 100dvh alone didn't fix this on every browser
+     it was tried on, so drop the explicit height entirely: top:0 + bottom:0 stretches
+     the element to fill whatever the ACTUAL visible viewport is, the same technique
+     .scrim already uses successfully via inset:0 a few lines below. */
+  .sidebar{position:fixed;inset-inline-start:0;top:0;bottom:0;height:auto;margin:0;border-radius:0;
     transform:translateX(calc(-100% * var(--flip,1)));transition:transform .2s;box-shadow:var(--shadow)}
   [dir=rtl] .sidebar{--flip:-1}
   body.nav-open .sidebar{transform:translateX(0)}
@@ -900,8 +1129,18 @@ textarea.input{resize:vertical;min-height:92px}
   .topbar{padding:0 18px}
   .drop{inset-inline-end:12px;width:min(360px,calc(100vw - 24px))}
   .searchbox{display:none}
+  /* .page-header-row's own controls (tab strip, search, Quick Action) are already gone
+     at every width now — see the base rule above. This just extends the same "Quick
+     Action has a FAB on mobile, so the topbar copy is redundant" logic to every OTHER
+     page's plain .topbar (the @else branch, non-dashboard pages) at this width too. */
+  .btn-quick-action{display:none}
   .chat-layout{grid-template-columns:1fr}
-  .chat-list{display:none}
+  /* Deliberately NOT `.chat-list{display:none}` here: agencyos-laravel.css already runs
+     the real mobile master-detail pair (`.chatpage-thread .chat-list` hides the list
+     only once a thread is open, `.chatpage:not(.chatpage-thread) .chat-pane` hides the
+     pane while browsing). A blanket hide here won that first rule by load order for the
+     no-thread case and left BOTH panes hidden — /chat rendered completely blank on
+     every phone until a conversation was opened by direct link. */
   .only-mobile{display:block}
   .kv{grid-template-columns:120px 1fr}
   .msg{max-width:88%}
@@ -947,12 +1186,45 @@ textarea.input{resize:vertical;min-height:92px}
 .chat-msg:hover .del{opacity:1}
 .matrix td.cellY,.matrix td.cellN{cursor:pointer;user-select:none}
 .matrix td.cellY:hover .yes,.matrix td.cellN:hover .no{outline:2px solid var(--color-primary);border-radius:6px}
+/* An output with no label falls back to showing the raw URL as the button's own text
+   (tasks/show.blade.php). A long, unbroken Google Docs link combined with .btn's own
+   white-space:nowrap forces the button past the card's edge — and, next to a trailing
+   remove button, pushes that button off-screen too. Cap the link's own width and
+   ellipsize instead of letting the text dictate it. */
+.output-link{max-width:min(320px,calc(100vw - 120px));overflow:hidden;text-overflow:ellipsis}
+.output-row{max-width:100%}
 @media (max-width:560px){.mbox{border-radius:12px}.mfoot .btn{flex:1}}
+.print-only{display:none}
+/* margin:0 is also what stops Chrome drawing its own header/footer band (URL, date,
+   page count) along the top/bottom of every printed page — that band only has room to
+   render inside the page margin @page reserves, so a zeroed margin leaves it nothing
+   to draw into. .page's own padding below replaces the lost whitespace instead. */
+@page{margin:0}
 @media print{
- .sidebar,.topbar,.proto,.toasts,.seg,.btn,.filters,.drop{display:none!important}
- .main{padding:0}.shell{display:block}.page{padding:0}
+ .sidebar,.topbar,.proto,.toasts,.seg,.btn,.filters,.drop,.page-header-row,.burger,.bottom-nav,.gm-wrap,.card-foot,.print-hide{display:none!important}
+ .main{padding:0}.shell{display:block}.page{padding:14mm}
  .card{box-shadow:none;border:1px solid #ddd;break-inside:avoid}
+ .print-only{display:block}
+ /* One department report per printed page (department-reports/show.blade.php) —
+    every card but the last forces the next one onto a fresh page. */
+ .print-page-break:not(:last-child){page-break-after:always;break-after:page}
+ /* Monthly performance report: the per-entry delete control is a bare <button>, not a
+    .btn, so the blanket button rule above misses it. The department header rows lose
+    their grey fill on paper (printers render it as a muddy band) and keep a rule
+    instead, and a group is not split across two pages where it can be helped. */
+ .rep-adj-remove,.rep-adj-form{display:none!important}
+ .dx-table .rep-group-row td{background:#fff;border-top:1.5px solid #333;color:#000}
+ .dx-table tr{break-inside:avoid}
 }
+/* Branded letterhead — screen-hidden, shown only when printing (profile Activity tab,
+   invoked via the Print button). The logo PNG is white-on-transparent, so it needs the
+   navy band behind it to be visible on paper — same --sidebar-bg used everywhere else. */
+.print-letterhead{margin-bottom:20px}
+.print-letterhead-band{background:#233D4D;padding:14px 20px;border-radius:8px;display:flex;align-items:center}
+.print-letterhead-band img{height:30px}
+.print-letterhead-meta{margin-top:12px}
+.print-letterhead-meta h1{font-size:18px;margin:0 0 4px;color:#233D4D}
+.print-letterhead-meta div{font-size:12.5px;color:#444}
 
 .select{appearance:auto;border:1.5px solid var(--color-border);border-radius:var(--radius-btn);padding:8px 12px;font:inherit;background:#fff;color:var(--color-text)}
 .select:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px var(--color-primary-soft)}

@@ -21,9 +21,9 @@
         <div class="alert alert-success" style="margin-bottom:16px"><div>{{ session('status') }}</div></div>
     @endif
 
-    <div class="card glass-dark">
-        <div class="table-wrap">
-            <table>
+    <div class="dx-card">
+        <div class="dx-table-wrap">
+            <table class="dx-table">
                 <thead>
                 <tr>
                     <th>{{ __('agencyos.clients.index.column_name') }}</th>
@@ -38,20 +38,20 @@
                 @forelse($clients as $client)
                     <tr>
                         <td>
-                            <b>{{ $client->name }}</b>
-                            @if($client->short_description)<div class="small muted">{{ $client->short_description }}</div>@endif
+                            <span class="dx-td-main">{{ $client->name }}</span>
+                            @if($client->short_description)<span class="dx-td-sub">{{ $client->short_description }}</span>@endif
                         </td>
-                        <td class="mono small">{{ $client->phone }}</td>
-                        <td class="mono small">{{ $client->company_email ?: '—' }}</td>
-                        <td>{{ $client->projects_count }}</td>
+                        <td>{{ $client->phone }}</td>
+                        <td>{{ $client->company_email ?: '—' }}</td>
+                        <td class="dx-td-num">{{ $client->projects_count }}</td>
                         <td>
                             @if($client->status->value === 'active')
-                                <span class="badge b-approved"><span class="bdot"></span>{{ __('agencyos.clients.status.active') }}</span>
+                                <x-dx-pill :badge="['class' => 'b-approved', 'label' => __('agencyos.clients.status.active')]"/>
                             @else
-                                <span class="badge b-neutral">{{ __('agencyos.clients.status.inactive') }}</span>
+                                <x-dx-pill :badge="['class' => 'b-neutral', 'label' => __('agencyos.clients.status.inactive')]"/>
                             @endif
                         </td>
-                        <td style="text-align:end;white-space:nowrap">
+                        <td class="dx-td-end" style="white-space:nowrap">
                             @if($canUpdate)
                                 <a class="btn btn-sm btn-outline" href="{{ route('clients.edit-form', $client) }}"><x-icon name="edit"/> {{ __('agencyos.clients.index.edit') }}</a>
                             @endif
@@ -73,11 +73,14 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" style="text-align:center;padding:34px" class="muted">{{ __('agencyos.clients.index.empty') }}</td></tr>
+                    <tr><td colspan="6" class="dx-empty-cell">{{ __('agencyos.clients.index.empty') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>
         </div>
+        @if($clients->hasPages())
+            <div class="card-foot">{{ $clients->links() }}</div>
+        @endif
     </div>
 </main>
 @endsection

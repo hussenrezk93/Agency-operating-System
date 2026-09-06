@@ -6,7 +6,7 @@
     $onHold = $task->isOnHold();
     $badge = $onHold
         ? \App\Support\TaskPresenter::lifecycleBadge($task->lifecycle_status)
-        : ($step ? \App\Support\TaskPresenter::workflowBadge($step->workflow_status) : \App\Support\TaskPresenter::lifecycleBadge($task->lifecycle_status));
+        : ($step ? \App\Support\TaskPresenter::workflowBadge($step->workflow_status, $step->activeAssignment?->is_self_assigned) : \App\Support\TaskPresenter::lifecycleBadge($task->lifecycle_status));
     $deadlineBadge = $step ? \App\Support\TaskPresenter::deadlineBadge($step->deadline_status) : null;
     $priorityTag = \App\Support\TaskPresenter::priorityTag($task->priority);
 @endphp
@@ -16,11 +16,11 @@
             <div class="small muted mono">{{ $task->task_code }}@if($task->project) &middot; {{ $task->project->name }}@endif</div>
             <h1 style="margin:2px 0 6px">{{ $task->title }}</h1>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <span class="badge {{ $badge['class'] }}"><span class="bdot"></span>{{ $badge['label'] }}</span>
+                <x-dx-pill :badge="$badge"/>
                 @if($deadlineBadge)
-                    <span class="badge {{ $deadlineBadge['class'] }}"><span class="bdot"></span>{{ $deadlineBadge['label'] }}</span>
+                    <x-dx-pill :badge="$deadlineBadge"/>
                 @endif
-                <span class="tag {{ $priorityTag['class'] }}">{{ $priorityTag['label'] }}</span>
+                <x-dx-pill :badge="$priorityTag"/>
             </div>
         </div>
         <div class="page-actions">
@@ -44,9 +44,9 @@
         <div class="alert alert-danger" style="margin-bottom:16px"><div>🔒 {{ __('agencyos.tasks.show.read_only') }}@if($task->cancelled_reason) &middot; {{ $task->cancelled_reason }}@endif</div></div>
     @endif
 
-    <div class="card" style="margin-bottom:18px">
-        <div class="card-head"><h2>{{ __('agencyos.tasks.show.route') }}</h2></div>
-        <div class="card-body">
+    <div class="dx-card" style="margin-bottom:18px">
+        <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.tasks.show.route') }}</h2></div></div>
+        <div class="dx-card-body">
             <div class="rail">
                 @foreach($task->steps as $s)
                     <div class="rail-step {{ $s->workflow_status->value === 'approved' ? 'done' : ($task->current_step_id === $s->id && ! $closed ? 'current' : '') }}">
@@ -61,20 +61,20 @@
 
     <div class="grid grid-2" style="align-items:start">
         <div>
-            <div class="card" style="margin-bottom:18px">
-                <div class="card-head"><h2>{{ __('agencyos.tasks.show.details') }}</h2></div>
-                <div class="card-body">
+            <div class="dx-card" style="margin-bottom:18px">
+                <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.tasks.show.details') }}</h2></div></div>
+                <div class="dx-card-body">
                     <p style="margin:0 0 12px">{{ $task->brief }}</p>
                     @foreach($task->referenceLinks as $link)
-                        <a class="btn btn-sm btn-outline" style="margin:0 6px 6px 0" href="{{ $link->url }}" target="_blank" rel="noopener">🔗 {{ $link->label ?: $link->url }}</a>
+                        <x-media-thumb :media="$link"/>
                     @endforeach
                     <div style="margin-top:8px">
-                        <div class="kv-row"><span>{{ __('agencyos.tasks.show.department') }}</span><b>{{ $step?->department?->name ?? '—' }}</b></div>
-                        <div class="kv-row"><span>{{ __('agencyos.tasks.show.assignee') }}</span><b>{{ $step?->activeAssignment?->assignee?->full_name ?? '—' }}</b></div>
-                        <div class="kv-row"><span>{{ __('agencyos.tasks.show.start_date') }}</span><b class="mono">{{ $step?->current_start_date?->format('Y-m-d') ?? '—' }}</b></div>
-                        <div class="kv-row"><span>{{ __('agencyos.tasks.show.due_date') }}</span><b class="mono">{{ $step?->current_due_at?->format('Y-m-d H:i') ?? '—' }}</b></div>
+                        <div class="dx-kv"><span>{{ __('agencyos.tasks.show.department') }}</span><b>{{ $step?->department?->name ?? '—' }}</b></div>
+                        <div class="dx-kv"><span>{{ __('agencyos.tasks.show.assignee') }}</span><b>{{ $step?->activeAssignment?->assignee?->full_name ?? '—' }}</b></div>
+                        <div class="dx-kv"><span>{{ __('agencyos.tasks.show.start_date') }}</span><b class="mono">{{ $step?->current_start_date?->format('Y-m-d') ?? '—' }}</b></div>
+                        <div class="dx-kv"><span>{{ __('agencyos.tasks.show.due_date') }}</span><b class="mono">{{ $step?->current_due_at?->format('Y-m-d H:i') ?? '—' }}</b></div>
                         @if($step && auth()->user()->can('viewFirstSeen', $step))
-                            <div class="kv-row"><span>👁 {{ __('agencyos.tasks.show.first_seen') }}</span><b>
+                            <div class="dx-kv"><span>👁 {{ __('agencyos.tasks.show.first_seen') }}</span><b>
                                 @if($step->activeAssignment?->first_seen_at)
                                     <span class="seen-badge seen-yes">👁 {{ __('agencyos.tasks.show.seen') }} · <span class="mono">{{ $step->activeAssignment->first_seen_at->format('Y-m-d H:i') }}</span></span>
                                 @else
@@ -82,40 +82,62 @@
                                 @endif
                             </b></div>
                         @endif
-                        <div class="kv-row"><span>{{ __('agencyos.tasks.show.created_by') }}</span><b>{{ $task->creator?->full_name }} · <span class="mono small">{{ $task->created_at?->format('Y-m-d H:i') }}</span></b></div>
+                        <div class="dx-kv"><span>{{ __('agencyos.tasks.show.created_by') }}</span><b>{{ $task->creator?->full_name }} · <span class="mono small">{{ $task->created_at?->format('Y-m-d H:i') }}</span></b></div>
                     </div>
                 </div>
             </div>
 
-            <div class="card" style="margin-bottom:18px">
-                <div class="card-head"><h2>{{ __('agencyos.tasks.show.outputs') }}</h2></div>
-                <div class="card-body">
+            <div class="dx-card" style="margin-bottom:18px">
+                <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.tasks.show.outputs') }}</h2></div></div>
+                <div class="dx-card-body">
                     @forelse($previousOutputs as $output)
                         <div class="small muted" style="font-weight:700;margin:0 0 6px">{{ __('agencyos.tasks.show.previous_step') }}</div>
-                        <a class="btn btn-sm btn-outline" style="margin:0 6px 6px 0" href="{{ $output->url }}" target="_blank" rel="noopener">📎 {{ $output->label ?: $output->url }}</a>
+                        <x-media-thumb :media="$output" emoji="📎" link-class="output-link"/>
                     @empty
                     @endforelse
                     @if($step)
                         <div class="small muted" style="font-weight:700;margin:12px 0 6px">{{ __('agencyos.tasks.show.current_round') }}</div>
+                        {{-- removeOutput() shares addOutput()'s window (In Progress, Changes
+                             Requested, or Under Review — right up until the reviewer decides),
+                             so the delete control only shows while $canManageOutputs holds
+                             (computed just below), same as the add-output form itself. --}}
                         @forelse($outputs as $output)
-                            <a class="btn btn-sm btn-outline" style="margin:0 6px 6px 0" href="{{ $output->url }}" target="_blank" rel="noopener">📎 {{ $output->label ?: $output->url }}</a>
+                            <span class="output-row" style="display:inline-flex;align-items:center;gap:4px;margin:0 6px 6px 0">
+                                <x-media-thumb :media="$output" emoji="📎" link-class="output-link"/>
+                                @if($canAddOutput && $step->workflow_status->canManageOutputs())
+                                    <form method="POST" action="{{ route('tasks.steps.outputs.destroy', [$step, $output]) }}" onsubmit="return confirm('{{ __('agencyos.tasks.actions.remove_output_confirm') }}')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-outline btn-sm" aria-label="{{ __('agencyos.tasks.actions.remove_output') }}"><x-icon name="trash"/></button>
+                                    </form>
+                                @endif
+                            </span>
                         @empty
                             <span class="muted small">{{ __('agencyos.tasks.show.no_outputs') }}</span>
                         @endforelse
                     @endif
 
-                    {{-- addOutput()/submit() both require In Progress or Changes Requested
-                         (422 otherwise). The assignee stays the step's "current assignee"
-                         all the way through Under Review too (submit() doesn't end the
-                         assignment, only approve() does) — canAddOutput/canSubmit alone
-                         can't tell the two apart, so the state must be checked here. --}}
+                    {{-- addOutput() and removeOutput() both stay open through Under Review
+                         (WorkflowStatus::canManageOutputs()); submit() itself requires In
+                         Progress or Changes Requested specifically (422 otherwise) — the
+                         assignee stays the step's "current assignee" all the way through
+                         Under Review too (submit() doesn't end the assignment, only
+                         approve() does), so canAddOutput/canSubmit alone can't tell the
+                         states apart and both must be checked here. --}}
                     @php($stepIsEditable = $step !== null && $step->workflow_status->isEditableByAssignee())
-                    @if($canAddOutput && $stepIsEditable)
-                        <form method="POST" action="{{ route('tasks.steps.outputs.store', $step) }}" class="form-row" style="margin-top:14px;align-items:end">
+                    @php($canManageOutputs = $step !== null && $step->workflow_status->canManageOutputs())
+                    @if($canAddOutput && $canManageOutputs)
+                        <form method="POST" action="{{ route('tasks.steps.outputs.store', $step) }}" enctype="multipart/form-data" class="form-row" style="margin-top:14px;align-items:end">
                             @csrf
-                            <div class="field"><label>{{ __('agencyos.tasks.fields.url') }}</label><input type="url" name="url" required></div>
-                            <div class="field"><label>{{ __('agencyos.tasks.fields.label') }}</label><input type="text" name="label" maxlength="255"></div>
-                            <div class="field span2"><button type="submit" class="btn btn-outline btn-sm">{{ __('agencyos.tasks.actions.add_output_button') }}</button></div>
+                            <div class="field @error('url') bad @enderror"><label>{{ __('agencyos.tasks.fields.url') }}</label><input type="url" name="url" value="{{ old('url') }}"></div>
+                            <div class="field @error('media') bad @enderror"><label>{{ __('agencyos.tasks.fields.media') }}</label><input type="file" name="media" accept="image/*,video/*"></div>
+                            <div class="field"><label>{{ __('agencyos.tasks.fields.label') }}</label><input type="text" name="label" maxlength="255" value="{{ old('label') }}"></div>
+                            <div class="field span2">
+                                <div class="hint">{{ __('agencyos.tasks.actions.add_output_hint') }}</div>
+                                <button type="submit" class="btn btn-outline btn-sm">{{ __('agencyos.tasks.actions.add_output_button') }}</button>
+                                @error('url')<div class="err">{{ $message }}</div>@enderror
+                                @error('media')<div class="err">{{ $message }}</div>@enderror
+                            </div>
                         </form>
                     @endif
                     @if($canSubmit && $stepIsEditable)
@@ -127,11 +149,11 @@
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-head"><h2>{{ __('agencyos.tasks.show.comments') }}</h2></div>
-                <div class="card-body">
+            <div class="dx-card">
+                <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.tasks.show.comments') }}</h2></div></div>
+                <div class="dx-card-body">
                     @forelse($comments as $comment)
-                        <div class="kv-row" style="display:block">
+                        <div class="dx-kv" style="display:block">
                             <div class="small muted">{{ $comment->author?->full_name }} · <span class="mono">{{ $comment->created_at->format('Y-m-d H:i') }}</span></div>
                             <div>{{ $comment->body }}</div>
                         </div>
@@ -155,10 +177,26 @@
         </div>
 
         <div>
-            @if(! $closed && ($canAssign || $canReview || $canTransfer || $canComplete || $canCancel || $canHold || $canResume || $canRedirect))
-                <div class="card" style="margin-bottom:18px">
-                    <div class="card-head"><h2>{{ __('agencyos.tasks.actions.review') }}</h2></div>
-                    <div class="card-body">
+            @if($canReopen || (! $closed && ($canAssign || $canReview || $canTransfer || $canComplete || $canCancel || $canHold || $canResume || $canRedirect)))
+                <div class="dx-card" style="margin-bottom:18px">
+                    <div class="dx-card-head has-line"><div><h2>{{ __('agencyos.tasks.actions.review') }}</h2></div></div>
+                    <div class="dx-card-body">
+                        @if($canReopen)
+                            <form method="POST" action="{{ route('tasks.reopen', $task) }}" style="margin-bottom:16px">
+                                @csrf
+                                <div class="field @error('reason') bad @enderror">
+                                    <label class="req">{{ __('agencyos.tasks.actions.reopen_reason') }}</label>
+                                    <textarea name="reason" required></textarea>
+                                    @error('reason')<div class="err">{{ $message }}</div>@enderror
+                                </div>
+                                <div class="field @error('due_date') bad @enderror">
+                                    <label class="req">{{ __('agencyos.tasks.actions.due_date') }}</label>
+                                    <input type="date" name="due_date" required>
+                                    @error('due_date')<div class="err">{{ $message }}</div>@enderror
+                                </div>
+                                <button type="submit" class="btn btn-outline btn-sm">{{ __('agencyos.tasks.actions.reopen_task') }}</button>
+                            </form>
+                        @endif
                         @if($onHold && $canResume)
                             <form method="POST" action="{{ route('tasks.resume', $task) }}" style="margin-bottom:16px">
                                 @csrf
@@ -200,10 +238,11 @@
                         {{-- canReview is deliberately state-agnostic at the policy layer
                              (TaskStepPolicy's own doc comment: state checks belong to the
                              service, not here) — approve()/requestChanges() both reject
-                             anything but Under Review with a 422, so the form must only
-                             render once the assignee has actually submitted, not merely
+                             anything but a review stage with a 422 (TL first, then the
+                             Manager — plus Content in the middle for a Graphic step), so
+                             the form must only render at one of those stages, not merely
                              because the actor is the department's effective leader. --}}
-                        @if($canReview && $step->workflow_status->value === 'under_review')
+                        @if($canReview && in_array($step->workflow_status->value, ['under_review', 'pending_content_review', 'pending_manager_review'], true))
                             <form method="POST" action="{{ route('tasks.steps.review', $step) }}" style="margin-bottom:16px">
                                 @csrf
                                 <div class="field @error('comment') bad @enderror">
@@ -295,12 +334,12 @@
                 </div>
             @endif
 
-            <div class="card">
-                <div class="card-head">
-                    <h2>{{ __('agencyos.tasks.show.timeline') }}</h2>
-                    <a class="small" href="{{ route('tasks.history', $task) }}">{{ __('agencyos.tasks.show.full_history') }}</a>
+            <div class="dx-card">
+                <div class="dx-card-head has-line">
+                    <div><h2>{{ __('agencyos.tasks.show.timeline') }}</h2></div>
+                    <a class="small" style="margin-inline-start:auto" href="{{ route('tasks.history', $task) }}">{{ __('agencyos.tasks.show.full_history') }}</a>
                 </div>
-                <div class="card-body">
+                <div class="dx-card-body">
                     <div class="timeline">
                         @foreach($task->history->reverse() as $event)
                             <div class="t-item">

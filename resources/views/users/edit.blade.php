@@ -2,13 +2,13 @@
 @section('title', __('agencyos.users.edit.title'))
 @section('page', 'users')
 @section('page_header')
-    <div class="page-head"><div><h1>{{ __('agencyos.users.edit.title') }}</h1><div class="page-sub">{{ $user->full_name }} &middot; @{{ $user->username }}</div></div></div>
+    <div class="page-head"><div><h1>{{ __('agencyos.users.edit.title') }}</h1><div class="page-sub">{{ $user->full_name }} &middot; {{ $user->username }}</div></div></div>
     <x-topbar-controls/>
 @endsection
 @section('content')
 @php($showDepartment = in_array($user->role->code, ['tl', 'employee'], true))
 <main class="page">
-    <form method="POST" action="{{ route('users.update', $user) }}" class="card form-card">
+    <form method="POST" action="{{ route('users.update', $user) }}" class="dx-card form-card">
         @csrf
         @method('PATCH')
         <div class="form-section">

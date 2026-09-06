@@ -1,0 +1,1780 @@
+/* ============================================================
+   Agency OS — App theme layer  (prefix: .dx-)
+   ------------------------------------------------------------
+   A light, card-based surface: neutral page, white cards, one
+   solid-orange "featured" stat, duotone bar chart, toolbar tables.
+   Originally built for the 4 dashboards only (hence the `dx-` prefix
+   and file name) and later widened to the whole app — every page
+   rendered through layouts/app.blade.php shares this theme now, since
+   that's the only place this file is linked from. The `.dx-*` component
+   classes were already page-agnostic from the start; only a handful of
+   page-chrome rules (page background, `.shell`/`.page`/`.page-header-row`,
+   two shared-component color overrides) were ever scoped to
+   body[data-page="dashboard"], and that scoping has been removed.
+
+   Colors are taken from the existing tokens in agencyos.css wherever
+   one already exists (--color-primary is the brand orange the design's
+   accent maps onto 1:1). The few new values here are surface neutrals
+   this layer introduces and nothing else consumes.
+   ============================================================ */
+
+body {
+    /* Surfaces — cooler and flatter than the app-wide warm cream, so white
+       cards read as raised without needing a heavy shadow. Applies to every
+       page rendered through layouts/app.blade.php (this file is only linked
+       there), not just the dashboards — the whole app shares one theme now. */
+    --dx-page: #EFEDEA;
+    --dx-card: #FFFFFF;
+    --dx-well: #F6F5F3; /* inset wells: nav pill track, table head, sub-tiles */
+    --dx-line: #E9E6E2;
+    --dx-line-soft: #F1EEEA;
+
+    /* Ink */
+    --dx-ink: #1A1A1A; /* headings, dark buttons, peak bar */
+    --dx-body: #3A3733;
+    --dx-muted: #8C857D;
+
+    /* Accent — the existing Agency OS orange, unchanged. */
+    --dx-accent: var(--color-primary);
+    --dx-accent-2: #FF9152;
+    --dx-accent-ink: #B34A0F;
+    --dx-accent-wash: rgba(252, 110, 32, 0.1);
+
+    --dx-r: 20px; /* card radius */
+    --dx-r-sm: 14px;
+    /* Same reasoning as --page-pad in agencyos.css: the gap between dx-cards eases
+       down for a narrower laptop instead of staying fixed at 18px all the way from
+       1080px to 4K and then jumping to the mobile layout. */
+    --dx-gap: clamp(12px, 1.2vw, 18px);
+
+    background: var(--dx-page);
+}
+
+/* The shell paints its own background above the body, so it has to be
+   re-pointed at the app-wide neutral too or the cream shows through. */
+.shell {
+    background: var(--dx-page);
+}
+
+.page {
+    padding: 0 var(--page-pad) var(--page-pad);
+}
+
+/* ---------- Header row: greeting + segmented nav ---------- */
+
+.page-header-row {
+    align-items: center;
+    padding-top: 22px;
+    margin-bottom: 20px;
+}
+
+.dx-greet h1 {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--dx-ink);
+    line-height: 1.15;
+}
+
+.dx-greet p {
+    margin: 5px 0 0;
+    font-size: 13.5px;
+    color: var(--dx-muted);
+}
+
+/* Segmented nav — a light track holding pill links, the current one a
+   solid dark pill. Real <a>s to real routes; never a decorative tab strip. */
+.dx-seg {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 5px;
+    background: var(--dx-well);
+    border: 1px solid var(--dx-line);
+    border-radius: var(--radius-full);
+    overflow-x: auto;
+    scrollbar-width: none;
+    max-width: 100%;
+}
+
+.dx-seg::-webkit-scrollbar {
+    display: none;
+}
+
+.dx-seg a {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 16px;
+    border-radius: var(--radius-full);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--dx-muted);
+    white-space: nowrap;
+    transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.dx-seg a:hover {
+    color: var(--dx-ink);
+    background: rgba(0, 0, 0, 0.04);
+    text-decoration: none;
+}
+
+.dx-seg a.is-current {
+    background: var(--color-primary);
+    color: #fff;
+    box-shadow: var(--shadow-sm);
+}
+
+.dx-seg a .ic {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+}
+
+/* ---------- Grid ---------- */
+
+.dx-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: var(--dx-gap);
+    align-items: start;
+}
+
+.dx-grid > * {
+    min-width: 0;
+}
+
+/* .dx-grid uses align-items:start so a short card never gets stretched just because a
+   tall sibling shares its row — but that also means .dx-fill's height:100% (below) had
+   nothing to be 100% OF: with align-items:start, the .dx-c* column itself never grows
+   past its own content height, so its .dx-fill child was resolving height:100% against
+   a column that was already exactly its own size. Only a column that actually contains
+   a .dx-fill card needs to stretch to the row height in the first place. */
+.dx-grid > *:has(.dx-fill) {
+    align-self: stretch;
+}
+
+.dx-c3,
+.dx-c4,
+.dx-c5,
+.dx-c6,
+.dx-c7,
+.dx-c8,
+.dx-c12 {
+    grid-column: span 12;
+}
+
+/* No 2-up tier between mobile and desktop: promoting every .dx-c* to a blanket span-6
+   here looked fine for a row of exactly 2 cards, but every dashboard also has 3-card
+   rows (e.g. hero + stats + chart, all .dx-c4) — 3 x span-6 = 18, so two cards fill a
+   row and the third wraps alone with 6 empty columns beside it. That's the same
+   dangling-gap bug row-by-row patching only chases, not fixes; cards now stack
+   full-width (span 12, inherited from the base rule above) all the way up to the exact
+   column layout below, so no combination of siblings can ever produce a stray half-row
+   of empty space. */
+
+@media (min-width: 1080px) {
+    .dx-c3 {
+        grid-column: span 3;
+    }
+    .dx-c4 {
+        grid-column: span 4;
+    }
+    .dx-c5 {
+        grid-column: span 5;
+    }
+    .dx-c6 {
+        grid-column: span 6;
+    }
+    .dx-c7 {
+        grid-column: span 7;
+    }
+    .dx-c8 {
+        grid-column: span 8;
+    }
+}
+
+/* Stretches a column's card to the tallest card in its grid row. */
+.dx-fill {
+    height: 100%;
+}
+
+/* ---------- Card ---------- */
+
+.dx-card {
+    background: var(--dx-card);
+    border: 1px solid var(--dx-line);
+    border-radius: var(--dx-r);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.dx-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 20px 0;
+}
+
+.dx-card-head.has-line {
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--dx-line-soft);
+}
+
+.dx-card-head h2 {
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--dx-ink);
+}
+
+.dx-card-head p {
+    margin: 3px 0 0;
+    font-size: 12.5px;
+    color: var(--dx-muted);
+}
+
+.dx-card-head .dx-tools {
+    margin-inline-start: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.dx-card-body {
+    padding: 18px 20px;
+}
+
+/* A link that closes a card, aligned to its end edge. */
+.dx-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0 20px 16px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--dx-accent-ink);
+}
+
+.dx-more:hover {
+    text-decoration: none;
+    color: var(--dx-accent);
+}
+
+.dx-more svg {
+    width: 13px;
+    height: 13px;
+}
+
+[dir='rtl'] .dx-more svg {
+    transform: scaleX(-1);
+}
+
+/* ---------- Hero card (headline metric + actions + sub-tiles) ---------- */
+
+.dx-hero {
+    padding: 20px;
+    gap: 0;
+}
+
+.dx-hero-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dx-hero-label {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--dx-body);
+}
+
+.dx-hero-chip {
+    margin-inline-start: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 11px;
+    border-radius: var(--radius-full);
+    background: var(--dx-well);
+    border: 1px solid var(--dx-line);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--dx-body);
+}
+
+.dx-hero-chip svg {
+    width: 13px;
+    height: 13px;
+    opacity: 0.65;
+}
+
+.dx-hero-value {
+    margin: 10px 0 0;
+    /* Scales with viewport width across the desktop range instead of staying a fixed
+       38px whether the screen is 1080px or 4K wide — capped at exactly 38px, so a
+       screen already at or above the width this was designed on looks unchanged. */
+    font-size: clamp(28px, 2.6vw, 38px);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1;
+    color: var(--dx-ink);
+}
+
+.dx-hero-value .dx-hero-unit {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--dx-muted);
+    margin-inline-start: 6px;
+}
+
+.dx-hero-actions {
+    display: flex;
+    gap: 9px;
+    margin-top: 18px;
+}
+
+.dx-hero-actions > * {
+    flex: 1;
+    /* A flex item's default min-width is "auto", which for a white-space:nowrap
+       button (.dx-btn) means its own full, unwrapped text width — flex-shrink can
+       never actually shrink it past that, so on a narrow card the two buttons
+       together just overflow the card's edge instead of compressing to fit. */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Sub-tiles strip — the small breakdown cards under the hero number. */
+.dx-subs {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--dx-line-soft);
+}
+
+.dx-subs-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 11px;
+    font-size: 12.5px;
+}
+
+.dx-subs-head b {
+    font-weight: 700;
+    color: var(--dx-ink);
+}
+
+.dx-subs-head span {
+    color: var(--dx-muted);
+}
+
+.dx-subs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 9px;
+}
+
+.dx-sub {
+    min-width: 0;
+    padding: 11px;
+    border-radius: var(--dx-r-sm);
+    background: var(--dx-well);
+    border: 1px solid var(--dx-line);
+}
+
+.dx-sub-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 7px;
+}
+
+.dx-sub-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.dx-sub-name {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--dx-body);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dx-sub-value {
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--dx-ink);
+}
+
+.dx-sub-note {
+    margin-top: 5px;
+    font-size: 10.5px;
+    color: var(--dx-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- Buttons ---------- */
+
+.dx-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 42px;
+    padding: 0 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-full);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+        border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.dx-btn:hover {
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
+.dx-btn:active {
+    transform: translateY(0);
+}
+
+.dx-btn svg {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+}
+
+.dx-btn-dark {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.dx-btn-dark:hover {
+    background: var(--color-primary-hover);
+    color: #fff;
+}
+
+.dx-btn-soft {
+    background: var(--dx-well);
+    border-color: var(--dx-line);
+    color: var(--dx-body);
+}
+
+.dx-btn-soft:hover {
+    background: #EFECE8;
+    color: var(--dx-ink);
+}
+
+.dx-btn-accent {
+    background: var(--dx-accent);
+    color: #fff;
+}
+
+.dx-btn-accent:hover {
+    background: var(--color-primary-hover);
+    color: #fff;
+}
+
+.dx-btn-sm {
+    height: 32px;
+    padding: 0 13px;
+    font-size: 12.5px;
+}
+
+/* Square icon-only control (table toolbar, card headers). */
+.dx-icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--dx-line);
+    border-radius: var(--radius-full);
+    background: var(--dx-card);
+    color: var(--dx-body);
+    cursor: pointer;
+    flex: 0 0 auto;
+    transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.dx-icon-btn:hover {
+    background: var(--dx-well);
+    border-color: var(--dx-muted);
+    text-decoration: none;
+}
+
+.dx-icon-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ---------- Stat tiles ---------- */
+
+.dx-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    /* 1fr rows in an auto-height grid resolve to the tallest row's own content height,
+       so both rows come out equal — without this, "Waiting assignment" (it alone has a
+       .dx-stat-foot line) makes row 1 taller than row 2, and align-items:stretch below
+       only equalizes tiles WITHIN a row, not row 1 against row 2. */
+    grid-auto-rows: 1fr;
+    gap: var(--dx-gap);
+    align-items: stretch;
+}
+
+.dx-stats > * {
+    min-width: 0;
+}
+
+/* A single-column stack for narrow side slots. */
+.dx-stats.is-single {
+    grid-template-columns: 1fr;
+}
+
+.dx-stat {
+    position: relative;
+    padding: 16px;
+    background: var(--dx-card);
+    border: 1px solid var(--dx-line);
+    border-radius: var(--dx-r);
+    display: flex;
+    flex-direction: column;
+    min-height: 128px;
+    transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+.dx-stat:hover {
+    transform: translateY(-2px);
+    border-color: #DAD5CF;
+}
+
+.dx-stat-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.dx-stat-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dx-body);
+    line-height: 1.35;
+}
+
+.dx-stat-ic {
+    margin-inline-start: auto;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: var(--dx-well);
+    color: var(--dx-body);
+    flex: 0 0 auto;
+}
+
+.dx-stat-ic svg {
+    width: 15px;
+    height: 15px;
+}
+
+.dx-stat-value {
+    margin: auto 0 0;
+    font-size: clamp(22px, 2vw, 30px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--dx-ink);
+}
+
+.dx-stat-foot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 9px;
+    font-size: 11.5px;
+    color: var(--dx-muted);
+}
+
+.dx-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px 2px 5px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--dx-well);
+    color: var(--dx-body);
+}
+
+.dx-delta svg {
+    width: 11px;
+    height: 11px;
+}
+
+.dx-delta.is-up {
+    background: var(--color-success-soft);
+    color: #15803D;
+}
+
+.dx-delta.is-down {
+    background: var(--color-danger-soft);
+    color: #B91C1C;
+}
+
+/* Featured tile — solid orange, white ink. One per dashboard: the number
+   that role is expected to act on first. */
+.dx-stat.is-accent {
+    background: linear-gradient(145deg, var(--dx-accent-2), var(--dx-accent));
+    border-color: transparent;
+    box-shadow: 0 10px 24px -12px rgba(252, 110, 32, 0.55);
+}
+
+.dx-stat.is-accent .dx-stat-label,
+.dx-stat.is-accent .dx-stat-value {
+    color: #fff;
+}
+
+.dx-stat.is-accent .dx-stat-foot {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.dx-stat.is-accent .dx-stat-ic {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+}
+
+.dx-stat.is-accent .dx-delta {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+}
+
+/* Danger tile — a non-zero overdue count should not look like every other
+   number on the page. */
+.dx-stat.is-danger {
+    border-color: var(--color-danger-border);
+    background: linear-gradient(145deg, #FFF6F6, var(--dx-card));
+}
+
+.dx-stat.is-danger .dx-stat-ic {
+    background: var(--color-danger-soft);
+    color: #DC2626;
+}
+
+.dx-stat.is-danger .dx-stat-value {
+    color: #B91C1C;
+}
+
+/* ---------- Bar chart ---------- */
+
+.dx-chart {
+    padding: 6px 8px 2px;
+}
+
+.dx-chart svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.dx-bar-grid {
+    stroke: var(--dx-line-soft);
+    stroke-width: 1;
+}
+
+.dx-bar-axis {
+    font-size: 10.5px;
+    font-weight: 600;
+    fill: var(--dx-muted);
+}
+
+.dx-bar rect {
+    transition: opacity var(--dur-fast) var(--ease);
+}
+
+.dx-bar:hover rect {
+    opacity: 0.82;
+}
+
+.dx-bar-empty {
+    font-size: 12px;
+    font-weight: 600;
+    fill: var(--dx-muted);
+}
+
+.dx-legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.dx-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--dx-muted);
+}
+
+.dx-legend i {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    display: block;
+}
+
+/* Tooltip shared by the bar chart. Positioned from JS in px against the wrap. */
+.dx-chart-wrap {
+    position: relative;
+}
+
+.dx-tip {
+    position: absolute;
+    z-index: 6;
+    transform: translate(-50%, -128%);
+    background: var(--dx-ink);
+    color: #fff;
+    border-radius: 10px;
+    padding: 7px 10px;
+    font-size: 11.5px;
+    line-height: 1.35;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: var(--shadow-md);
+}
+
+.dx-tip b {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.dx-tip span {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+/* ---------- Meter (progress toward a limit / ratio) ---------- */
+
+.dx-meter-track {
+    position: relative;
+    height: 13px;
+    border-radius: var(--radius-full);
+    background: var(--dx-well);
+    border: 1px solid var(--dx-line);
+    overflow: hidden;
+}
+
+.dx-meter-fill {
+    position: absolute;
+    /* Physical fallbacks first; the logical properties below win in any browser that
+       understands them, which is what keeps the fill anchored correctly under RTL. */
+    top: 0;
+    bottom: 0;
+    left: 0;
+    inset-block: 0;
+    inset-inline-start: 0;
+    border-radius: var(--radius-full);
+    background: linear-gradient(90deg, var(--dx-accent-2), var(--dx-accent));
+}
+
+[dir='rtl'] .dx-meter-fill {
+    left: auto;
+    right: 0;
+}
+
+[dir='rtl'] .dx-meter-fill {
+    background: linear-gradient(270deg, var(--dx-accent-2), var(--dx-accent));
+}
+
+.dx-meter-fill.is-success {
+    background: linear-gradient(90deg, #4ADE80, #16A34A);
+}
+
+.dx-meter-fill.is-warning {
+    background: linear-gradient(90deg, #FBBF24, #F59E0B);
+}
+
+.dx-meter-fill.is-danger {
+    background: linear-gradient(90deg, #FB7185, #E11D48);
+}
+
+.dx-meter-ends {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--dx-muted);
+}
+
+.dx-meter-ends b {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--dx-ink);
+    letter-spacing: -0.01em;
+}
+
+/* Stacked legend rows under a meter or donut. */
+.dx-legend-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 16px;
+}
+
+.dx-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 12.5px;
+    color: var(--dx-body);
+}
+
+.dx-legend-row i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.dx-legend-row b {
+    margin-inline-start: auto;
+    font-weight: 700;
+    color: var(--dx-ink);
+}
+
+/* ---------- Table ---------- */
+
+.dx-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-inline-start: auto;
+    flex: 0 0 auto;
+}
+
+.dx-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 13px;
+    border-radius: var(--radius-full);
+    background: var(--dx-card);
+    border: 1px solid var(--dx-line);
+    min-width: 0;
+    transition: border-color var(--dur-fast) var(--ease);
+}
+
+.dx-search:focus-within {
+    border-color: var(--dx-accent);
+}
+
+.dx-search svg {
+    width: 15px;
+    height: 15px;
+    color: var(--dx-muted);
+    flex: 0 0 auto;
+}
+
+.dx-search input {
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    color: var(--dx-ink);
+    width: 150px;
+    min-width: 0;
+}
+
+.dx-search input::placeholder {
+    color: var(--dx-muted);
+}
+
+.dx-table-wrap {
+    overflow-x: auto;
+}
+
+.dx-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 560px;
+}
+
+.dx-table thead th {
+    padding: 11px 16px;
+    background: var(--dx-well);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--dx-muted);
+    text-align: start;
+    white-space: nowrap;
+    border-block: 1px solid var(--dx-line-soft);
+}
+
+.dx-table tbody td {
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: var(--dx-body);
+    border-bottom: 1px solid var(--dx-line-soft);
+    vertical-align: middle;
+}
+
+.dx-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.dx-table tbody tr {
+    transition: background var(--dur-fast) var(--ease);
+}
+
+.dx-table tbody tr:hover {
+    background: #FBFAF9;
+}
+
+.dx-table .dx-td-main {
+    font-weight: 600;
+    color: var(--dx-ink);
+}
+
+.dx-table a.dx-td-main:hover {
+    color: var(--dx-accent-ink);
+    text-decoration: none;
+}
+
+.dx-table .dx-td-sub {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--dx-muted);
+    margin-top: 2px;
+}
+
+.dx-table .dx-td-end {
+    text-align: end;
+}
+
+.dx-table .dx-td-num {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--dx-ink);
+}
+
+/* Leading icon bubble in the first cell — mirrors the design's per-row glyph. */
+.dx-row-ic {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: var(--dx-well);
+    color: var(--dx-body);
+    flex: 0 0 auto;
+}
+
+.dx-row-ic svg {
+    width: 16px;
+    height: 16px;
+}
+
+.dx-cell {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+}
+
+.dx-cell > div {
+    min-width: 0;
+}
+
+/* Status pill with a leading dot. */
+.dx-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--dx-body);
+    white-space: nowrap;
+}
+
+.dx-pill i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    background: currentColor;
+}
+
+.dx-pill.is-success {
+    color: #16A34A;
+}
+
+.dx-pill.is-warning {
+    color: #D97706;
+}
+
+.dx-pill.is-danger {
+    color: #DC2626;
+}
+
+.dx-pill.is-info {
+    color: #2563EB;
+}
+
+.dx-pill.is-muted {
+    color: var(--dx-muted);
+}
+
+.dx-pill.is-accent {
+    color: var(--dx-accent-ink);
+}
+
+/* ---------- List card ---------- */
+
+.dx-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.dx-list-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--dx-line-soft);
+    min-width: 0;
+}
+
+.dx-list-item:last-child {
+    border-bottom: 0;
+}
+
+.dx-list-item:hover {
+    background: #FBFAF9;
+}
+
+.dx-list-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.dx-list-title {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--dx-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+a.dx-list-title:hover {
+    color: var(--dx-accent-ink);
+    text-decoration: none;
+}
+
+.dx-list-sub {
+    display: block;
+    font-size: 11.5px;
+    color: var(--dx-muted);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dx-list-end {
+    margin-inline-start: auto;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--dx-muted);
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+
+/* Small round initials avatar inside lists. */
+.dx-ava {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--dx-accent-wash);
+    color: var(--dx-accent-ink);
+    font-size: 11.5px;
+    font-weight: 700;
+    flex: 0 0 auto;
+}
+
+/* ---------- Empty state ---------- */
+
+.dx-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 30px 20px;
+    text-align: center;
+    color: var(--dx-muted);
+    font-size: 13px;
+}
+
+.dx-empty svg {
+    width: 22px;
+    height: 22px;
+    opacity: 0.4;
+}
+
+td.dx-empty-cell {
+    padding: 30px 16px !important;
+    text-align: center;
+    color: var(--dx-muted);
+    font-size: 13px;
+}
+
+/* ---------- Workload rows (TL: open assignments per person) ---------- */
+
+.dx-workload {
+    padding: 11px 0;
+    border-bottom: 1px solid var(--dx-line-soft);
+}
+
+.dx-workload:last-child {
+    border-bottom: 0;
+}
+
+.dx-workload-top {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 8px;
+    min-width: 0;
+}
+
+.dx-workload-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dx-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dx-workload-top b {
+    margin-inline-start: auto;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--dx-ink);
+    flex: 0 0 auto;
+}
+
+.dx-workload-top .dx-pill {
+    font-size: 11px;
+    flex: 0 0 auto;
+}
+
+/* Bar chart hit areas are invisible but interactive. */
+.dx-bar-hit {
+    cursor: pointer;
+}
+
+/* ---------- Key/value rows ---------- */
+
+.dx-kv {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--dx-line-soft);
+    font-size: 13px;
+    min-width: 0;
+}
+
+.dx-kv:last-child {
+    border-bottom: 0;
+}
+
+.dx-kv > :first-child {
+    color: var(--dx-body);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dx-kv > b {
+    margin-inline-start: auto;
+    font-weight: 700;
+    color: var(--dx-ink);
+    flex: 0 0 auto;
+}
+
+/* ---------- Score block ---------- */
+
+.dx-score {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.dx-score-value {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1;
+    color: var(--dx-ink);
+}
+
+.dx-score-max {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dx-muted);
+}
+
+/* ---------- Shared-component overrides ----------
+   x-mini-calendar and x-donut-chart render everywhere now that this theme is
+   app-wide, so they are adjusted here rather than edited in place. */
+
+.mini-cal-day.today {
+    background: var(--dx-accent);
+    color: #fff;
+}
+
+.donut-hole {
+    background: var(--dx-card);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1079px) {
+    .dx-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 759px) {
+    .page {
+        padding: 0 16px 24px;
+    }
+
+    .page-header-row {
+        padding-inline: 16px;
+    }
+
+    .dx-greet h1 {
+        font-size: 24px;
+    }
+
+    .dx-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .dx-subs-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dx-hero-actions {
+        flex-direction: column;
+    }
+
+    .dx-search input {
+        width: 96px;
+    }
+
+    .dx-card-head {
+        flex-wrap: wrap;
+    }
+
+    .dx-toolbar {
+        margin-inline-start: 0;
+        width: 100%;
+    }
+
+    .dx-search {
+        flex: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dx-stat:hover,
+    .dx-btn:hover {
+        transform: none;
+    }
+}
+
+/* Monthly report table — reports/index.blade.php's single grouped table (product
+   decision 2026-09: one table, each department led by its Team Leader's own row). */
+.dx-table .rep-group-row td {
+    background: var(--dx-well);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--dx-muted);
+    padding: 9px 16px;
+}
+
+.rep-adj-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 4px;
+}
+
+.rep-adj-entry {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--dx-muted);
+}
+
+.rep-adj-amount {
+    font-weight: 700;
+    color: var(--dx-body);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Every money figure says what it is. The column header names it once at the top of a
+   long table, which does not help halfway down it, on a phone where the columns stack,
+   or on a printout that has no colour to tell bonus from deduction apart. */
+.rep-adj-total {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.badge.rep-adj-kind {
+    font-size: 10px;
+    padding: 2px 7px;
+}
+
+.rep-adj-kind-inline {
+    font-weight: 700;
+    font-size: 10.5px;
+    color: var(--dx-body);
+    white-space: nowrap;
+}
+
+/* The reason is the point of the entry, but it must not stretch the column — clamp it
+   and keep the full text in the title attribute. */
+.rep-adj-reason {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rep-adj-remove {
+    border: 0;
+    background: none;
+    color: var(--dx-muted);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+    cursor: pointer;
+}
+
+.rep-adj-remove:hover {
+    color: var(--color-danger);
+}
+
+.rep-adj-form {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    padding: 4px 0;
+}
+
+.rep-adj-form .field {
+    margin: 0;
+    min-width: 150px;
+}
+
+/* Daily Department Reports — department-reports/show.blade.php's per-report card
+   (product decision 2026-09: white card, orange band, matching a reference design
+   the user supplied). Namespaced .dr- since nothing else in the app uses this shape. */
+.dr-card {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--dx-line);
+    background: #fff;
+    margin-bottom: 18px;
+}
+
+.dr-head {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+    padding: 22px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: #fff;
+    flex-wrap: wrap;
+}
+
+.dr-head-badge {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    flex: none;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.26);
+    display: grid;
+    place-items: center;
+}
+
+.dr-head-badge .ic svg,
+.dr-head-badge svg {
+    width: 22px;
+    height: 22px;
+}
+
+.dr-head h2 {
+    margin: 0 0 2px;
+    font-size: 19px;
+    font-weight: 800;
+    color: #fff;
+}
+
+.dr-head p {
+    margin: 0;
+    font-size: 12.5px;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+}
+
+.dr-head-status {
+    margin-inline-start: auto;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+/* .dx-pill is colored text with no background of its own (a colored dot + colored
+   label) — its status colors (green/orange/red) read fine on a white card but turn
+   low-contrast on .dr-head's solid orange band, so every variant is forced white here
+   instead. Matched on specificity, not source order, so this wins regardless of where
+   .dx-pill's own variant rules land in the stylesheet. */
+.dr-head-status .dx-pill.is-success,
+.dr-head-status .dx-pill.is-warning,
+.dr-head-status .dx-pill.is-danger,
+.dr-head-status .dx-pill.is-info,
+.dr-head-status .dx-pill.is-muted,
+.dr-head-status .dx-pill.is-accent {
+    color: #fff;
+}
+
+.dr-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    border-bottom: 1px solid var(--dx-line);
+}
+
+.dr-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 14px 18px;
+    border-inline-start: 1px solid var(--dx-line);
+}
+
+.dr-meta-item:first-child {
+    border-inline-start: 0;
+}
+
+.dr-meta-ic {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex: none;
+    background: var(--color-primary-light);
+    display: grid;
+    place-items: center;
+}
+
+.dr-meta-ic .ic svg,
+.dr-meta-ic svg {
+    width: 16px;
+    height: 16px;
+    color: var(--color-primary);
+}
+
+.dr-meta-item span {
+    display: block;
+    font-size: 10.5px;
+    color: var(--dx-muted);
+    font-weight: 600;
+    margin-bottom: 1px;
+}
+
+.dr-meta-item b {
+    font-size: 13px;
+    color: var(--dx-ink);
+    font-weight: 700;
+}
+
+.dr-body {
+    padding: 22px 24px;
+}
+
+.dr-table thead th {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+    color: #fff;
+    border-block: 0;
+}
+
+.dr-box {
+    display: flex;
+    gap: 12px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    margin-top: 18px;
+    background: var(--dx-well);
+    border: 1px solid var(--dx-line);
+}
+
+.dr-box-ic {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: var(--color-primary);
+}
+
+.dr-box-ic .ic svg,
+.dr-box-ic svg {
+    width: 16px;
+    height: 16px;
+    color: #fff;
+}
+
+.dr-box-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--dx-ink);
+    margin: 0 0 3px;
+}
+
+.dr-box p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--dx-body);
+}
+
+@media (max-width: 640px) {
+    .dr-head-status {
+        margin-inline-start: 0;
+        justify-content: flex-start;
+        width: 100%;
+    }
+}
+
+
+/* Payroll & spending — payroll/index.blade.php (product decision 2026-09). Namespaced
+   .pay- because nothing else in the app shows money in this shape. */
+.pay-totals {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.pay-total {
+    background: var(--dx-card, #fff);
+    border: 1px solid var(--dx-line);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: var(--shadow-sm);
+}
+
+/* The grand total is the one number the Manager came for — it gets the brand band. */
+.pay-total.is-grand {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+    border-color: transparent;
+    color: #fff;
+}
+
+.pay-total-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--dx-muted);
+}
+
+.pay-total.is-grand .pay-total-label,
+.pay-total.is-grand .pay-total-sub {
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.pay-total-value {
+    font-size: 22px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--dx-body);
+}
+
+.pay-total.is-grand .pay-total-value {
+    color: #fff;
+}
+
+.pay-total-sub {
+    font-size: 11.5px;
+    color: var(--dx-muted);
+}
+
+.pay-net {
+    font-weight: 800;
+}
+
+.pay-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+/* Each control opens its own form in place — no second screen, no JavaScript. */
+.pay-pop {
+    position: relative;
+}
+
+.pay-pop > summary {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pay-pop > summary::-webkit-details-marker {
+    display: none;
+}
+
+.pay-form {
+    position: absolute;
+    inset-inline-end: 0;
+    top: calc(100% + 6px);
+    z-index: 40;
+    width: 260px;
+    background: var(--dx-card, #fff);
+    border: 1px solid var(--dx-line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: start;
+}
+
+.pay-form .field {
+    margin: 0;
+}
+
+@media (max-width: 720px) {
+    .pay-totals {
+        grid-template-columns: 1fr;
+    }
+
+    /* A 260px popover cannot hang off a narrow table cell — on phones it becomes a
+       normal block inside the row instead of an overlay that runs off-screen. */
+    .pay-form {
+        position: static;
+        width: 100%;
+    }
+
+    .pay-actions {
+        justify-content: flex-start;
+    }
+}
+
+/* Salaries / Spending switch — the two payroll screens share a month picker and the
+   month's totals, so the pair is switched here rather than only from the sidebar. */
+.pay-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.pay-tabs a {
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--dx-line);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dx-muted);
+    text-decoration: none;
+    background: var(--dx-card, #fff);
+}
+
+.pay-tabs a:hover {
+    color: var(--dx-body);
+}
+
+.pay-tabs a.is-active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+/* Who has written their part of a collectively-written daily report (Sales). A plain
+   list of names with a yes/no — a colleague's own words belong to the Team Leader and
+   the Manager, not to everyone who opens the page. */
+.dr-contrib-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dr-contrib-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}

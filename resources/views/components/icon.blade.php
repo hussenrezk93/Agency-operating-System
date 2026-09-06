@@ -36,6 +36,7 @@
         'chevron-up' => '<path d="m6 15 6-6 6 6"/>',
         'chevron-right' => '<path d="m9 6 6 6-6 6"/>',
         'eye' => '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>',
+        'eye-off' => '<path d="M9.9 4.7A10.5 10.5 0 0 1 12 4.5c6 0 9.5 6.5 9.5 6.5a15.3 15.3 0 0 1-3.2 4.1M6.4 6.4A15.3 15.3 0 0 0 2.5 11S6 17.5 12 17.5a10.5 10.5 0 0 0 3.6-.65"/><path d="M9.5 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/>',
         'download' => '<path d="M12 3.5v11.5"/><path d="m7 11 5 5 5-5"/><path d="M4.5 19.5h15"/>',
         'filter' => '<path d="M4 5h16"/><path d="M7 12h10"/><path d="M10.5 19h3"/>',
         'x' => '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
@@ -43,6 +44,14 @@
         'calendar' => '<rect x="3.5" y="5" width="17" height="16" rx="2.2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M3.5 10h17"/>',
         'mail' => '<rect x="2.5" y="5" width="19" height="14" rx="2.2"/><path d="m3.5 6.5 8.5 7 8.5-7"/>',
         'sparkles' => '<path d="M12 3v3.5"/><path d="M12 17.5V21"/><path d="M3 12h3.5"/><path d="M17.5 12H21"/><path d="m5.5 5.5 2.5 2.5"/><path d="m16 16 2.5 2.5"/><path d="m18.5 5.5-2.5 2.5"/><path d="m8 16-2.5 2.5"/><circle cx="12" cy="12" r="2.3"/>',
+        'key' => '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/><path d="m18.5 4.5 3 3"/>',
+        'camera' => '<path d="M9 3h6l1.5 3H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3.5L9 3Z"/><circle cx="12" cy="13" r="3.5"/>',
+        'mic' => '<rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/><path d="M8.5 21h7"/>',
+        'lock' => '<rect x="4.5" y="10.5" width="15" height="10" rx="2.2"/><path d="M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5"/>',
+        'receipt' => '<path d="M5 3.5h14v17l-2.3-1.5-2.4 1.5-2.3-1.5-2.3 1.5L7.3 19 5 20.5Z"/><path d="M9 8h6"/><path d="M9 12h6"/>',
+        'wallet' => '<path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H17a1 1 0 0 1 1 1v2.5"/><path d="M3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 18.5 8h-13A2.5 2.5 0 0 1 3 6.5Z"/><path d="M16.5 13.5h.01"/>',
+        'file-text' => '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/>',
+        'printer' => '<path d="M6 9V3.5h12V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M6 14.5h12V20.5H6Z"/>',
     ];
 
     $svg = $paths[$name] ?? $paths['star'];

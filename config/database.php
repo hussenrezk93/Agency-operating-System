@@ -27,6 +27,12 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => 'InnoDB',
+            // See AppServiceProvider::boot() — the session time_zone is set dynamically
+            // per connection to match PHP's own current app.timezone offset, not fixed
+            // here, because this MySQL server's timezone-name tables aren't loaded (a
+            // named zone in a static config value would just fail to connect) and a
+            // hardcoded numeric offset would silently go stale the next time the
+            // computed Cairo offset shifts.
         ],
     ],
 
